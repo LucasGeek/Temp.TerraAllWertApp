@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:terra_allwert_app/core/validators/form_validators.dart';
+import 'package:terra_allwert_app/core/domain/validators/form_validators.dart';
 
 void main() {
   group('FormValidators', () {

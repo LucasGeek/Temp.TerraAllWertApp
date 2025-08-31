@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/widgets/terra_logo.dart';
-import '../../../../core/widgets/templates/responsive_auth_layout.dart';
-import '../../../../core/widgets/organisms/login_form.dart';
-import '../../../../core/responsive/breakpoints.dart';
+import '../../../../core/presentation/components/atoms/terra_logo.dart';
+import '../../../../core/presentation/components/templates/responsive_auth_layout.dart';
+import '../../../../core/presentation/components/organisms/login_form.dart';
+import '../../../../core/presentation/responsive/breakpoints.dart';
 
 /// Page: Tela de login com layout responsivo seguindo Material Design 2
 class LoginPage extends ConsumerWidget {

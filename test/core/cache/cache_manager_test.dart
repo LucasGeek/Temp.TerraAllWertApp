@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:terra_allwert_app/core/cache/cache_manager.dart';
+import 'package:terra_allwert_app/core/infra/cache/cache_manager.dart';
 
 class MockCacheManager extends Mock implements CacheManager {}
 

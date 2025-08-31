@@ -4,7 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:terra_allwert_app/core/sync/sync_service.dart';
 import 'package:terra_allwert_app/core/sync/domain/entities/sync_status.dart';
-import 'package:terra_allwert_app/core/cache/cache_manager.dart';
+import 'package:terra_allwert_app/core/infra/cache/cache_manager.dart';
 import 'package:terra_allwert_app/features/towers/domain/repositories/tower_repository.dart';
 import 'package:terra_allwert_app/features/apartments/domain/repositories/apartment_repository.dart';
 import 'package:terra_allwert_app/features/gallery/domain/repositories/gallery_repository.dart';

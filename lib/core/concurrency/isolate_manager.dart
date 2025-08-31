@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../platform/platform_service.dart';
+import '../infra/platform/platform_service.dart';
 
 enum TaskPriority { low, normal, high }
 

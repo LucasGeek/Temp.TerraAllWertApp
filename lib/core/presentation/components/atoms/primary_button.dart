@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../design_system/app_theme.dart';
 
 /// Atom: Botão primário seguindo Material Design 2
 class PrimaryButton extends StatelessWidget {

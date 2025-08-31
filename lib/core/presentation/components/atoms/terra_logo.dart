@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../presentation/design_system/app_theme.dart';
+import '../../../presentation/design_system/app_theme.dart';
 
 class TerraLogo extends StatelessWidget {
   final double size;

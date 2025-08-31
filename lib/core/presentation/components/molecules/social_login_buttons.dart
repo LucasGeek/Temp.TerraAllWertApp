@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../design_system/app_theme.dart';
 
 class SocialLoginButtons extends StatelessWidget {
   final VoidCallback? onGooglePressed;
@@ -41,17 +42,17 @@ class SocialLoginButtons extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _SocialButton(
-              icon: Icons.g_translate, // Placeholder para Google
+              iconAsset: 'assets/images/icons/google-icon.svg',
               label: 'Google',
               onPressed: onGooglePressed,
             ),
             _SocialButton(
-              icon: Icons.facebook, // Placeholder para Facebook
+              iconAsset: 'assets/images/icons/facebook-icon.svg',
               label: 'Facebook', 
               onPressed: onFacebookPressed,
             ),
             _SocialButton(
-              icon: Icons.apple, // Ícone Apple
+              iconAsset: 'assets/images/icons/apple-icon.svg',
               label: 'Apple',
               onPressed: onApplePressed,
             ),
@@ -63,12 +64,12 @@ class SocialLoginButtons extends StatelessWidget {
 }
 
 class _SocialButton extends StatelessWidget {
-  final IconData icon;
+  final String iconAsset;
   final String label;
   final VoidCallback? onPressed;
 
   const _SocialButton({
-    required this.icon,
+    required this.iconAsset,
     required this.label,
     this.onPressed,
   });
@@ -99,10 +100,11 @@ class _SocialButton extends StatelessWidget {
             AppTheme.primaryColor.withValues(alpha: 0.1),
           ),
         ),
-        child: Icon(
-          icon,
-          size: 20,
-          semanticLabel: 'Entrar com $label',
+        child: SvgPicture.asset(
+          iconAsset,
+          width: 20,
+          height: 20,
+          semanticsLabel: 'Entrar com $label',
         ),
       ),
     );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../design_system/app_theme.dart';
 
 /// Template: Layout responsivo de duas colunas para login
 class TwoColumnLayout extends StatelessWidget {

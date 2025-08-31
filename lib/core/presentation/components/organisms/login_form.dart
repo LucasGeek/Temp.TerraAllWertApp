@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../theme/app_theme.dart';
-import '../../services/snackbar_service.dart';
-import '../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../features/auth/presentation/providers/login_form_provider.dart';
+import '../../design_system/app_theme.dart';
+import '../../../services/snackbar_service.dart';
+import '../../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../../features/auth/presentation/providers/login_form_provider.dart';
 import '../atoms/primary_button.dart';
 import '../molecules/login_form_fields.dart';
 import '../molecules/social_buttons_row.dart';

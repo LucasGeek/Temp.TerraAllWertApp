@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:terra_allwert_app/core/platform/platform_capabilities.dart';
+import 'package:terra_allwert_app/core/infra/platform/platform_capabilities.dart';
 
 void main() {
   group('PlatformCapabilities', () {

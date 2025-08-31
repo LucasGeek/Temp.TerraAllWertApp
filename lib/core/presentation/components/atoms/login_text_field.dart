@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/app_theme.dart';
+import '../../design_system/app_theme.dart';
 
 /// Atom: Campo de texto para login seguindo Material Design 2
 class LoginTextField extends StatefulWidget {

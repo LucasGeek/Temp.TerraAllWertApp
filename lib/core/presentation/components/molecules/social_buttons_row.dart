@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../design_system/app_theme.dart';
 
 /// Molecule: Linha de botões de login social
 class SocialButtonsRow extends StatelessWidget {

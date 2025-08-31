@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_theme.dart';
+import '../presentation/design_system/app_theme.dart';
 
 /// Serviço global de Snackbar
 class SnackbarService {

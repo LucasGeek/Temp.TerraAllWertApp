@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:talker/talker.dart';
 
-import '../errors/exceptions.dart';
+import '../../domain/failures/exceptions.dart';
 
 class DioClient {
   late final Dio _dio;

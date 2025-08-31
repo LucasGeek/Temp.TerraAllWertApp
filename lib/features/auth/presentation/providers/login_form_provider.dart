@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/forms/form_state.dart';
-import '../../../../core/validators/form_validators.dart';
+import '../../../../core/domain/validators/form_validators.dart';
 
 /// Provedor do estado do formulário de login
 final loginFormProvider = StateNotifierProvider<LoginFormNotifier, LoginFormState>((ref) {

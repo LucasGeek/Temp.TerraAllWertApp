@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/app_theme.dart';
+import '../../design_system/app_theme.dart';
 import '../atoms/login_text_field.dart';
 
 /// Molecule: Campo de email específico para login

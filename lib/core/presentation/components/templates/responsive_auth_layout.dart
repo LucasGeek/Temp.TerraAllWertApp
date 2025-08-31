@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../design_system/app_theme.dart';
 import '../../responsive/breakpoints.dart';
 import '../../responsive/responsive_builder.dart';
 
