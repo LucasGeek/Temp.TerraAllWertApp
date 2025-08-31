@@ -142,22 +142,26 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'Precisa de uma conta? ',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSecondary,
+              Flexible(
+                child: Text(
+                  'Precisa de uma conta? ',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
               ),
-              GestureDetector(
-                onTap: _handleSignUp,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: Text(
-                    'Crie aqui',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.primaryColor,
-                      decoration: TextDecoration.underline,
-                      decorationColor: AppTheme.primaryColor,
+              Flexible(
+                child: GestureDetector(
+                  onTap: _handleSignUp,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Text(
+                      'Crie aqui',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.primaryColor,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppTheme.primaryColor,
+                      ),
                     ),
                   ),
                 ),

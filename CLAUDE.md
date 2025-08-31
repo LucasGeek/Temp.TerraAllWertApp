@@ -361,3 +361,138 @@ abstract class Tower with _$Tower {
   factory Tower.fromJson(Map<String, dynamic> json) => _$TowerFromJson(json);
 }
 ```
+
+## Diretrizes de Layout e Widgets
+
+### RenderFlex e Constraints - Regras Críticas
+
+**NUNCA faça:**
+```dart
+// ❌ ERRO: Expanded dentro de ScrollView
+ScrollView(
+  child: Column(
+    children: [
+      Expanded(child: widget), // RenderFlex unbounded height error
+    ],
+  ),
+)
+
+// ❌ ERRO: Flex sem mainAxisSize definido
+Column(
+  children: [...], // Vai tentar expandir infinitamente
+)
+```
+
+**SEMPRE faça:**
+```dart
+// ✅ CORRETO: Column com mainAxisSize.min
+ScrollView(
+  child: Column(
+    mainAxisSize: MainAxisSize.min, // Essencial!
+    children: [
+      widget1,
+      widget2,
+      // Use Flexible se precisar de comportamento flex
+      Flexible(child: widget3),
+    ],
+  ),
+)
+
+// ✅ CORRETO: SingleChildScrollView com Column
+SingleChildScrollView(
+  child: Column(
+    mainAxisSize: MainAxisSize.min,
+    children: widgets,
+  ),
+)
+```
+
+### Sistema de Breakpoints Responsivos
+
+Usar breakpoints mundiais padrão (Tailwind/Bootstrap):
+```dart
+// Breakpoints (px)
+xs: 0-639     // Mobile pequeno
+sm: 640-767   // Mobile grande  
+md: 768-1023  // Tablet
+lg: 1024-1279 // Desktop
+xl: 1280-1535 // Desktop grande
+xxl: 1536+    // Desktop muito grande
+
+// Uso com context.responsive()
+final padding = context.responsive<double>(
+  xs: 16,
+  sm: 20,
+  md: 24,
+  lg: 32,
+  xl: 40,
+  xxl: 48,
+);
+```
+
+### Layouts Responsivos - Proporções
+
+#### Telas de Autenticação
+- **XS/SM**: 100% content (mobile)
+- **MD**: 60% content / 40% imagem (tablet)
+- **LG**: 45% content / 55% imagem (desktop)
+- **XL**: 40% content / 60% imagem (desktop grande)
+- **XXL**: 35% content / 65% imagem (desktop muito grande)
+
+#### Container com Largura Máxima
+```dart
+// Usar ResponsiveContainer ou definir manualmente
+Container(
+  constraints: BoxConstraints(
+    maxWidth: context.responsive<double>(
+      xs: double.infinity,
+      sm: 540,
+      md: 720,
+      lg: 960,
+      xl: 1140,
+      xxl: 1320,
+    ),
+  ),
+  child: content,
+)
+```
+
+### Checklist de Layout
+
+Antes de criar qualquer layout:
+- [ ] Column tem `mainAxisSize: MainAxisSize.min`?
+- [ ] Não uso Expanded dentro de ScrollView?
+- [ ] Layout é responsivo para todos breakpoints?
+- [ ] Testei overflow em telas pequenas?
+- [ ] Constraints estão bem definidos?
+
+### Padrões de ScrollView
+
+```dart
+// ✅ Padrão correto para forms
+SafeArea(
+  child: SingleChildScrollView(
+    child: Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min, // CRÍTICO!
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: formWidgets,
+      ),
+    ),
+  ),
+)
+
+// ✅ Para listas grandes - usar ListView
+ListView.builder(
+  itemCount: items.length,
+  itemBuilder: (context, index) => itemWidget,
+)
+
+// ✅ Para grids - usar GridView
+GridView.builder(
+  gridDelegate: SliverGridDelegateWithResponsiveCrossAxisCount(),
+  itemBuilder: (context, index) => itemWidget,
+)
+```
+```
