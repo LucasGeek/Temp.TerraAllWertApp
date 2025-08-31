@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../../domain/entities/user.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
+import '../../../features/navigation/providers/navigation_provider.dart';
 import '../../../responsive/breakpoints.dart';
 import '../molecules/navigation_menu_item.dart';
-import 'navigation_header.dart';
 import 'navigation_footer.dart';
-import '../../../../domain/entities/user.dart';
-import '../../../features/navigation/providers/navigation_provider.dart';
+import 'navigation_header.dart';
 
 /// Drawer de navegação principal da aplicação
 /// Versão sem conflito de nomes com NavigationDrawer do Flutter
@@ -17,7 +18,7 @@ class MainNavigationDrawer extends ConsumerWidget {
   final User? user;
   final bool isLoading;
   final VoidCallback onLogoutTap;
-  
+
   const MainNavigationDrawer({
     super.key,
     required this.currentRoute,
@@ -30,17 +31,14 @@ class MainNavigationDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     try {
       final navigationItems = ref.watch(visibleNavigationItemsProvider);
-      
+
       return Drawer(
         backgroundColor: AppTheme.primaryColor,
         child: Column(
           children: [
             const NavigationHeader(),
             _buildNavigationList(context, navigationItems),
-            NavigationFooter(
-              onLogoutTap: onLogoutTap,
-              shouldCloseDrawer: true,
-            ),
+            NavigationFooter(onLogoutTap: onLogoutTap, shouldCloseDrawer: true),
           ],
         ),
       );
@@ -50,47 +48,38 @@ class MainNavigationDrawer extends ConsumerWidget {
     }
   }
 
-
   Widget _buildNavigationList(BuildContext context, List<dynamic> navigationItems) {
     try {
-      debugPrint('MainNavigationDrawer: Building navigation list with ${navigationItems.length} items');
-      
       // Estado vazio com feedback melhorado
       if (navigationItems.isEmpty) {
         return _buildEmptyState();
       }
-      
+
       return Expanded(
-        child: Scrollbar(
-          thumbVisibility: true,
-          thickness: 6.0,
-          radius: const Radius.circular(LayoutConstants.radiusSmall),
-          trackVisibility: false,
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(
-              vertical: LayoutConstants.paddingXs,
-              horizontal: LayoutConstants.paddingXs,
-            ),
-            itemCount: navigationItems.length,
-            physics: const BouncingScrollPhysics(),
-            itemBuilder: (context, index) {
-              final item = navigationItems[index];
-              
-              // Improved active route detection baseado no sistema legado
-              final isSelected = _isRouteActive(item.route, currentRoute);
-              
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: NavigationMenuItem(
-                  icon: item.icon,
-                  selectedIcon: item.selectedIcon,
-                  label: item.label,
-                  isSelected: isSelected,
-                  onTap: () => _handleNavigation(context, _cleanRoute(item.route)),
-                ),
-              );
-            },
+        child: ListView.builder(
+          padding: EdgeInsets.symmetric(
+            vertical: LayoutConstants.paddingXs,
+            horizontal: LayoutConstants.paddingXs,
           ),
+          itemCount: navigationItems.length,
+          physics: const BouncingScrollPhysics(),
+          itemBuilder: (context, index) {
+            final item = navigationItems[index];
+
+            // Improved active route detection baseado no sistema legado
+            final isSelected = _isRouteActive(item.route, currentRoute);
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: NavigationMenuItem(
+                icon: item.icon,
+                selectedIcon: item.selectedIcon,
+                label: item.label,
+                isSelected: isSelected,
+                onTap: () => _handleNavigation(context, _cleanRoute(item.route)),
+              ),
+            );
+          },
         ),
       );
     } catch (e) {
@@ -177,42 +166,41 @@ class MainNavigationDrawer extends ConsumerWidget {
     // Limpar rotas para comparação
     final cleanItemRoute = _cleanRoute(itemRoute);
     final cleanCurrentRoute = _cleanRoute(currentRoute);
-    
+
     // Exact match tem prioridade
     if (cleanCurrentRoute == cleanItemRoute) {
       return true;
     }
-    
+
     // Para rotas nested, verificar se a rota atual contém a rota do item
     if (cleanCurrentRoute.isNotEmpty && cleanItemRoute.isNotEmpty) {
       // Verificar se é uma rota parent (ex: /torre1 ativo quando em /torre1/apartamentos)
       return cleanCurrentRoute.startsWith('$cleanItemRoute/') ||
-             cleanCurrentRoute.contains(cleanItemRoute.replaceAll('/', ''));
+          cleanCurrentRoute.contains(cleanItemRoute.replaceAll('/', ''));
     }
-    
+
     return false;
   }
 
   /// Limpeza e normalização de rotas baseada no sistema legado
   String _cleanRoute(String route) {
     if (route.isEmpty) return route;
-    
+
     // Remove múltiplas barras e normaliza
     String cleaned = route.replaceAll(RegExp(r'/+'), '/').trim();
-    
+
     // Garante que comece com /
     if (!cleaned.startsWith('/')) {
       cleaned = '/$cleaned';
     }
-    
+
     // Remove barra final se não for root
     if (cleaned.length > 1 && cleaned.endsWith('/')) {
       cleaned = cleaned.substring(0, cleaned.length - 1);
     }
-    
+
     return cleaned;
   }
-
 
   void _handleNavigation(BuildContext context, String route) {
     try {
@@ -236,18 +224,12 @@ class MainNavigationDrawer extends ConsumerWidget {
             child: Center(
               child: Text(
                 'Erro ao carregar navegação',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppTheme.onPrimary,
-                ),
+                style: TextStyle(fontSize: 16, color: AppTheme.onPrimary),
                 textAlign: TextAlign.center,
               ),
             ),
           ),
-          NavigationFooter(
-            onLogoutTap: () {},
-            shouldCloseDrawer: true,
-          ),
+          NavigationFooter(onLogoutTap: () {}, shouldCloseDrawer: true),
         ],
       ),
     );

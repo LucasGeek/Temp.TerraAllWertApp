@@ -103,19 +103,13 @@ class NavigationSidebar extends ConsumerWidget {
       }
 
       return Expanded(
-        child: Scrollbar(
-          thumbVisibility: true,
-          thickness: 6.0,
-          radius: const Radius.circular(LayoutConstants.radiusSmall),
-          trackVisibility: false,
-          child: ListView(
-            padding: EdgeInsets.symmetric(
-              vertical: LayoutConstants.paddingXs,
-              horizontal: LayoutConstants.paddingXs,
-            ),
-            physics: const BouncingScrollPhysics(),
-            children: menuWidgets,
+        child: ListView(
+          padding: EdgeInsets.symmetric(
+            vertical: LayoutConstants.paddingXs,
+            horizontal: LayoutConstants.paddingXs,
           ),
+          physics: const BouncingScrollPhysics(),
+          children: menuWidgets,
         ),
       );
     } catch (e) {
