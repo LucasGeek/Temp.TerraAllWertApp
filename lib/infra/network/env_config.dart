@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'app_env.dart';
 
 class EnvConfig {
   final String appName;
@@ -41,28 +42,24 @@ class EnvConfig {
 
   factory EnvConfig.fromEnvironment() {
     return EnvConfig(
-      appName: _getEnv('APP_NAME', 'Terra Allwert'),
-      environment: _getEnv('APP_ENVIRONMENT', 'development'),
-      debugMode: _getEnv('DEBUG_MODE', 'true') == 'true',
-      graphqlEndpoint: _getEnv('GRAPHQL_ENDPOINT', 'http://localhost:8080/graphql'),
-      graphqlWsEndpoint: _getEnv('GRAPHQL_WS_ENDPOINT', 'ws://localhost:8080/ws'),
-      jwtSecretKey: _getEnv('JWT_SECRET_KEY', 'default-secret-key'),
-      minioEndpoint: _getEnv('MINIO_ENDPOINT', 'localhost:9000'),
-      minioAccessKey: _getEnv('MINIO_ACCESS_KEY', 'minioadmin'),
-      minioSecretKey: _getEnv('MINIO_SECRET_KEY', 'minioadmin'),
-      minioBucketName: _getEnv('MINIO_BUCKET_NAME', 'terra-allwert'),
-      minioUseSSL: _getEnv('MINIO_USE_SSL', 'false') == 'true',
-      maxUploadSize: int.tryParse(_getEnv('MAX_UPLOAD_SIZE', '10485760')) ?? 10485760,
-      allowedFileTypes: _getEnv('ALLOWED_FILE_TYPES', 'jpg,jpeg,png,pdf,doc,docx').split(','),
-      cacheTtl: int.tryParse(_getEnv('CACHE_TTL', '3600')) ?? 3600,
-      enableCache: _getEnv('ENABLE_CACHE', 'true') == 'true',
-      timeout: int.tryParse(_getEnv('NETWORK_TIMEOUT', '30000')) ?? 30000,
-      enableLogging: _getEnv('ENABLE_LOGGING', 'true') == 'true',
+      appName: AppEnv.appName,
+      environment: AppEnv.environment,
+      debugMode: AppEnv.debugMode == 'true',
+      graphqlEndpoint: AppEnv.graphqlEndpoint,
+      graphqlWsEndpoint: AppEnv.graphqlWsEndpoint,
+      jwtSecretKey: AppEnv.jwtSecretKey,
+      minioEndpoint: AppEnv.minioEndpoint,
+      minioAccessKey: AppEnv.minioAccessKey,
+      minioSecretKey: AppEnv.minioSecretKey,
+      minioBucketName: AppEnv.minioBucketName,
+      minioUseSSL: AppEnv.minioUseSSL == 'true',
+      maxUploadSize: int.tryParse(AppEnv.maxUploadSize) ?? 10485760,
+      allowedFileTypes: AppEnv.allowedFileTypes.split(','),
+      cacheTtl: int.tryParse(AppEnv.cacheTtl) ?? 3600,
+      enableCache: AppEnv.enableCache == 'true',
+      timeout: int.tryParse(AppEnv.networkTimeout) ?? 30000,
+      enableLogging: AppEnv.enableLogging == 'true',
     );
-  }
-
-  static String _getEnv(String key, String defaultValue) {
-    return String.fromEnvironment(key, defaultValue: defaultValue);
   }
 
   // Getters para compatibilidade
