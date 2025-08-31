@@ -16,6 +16,7 @@ abstract class NavigationItem with _$NavigationItem {
     @Default(true) bool isEnabled,
     String? description,
     String? parentId, // ID do menu pai (null = menu raiz)
+    @Default('Menu Padrão') String menuType, // Tipo de apresentação do menu
     List<String>? permissions,
   }) = _NavigationItem;
 }

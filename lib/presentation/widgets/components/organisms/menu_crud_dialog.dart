@@ -92,6 +92,7 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
     _selectedIcon = item.icon;
     _selectedSelectedIcon = item.selectedIcon;
     _selectedParentId = item.parentId; // Carregar ID do menu pai
+    _selectedMenuType = item.menuType; // Carregar tipo de menu
   }
 
   /// Gera rota automaticamente baseada no título usando regex
@@ -813,6 +814,7 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
         route: route,
         order: newOrder,
         parentId: _selectedParentId, // Incluir ID do menu pai
+        menuType: _selectedMenuType, // Tipo de apresentação do menu
         isVisible: true, // Sempre visível
         isEnabled: true, // Sempre habilitado
         description: _descriptionController.text.trim().isEmpty 
