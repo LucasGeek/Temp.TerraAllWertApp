@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:minio/minio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../network/env_config.dart';
+import '../config/env_config.dart';
 
 abstract class MinIOService {
   Future<String> uploadFile({

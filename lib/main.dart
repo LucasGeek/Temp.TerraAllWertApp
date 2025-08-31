@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talker/talker.dart';
 
-import 'infra/network/env_config.dart';
+import 'infra/config/env_config.dart';
 import 'presentation/router/app_router.dart';
 import 'presentation/design_system/app_theme.dart';
 import 'presentation/notification/snackbar_notification.dart';

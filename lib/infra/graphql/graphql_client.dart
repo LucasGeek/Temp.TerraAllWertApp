@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import '../network/env_config.dart';
+import '../config/env_config.dart';
 
 class GraphQLClientService {
   late final GraphQLClient _client;
