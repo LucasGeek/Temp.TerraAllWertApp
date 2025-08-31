@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../design_system/app_theme.dart';
 
 /// Molecule: Linha de botões de login social
@@ -21,49 +22,42 @@ class SocialButtonsRow extends StatelessWidget {
         // Divider com texto
         Row(
           children: [
-            Expanded(
-              child: Container(
-                height: 1,
-                color: AppTheme.secondaryLight,
-              ),
-            ),
+            Expanded(child: Container(height: 1, color: AppTheme.secondaryLight)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 'ou entre com',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
               ),
             ),
-            Expanded(
-              child: Container(
-                height: 1,
-                color: AppTheme.secondaryLight,
-              ),
-            ),
+            Expanded(child: Container(height: 1, color: AppTheme.secondaryLight)),
           ],
         ),
-        
+
         const SizedBox(height: 24),
-        
+
         // Botões sociais
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _SocialButton(
-              icon: Icons.g_translate, // Placeholder para Google
+              icon: Icons.g_mobiledata,
               label: 'Google',
+              color: Colors.red,
               onPressed: onGooglePressed,
             ),
             _SocialButton(
-              icon: Icons.facebook, // Placeholder para Facebook
+              icon: Icons.facebook,
               label: 'Facebook',
+              color: Colors.blue,
               onPressed: onFacebookPressed,
             ),
             _SocialButton(
-              icon: Icons.apple, // Ícone Apple
+              icon: Icons.apple,
               label: 'Apple',
+              color: Colors.black,
               onPressed: onApplePressed,
             ),
           ],
@@ -77,11 +71,13 @@ class SocialButtonsRow extends StatelessWidget {
 class _SocialButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color color;
   final VoidCallback? onPressed;
 
   const _SocialButton({
     required this.icon,
     required this.label,
+    required this.color,
     this.onPressed,
   });
 
@@ -89,31 +85,23 @@ class _SocialButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 64,
-      height: 48, // Área mínima de toque
+      height: 48,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           backgroundColor: AppTheme.surfaceColor,
           foregroundColor: AppTheme.textPrimary,
-          elevation: 0, // Sem sombra conforme especificação
+          elevation: 0,
           padding: const EdgeInsets.all(8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
-          side: BorderSide(
-            color: AppTheme.secondaryLight,
-            width: 1,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          side: BorderSide(color: AppTheme.outline, width: 1),
         ).copyWith(
-          // Efeito ripple personalizado
-          splashFactory: InkRipple.splashFactory,
-          overlayColor: WidgetStateProperty.all(
-            AppTheme.primaryColor.withValues(alpha: 0.1),
-          ),
+          overlayColor: WidgetStateProperty.all(color.withValues(alpha: 0.1)),
         ),
         child: Icon(
           icon,
           size: 20,
+          color: color,
           semanticLabel: 'Entrar com $label',
         ),
       ),
