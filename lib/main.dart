@@ -23,12 +23,14 @@ class TerraAllwertApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(envConfigProvider);
+    
     return MaterialApp.router(
-      title: EnvConfig.appName,
+      title: config.appName,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       routerConfig: AppRouter.router,
-      debugShowCheckedModeBanner: !EnvConfig.isProduction,
+      debugShowCheckedModeBanner: config.environment != 'production',
     );
   }
 }

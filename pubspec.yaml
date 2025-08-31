@@ -85,6 +85,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  
+  # --- Testing ---
+  mocktail: ^1.0.4
 
   # --- Code Generation ---
   build_runner: ^2.5.4

@@ -3,19 +3,26 @@ import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:talker/talker.dart';
 
 import '../errors/exceptions.dart';
-import 'env_config.dart';
 
 class DioClient {
   late final Dio _dio;
   final Talker _talker;
+  final String baseUrl;
+  final int timeout;
+  final bool enableLogging;
 
-  DioClient(this._talker) {
+  DioClient({
+    required this.baseUrl,
+    required this.timeout,
+    required this.enableLogging,
+    required Talker talker,
+  }) : _talker = talker {
     _dio = Dio(
       BaseOptions(
-        baseUrl: EnvConfig.apiBaseUrl,
-        connectTimeout: Duration(milliseconds: EnvConfig.apiTimeout),
-        receiveTimeout: Duration(milliseconds: EnvConfig.apiTimeout),
-        sendTimeout: Duration(milliseconds: EnvConfig.apiTimeout),
+        baseUrl: baseUrl,
+        connectTimeout: Duration(milliseconds: timeout),
+        receiveTimeout: Duration(milliseconds: timeout),
+        sendTimeout: Duration(milliseconds: timeout),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -27,7 +34,7 @@ class DioClient {
   }
 
   void _setupInterceptors() {
-    if (EnvConfig.enableLogging) {
+    if (enableLogging) {
       _dio.interceptors.add(
         LogInterceptor(
           requestBody: true,
