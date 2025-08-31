@@ -25,6 +25,7 @@ dependencies:
   # --- UI & Assets ---
   flutter_svg: ^2.1.0
   vector_graphics_compiler: ^1.1.17
+  skeletonizer: ^2.1.0+1
 
   # --- Ads ---
   google_mobile_ads: ^6.0.0

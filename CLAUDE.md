@@ -495,4 +495,257 @@ GridView.builder(
   itemBuilder: (context, index) => itemWidget,
 )
 ```
+
+## Metodologia de Desenvolvimento
+
+### Processo de Implementação de Features
+
+1. **Análise do Problema**
+   - [ ] Entender completamente o requisito do usuário
+   - [ ] Identificar arquivos existentes relacionados
+   - [ ] Verificar padrões já implementados no projeto
+
+2. **Planejamento com TodoWrite**
+   - [ ] Criar lista de tarefas específicas e acionáveis
+   - [ ] Quebrar features complexas em steps menores
+   - [ ] Definir ordem lógica de implementação
+   - [ ] Marcar tarefas como in_progress durante execução
+   - [ ] Completar tarefas imediatamente após finalizar
+
+3. **Implementação Seguindo Padrões**
+   - [ ] Usar Atomic Design (atoms → molecules → organisms → templates → pages)
+   - [ ] Seguir convenções de código existentes
+   - [ ] Implementar validação e gerenciamento de estado
+   - [ ] Aplicar diretrizes de layout responsivo
+   - [ ] Testar em diferentes breakpoints
+
+4. **Validação e Testes**
+   - [ ] Executar `fvm flutter analyze`
+   - [ ] Executar `fvm flutter test`
+   - [ ] Verificar build web: `fvm flutter build web`
+   - [ ] Corrigir todos os erros encontrados
+
+5. **Documentação e Commit**
+   - [ ] Atualizar CLAUDE.md se necessário
+   - [ ] Criar commit seguindo padrão: `tipo: descrição resumida`
+   - [ ] Usar português brasileiro nas mensagens
+   - [ ] Não adicionar rodapé do Claude Code
+
+### Padrões de Qualidade
+
+#### Gerenciamento de Estado
+- Usar Riverpod StateNotifier para forms
+- Implementar validação em tempo real
+- Separar lógica de apresentação da lógica de negócio
+- Usar Freezed para classes de estado imutáveis
+
+#### UI/UX Responsivo
+- Sempre testar em todos os breakpoints (xs/sm/md/lg/xl/xxl)
+- Usar `context.responsive<T>()` para valores adaptativos
+- Implementar layouts específicos por dispositivo
+- Evitar overflow com Flexible em vez de Expanded
+
+#### Tratamento de Erros
+- Usar SnackbarService para notificações globais
+- Implementar feedback visual em formulários
+- Separar erros de validação de erros de sistema
+- Fornecer mensagens claras em português
+
+#### Performance
+- Lazy loading para listas grandes
+- Cache inteligente de imagens e dados
+- Isolates para processamento pesado
+- Cleanup adequado de controllers e streams
+
+#### Estados de Carregamento
+- **Skeletonizer**: Usar `skeletonizer: ^2.1.0+1` para carregamento de listas e conteúdo
+- **CircularProgressIndicator**: APENAS em botões de submit após clique
+- **Botões Submit**: Aplicar disabled (mudança de cor) + indicator centralizado
+- **Feedback Visual**: Sempre fornecer indicação clara do estado de loading
+
+### Anti-Patterns a Evitar
+
+❌ **Layout Errors**
+- Expanded dentro de ScrollView
+- Column sem mainAxisSize.min
+- Widgets com constraints indefinidos
+
+❌ **State Management**
+- Estado global desnecessário
+- Rebuilds excessivos
+- Vazamentos de memória em controllers
+
+❌ **Performance**
+- Widgets desnecessários na árvore
+- Operações síncronas pesadas na UI thread
+- Cache sem limite de tamanho
+
+❌ **Code Quality**
+- Código duplicado entre plataformas
+- Hardcoded strings sem internacionalização
+- Testes inadequados ou ausentes
+
+❌ **Loading States**
+- CircularProgressIndicator para carregamento de listas/conteúdo
+- Botões sem feedback visual durante submit
+- Loading sem disabled state
+- Skeleton loading genérico sem contexto
+
+### Padrões de Loading e Feedback Visual
+
+#### Skeletonizer para Carregamento de Conteúdo
+
+**Dependência**: `skeletonizer: ^2.1.0+1`
+
+```dart
+// ✅ CORRETO: Skeleton para listas
+Skeletonizer(
+  enabled: isLoading,
+  child: ListView.builder(
+    itemCount: isLoading ? 5 : items.length,
+    itemBuilder: (context, index) {
+      if (isLoading) {
+        return TowerCardSkeleton(); // Widget skeleton personalizado
+      }
+      return TowerCard(tower: items[index]);
+    },
+  ),
+)
+
+// ✅ CORRETO: Skeleton para cards
+Skeletonizer(
+  enabled: isLoading,
+  child: Column(
+    children: [
+      Card(
+        child: Column(
+          children: [
+            Container(height: 200, color: Colors.grey[300]), // Skeleton image
+            ListTile(
+              title: Text('Loading title...'), // Skeleton text
+              subtitle: Text('Loading subtitle...'),
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+)
 ```
+
+#### CircularProgressIndicator APENAS em Botões Submit
+
+```dart
+// ✅ CORRETO: Botão com loading state
+PrimaryButton(
+  text: 'Entrar',
+  isLoading: formState.isSubmitting,
+  onPressed: formState.isValid && !formState.isSubmitting 
+      ? _handleLogin 
+      : null, // Disabled quando loading
+)
+
+// Implementação do PrimaryButton:
+class PrimaryButton extends StatelessWidget {
+  final String text;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+  
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isLoading || onPressed == null 
+            ? AppTheme.disabledColor  // Mudança de cor quando disabled
+            : AppTheme.primaryColor,
+      ),
+      child: isLoading 
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : Text(text),
+    );
+  }
+}
+```
+
+#### Padrões por Contexto
+
+**Listas de Torres/Apartamentos:**
+```dart
+// ✅ Skeletonizer com skeleton cards personalizados
+Skeletonizer(
+  enabled: isLoading,
+  child: GridView.builder(...),
+)
+```
+
+**Formulários:**
+```dart
+// ✅ Apenas botões com CircularProgressIndicator
+// ❌ NUNCA skeleton em campos de input
+```
+
+**Detalhes de Torre/Apartamento:**
+```dart
+// ✅ Skeletonizer para layout completo
+Skeletonizer(
+  enabled: isLoading,
+  child: Column(
+    children: [
+      Container(height: 250), // Skeleton para imagens
+      Text('Tower Name Loading...'), // Skeleton para título
+      Text('Description loading...'), // Skeleton para descrição
+    ],
+  ),
+)
+```
+
+**Downloads/Uploads:**
+```dart
+// ✅ LinearProgressIndicator com porcentagem
+LinearProgressIndicator(
+  value: downloadProgress,
+)
+Text('${(downloadProgress * 100).toInt()}%')
+```
+
+#### Estados de Loading Obrigatórios
+
+1. **Botão Submit**: Sempre disabled + CircularProgressIndicator
+2. **Listas**: Sempre Skeletonizer com quantidade fixa de skeletons
+3. **Detalhes**: Sempre Skeletonizer para layout completo
+4. **Imagens**: Sempre placeholder durante carregamento
+5. **Downloads**: Sempre progress indicator com porcentagem
+
+### Workflow de Correção de Bugs
+
+1. **Identificação**
+   - Reproduzir o erro localmente
+   - Analisar stack trace completo
+   - Identificar root cause
+
+2. **Correção**
+   - Aplicar fix mínimo necessário
+   - Seguir padrões de layout e estado
+   - Testar em múltiplos cenários
+
+3. **Prevenção**
+   - Atualizar guidelines se necessário
+   - Adicionar testes para regression
+   - Documentar lições aprendidas
+
+### Checklist Final Antes de Commit
+
+- [ ] Código compila sem warnings
+- [ ] Todos os testes passam
+- [ ] Layout responsivo funciona
+- [ ] Não há hardcoded values
+- [ ] Performance é adequada
+- [ ] Documentação atualizada
+- [ ] Commit message segue padrão
