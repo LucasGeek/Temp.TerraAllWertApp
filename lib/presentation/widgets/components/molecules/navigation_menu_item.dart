@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 
@@ -22,29 +23,47 @@ class NavigationMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(
-        isSelected && selectedIcon != null ? selectedIcon! : icon,
-        color: isSelected ? AppTheme.onPrimary : AppTheme.onPrimary.withValues(alpha: 0.7),
-        size: LayoutConstants.iconLarge,
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: LayoutConstants.paddingXs,
+        vertical: 2,
       ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? AppTheme.onPrimary : AppTheme.onPrimary.withValues(alpha: 0.7),
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          fontSize: 16,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? AppTheme.onPrimary.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+          border: isSelected
+              ? Border.all(
+                  color: AppTheme.onPrimary.withValues(alpha: 0.2),
+                  width: 1,
+                )
+              : null,
         ),
-      ),
-      selected: isSelected,
-      selectedTileColor: AppTheme.onPrimary.withValues(alpha: 0.1),
-      onTap: onTap,
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: LayoutConstants.paddingMd,
-        vertical: LayoutConstants.paddingXs,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+        child: ListTile(
+          leading: Icon(
+            isSelected && selectedIcon != null ? selectedIcon! : icon,
+            color: isSelected ? AppTheme.onPrimary : AppTheme.onPrimary.withValues(alpha: 0.7),
+            size: LayoutConstants.iconLarge,
+          ),
+          title: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? AppTheme.onPrimary : AppTheme.onPrimary.withValues(alpha: 0.7),
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontSize: 16,
+            ),
+          ),
+          onTap: onTap,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: LayoutConstants.paddingMd,
+            vertical: LayoutConstants.paddingXs,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+          ),
+        ),
       ),
     );
   }

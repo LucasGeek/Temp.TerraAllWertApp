@@ -8,8 +8,8 @@ abstract class NavigationItem with _$NavigationItem {
   const factory NavigationItem({
     required String id,
     required String label,
-    @JsonKey(includeFromJson: false, includeToJson: false) required IconData icon,
-    @JsonKey(includeFromJson: false, includeToJson: false) required IconData selectedIcon,
+    required IconData icon,
+    required IconData selectedIcon,
     required String route,
     required int order,
     @Default(true) bool isVisible,

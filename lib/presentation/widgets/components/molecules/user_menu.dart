@@ -88,7 +88,7 @@ class UserMenu extends StatelessWidget {
             if (context.isDesktop) ...[
               SizedBox(width: LayoutConstants.marginXs),
               ResponsiveText.body(
-                user?.name?.split(' ').first ?? 'Usuário',
+                user?.name.split(' ').first ?? 'Usuário',
                 color: Colors.white,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

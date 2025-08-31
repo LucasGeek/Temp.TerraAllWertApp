@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../responsive/breakpoints.dart';
 import '../molecules/navigation_menu_item.dart';
@@ -31,11 +32,15 @@ class MainNavigationDrawer extends ConsumerWidget {
       final navigationItems = ref.watch(visibleNavigationItemsProvider);
       
       return Drawer(
+        backgroundColor: AppTheme.primaryColor,
         child: Column(
           children: [
             const NavigationHeader(),
             _buildNavigationList(context, navigationItems),
-            NavigationFooter(onLogoutTap: onLogoutTap),
+            NavigationFooter(
+              onLogoutTap: onLogoutTap,
+              shouldCloseDrawer: true,
+            ),
           ],
         ),
       );
@@ -47,29 +52,61 @@ class MainNavigationDrawer extends ConsumerWidget {
 
 
   Widget _buildNavigationList(BuildContext context, List<dynamic> navigationItems) {
-    return Expanded(
-      child: ListView(
-        padding: EdgeInsets.symmetric(
-          vertical: LayoutConstants.paddingXs,
+    try {
+      debugPrint('MainNavigationDrawer: Building navigation list with ${navigationItems.length} items');
+      
+      if (navigationItems.isEmpty) {
+        return const Expanded(
+          child: Center(
+            child: Text(
+              'Nenhum item de navegação disponível',
+              style: TextStyle(
+                color: AppTheme.onPrimary,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        );
+      }
+      
+      return Expanded(
+        child: ListView(
+          padding: EdgeInsets.symmetric(
+            vertical: LayoutConstants.paddingXs,
+          ),
+          children: navigationItems.map((item) {
+            final isSelected = item.route == currentRoute;
+            
+            return NavigationMenuItem(
+              icon: item.icon,
+              selectedIcon: item.selectedIcon,
+              label: item.label,
+              isSelected: isSelected,
+              onTap: () => _handleNavigation(context, item.route),
+            );
+          }).toList(),
         ),
-        children: navigationItems.map((item) {
-          final isSelected = item.route == currentRoute;
-          
-          return NavigationMenuItem(
-            icon: item.icon,
-            selectedIcon: item.selectedIcon,
-            label: item.label,
-            isSelected: isSelected,
-            onTap: () => _handleNavigation(context, item.route),
-          );
-        }).toList(),
-      ),
-    );
+      );
+    } catch (e) {
+      debugPrint('MainNavigationDrawer: Error building navigation list - $e');
+      return const Expanded(
+        child: Center(
+          child: Text(
+            'Erro ao carregar itens de navegação',
+            style: TextStyle(
+              color: AppTheme.onPrimary,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
   }
 
 
   void _handleNavigation(BuildContext context, String route) {
     try {
+      // Sempre fechar drawer em mobile/tablet quando clicar em item de navegação
       if (context.isMobile || (context.isTablet && context.isXs)) {
         Navigator.of(context).pop();
       }
@@ -81,6 +118,7 @@ class MainNavigationDrawer extends ConsumerWidget {
 
   Widget _buildFallbackDrawer() {
     return Drawer(
+      backgroundColor: AppTheme.primaryColor,
       child: Column(
         children: [
           const NavigationHeader(),
@@ -90,13 +128,16 @@ class MainNavigationDrawer extends ConsumerWidget {
                 'Erro ao carregar navegação',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey,
+                  color: AppTheme.onPrimary,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
           ),
-          NavigationFooter(onLogoutTap: () {}),
+          NavigationFooter(
+            onLogoutTap: () {},
+            shouldCloseDrawer: true,
+          ),
         ],
       ),
     );
