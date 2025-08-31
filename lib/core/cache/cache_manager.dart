@@ -1,9 +1,9 @@
-import 'dart:typed_data';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'dart:convert';
+import '../platform/platform_service.dart';
 
 abstract class CacheManager {
   Future<void> initialize();
@@ -13,7 +13,7 @@ abstract class CacheManager {
   Future<Map<String, dynamic>?> getCachedData(String key);
   
   // Cache de imagens
-  Future<void> cacheImage(String url, Uint8List imageData);
+  Future<void> cacheImage(String url, List<int> imageData);
   Future<File?> getCachedImage(String url);
   
   // Cache de queries GraphQL
@@ -43,11 +43,13 @@ class CacheManagerImpl implements CacheManager {
     await GetStorage.init();
     _storage = GetStorage();
     
-    final appDir = await getApplicationDocumentsDirectory();
-    _cacheDir = Directory('${appDir.path}/$_imagesCacheDir');
-    
-    if (!await _cacheDir.exists()) {
-      await _cacheDir.create(recursive: true);
+    if (PlatformService.supportsFileSystem) {
+      final appDir = await getApplicationDocumentsDirectory();
+      _cacheDir = Directory('${appDir.path}/$_imagesCacheDir');
+      
+      if (!await _cacheDir.exists()) {
+        await _cacheDir.create(recursive: true);
+      }
     }
   }
 
@@ -86,7 +88,9 @@ class CacheManagerImpl implements CacheManager {
   }
 
   @override
-  Future<void> cacheImage(String url, Uint8List imageData) async {
+  Future<void> cacheImage(String url, List<int> imageData) async {
+    if (!PlatformService.supportsFileSystem) return;
+    
     final fileName = _generateImageFileName(url);
     final file = File('${_cacheDir.path}/$fileName');
     
@@ -107,6 +111,8 @@ class CacheManagerImpl implements CacheManager {
 
   @override
   Future<File?> getCachedImage(String url) async {
+    if (!PlatformService.supportsFileSystem) return null;
+    
     final currentMetadata = _storage.read<Map<String, dynamic>>('image_metadata') ?? {};
     final metadata = currentMetadata[url] as Map<String, dynamic>?;
     
@@ -166,7 +172,7 @@ class CacheManagerImpl implements CacheManager {
   Future<void> clearCache() async {
     await _storage.erase();
     
-    if (await _cacheDir.exists()) {
+    if (PlatformService.supportsFileSystem && await _cacheDir.exists()) {
       await _cacheDir.delete(recursive: true);
       await _cacheDir.create(recursive: true);
     }
