@@ -5,7 +5,7 @@ part 'gallery_image.freezed.dart';
 part 'gallery_image.g.dart';
 
 @freezed
-class GalleryImage with _$GalleryImage {
+abstract class GalleryImage with _$GalleryImage {
   const factory GalleryImage({
     required String id,
     required String apartmentId,

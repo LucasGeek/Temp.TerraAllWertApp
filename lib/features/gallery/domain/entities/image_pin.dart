@@ -4,7 +4,7 @@ part 'image_pin.freezed.dart';
 part 'image_pin.g.dart';
 
 @freezed
-class ImagePin with _$ImagePin {
+abstract class ImagePin with _$ImagePin {
   const factory ImagePin({
     required String id,
     required String imageId,

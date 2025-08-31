@@ -5,7 +5,7 @@ part 'pavimento.freezed.dart';
 part 'pavimento.g.dart';
 
 @freezed
-class Pavimento with _$Pavimento {
+abstract class Pavimento with _$Pavimento {
   const factory Pavimento({
     required String id,
     required String towerId,

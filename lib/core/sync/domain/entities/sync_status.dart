@@ -4,7 +4,7 @@ part 'sync_status.freezed.dart';
 part 'sync_status.g.dart';
 
 @freezed
-class SyncStatus with _$SyncStatus {
+abstract class SyncStatus with _$SyncStatus {
   const factory SyncStatus({
     required bool isConnected,
     required bool isSyncing,

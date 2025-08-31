@@ -4,7 +4,7 @@ part 'auth_token.freezed.dart';
 part 'auth_token.g.dart';
 
 @freezed
-class AuthToken with _$AuthToken {
+abstract class AuthToken with _$AuthToken {
   const factory AuthToken({
     required String accessToken,
     required String refreshToken,

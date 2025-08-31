@@ -4,7 +4,7 @@ part 'apartment_type.freezed.dart';
 part 'apartment_type.g.dart';
 
 @freezed
-class ApartmentType with _$ApartmentType {
+abstract class ApartmentType with _$ApartmentType {
   const factory ApartmentType({
     required String id,
     required String name,

@@ -4,7 +4,7 @@ part 'user_dto.freezed.dart';
 part 'user_dto.g.dart';
 
 @freezed
-class UserDto with _$UserDto {
+abstract class UserDto with _$UserDto {
   const factory UserDto({
     required String id,
     required String email,
@@ -20,7 +20,7 @@ class UserDto with _$UserDto {
 }
 
 @freezed
-class UserRoleDto with _$UserRoleDto {
+abstract class UserRoleDto with _$UserRoleDto {
   const factory UserRoleDto({
     required String id,
     required String name,

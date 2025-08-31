@@ -5,7 +5,7 @@ part 'tower.freezed.dart';
 part 'tower.g.dart';
 
 @freezed
-class Tower with _$Tower {
+abstract class Tower with _$Tower {
   const factory Tower({
     required String id,
     required String name,

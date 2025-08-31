@@ -296,3 +296,21 @@ git commit -m "feat: implementa sistema de notificações
 🤖 Generated with [Claude Code](https://claude.ai/code)
 Co-Authored-By: default avatarClaude <noreply@anthropic.com>
 `
+
+## Regras Freezed
+SEMPRE que usar "@freezed" e "with _$" sempre use como ABSTRACT class:
+- ❌ `class Tower with _$Tower {`
+- ✅ `abstract class Tower with _$Tower {`
+
+Exemplo correto:
+```dart
+@freezed
+abstract class Tower with _$Tower {
+  const factory Tower({
+    required String id,
+    // ...
+  }) = _Tower;
+  
+  factory Tower.fromJson(Map<String, dynamic> json) => _$TowerFromJson(json);
+}
+```

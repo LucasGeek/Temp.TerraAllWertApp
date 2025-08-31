@@ -4,7 +4,7 @@ part 'user.freezed.dart';
 part 'user.g.dart';
 
 @freezed
-class User with _$User {
+abstract class User with _$User {
   const factory User({
     required String id,
     required String email,
@@ -20,7 +20,7 @@ class User with _$User {
 }
 
 @freezed
-class UserRole with _$UserRole {
+abstract class UserRole with _$UserRole {
   const factory UserRole({
     required String id,
     required String name,
