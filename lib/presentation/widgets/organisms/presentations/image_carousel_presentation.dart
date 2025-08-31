@@ -12,6 +12,7 @@ import '../../../../domain/enums/map_type.dart';
 import '../../../../infra/storage/carousel_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
+import '../../molecules/offline_image.dart';
 
 /// Apresentação de carrossel de imagens com funcionalidades avançadas
 /// Suporta imagens, vídeo, mapa, caixa de texto e zoom
@@ -254,47 +255,49 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     );
   }
 
-  /// Widget de imagem com tratamento de erro e loading
+  /// Widget de imagem com tratamento de erro e loading robusto
   Widget _buildImageWidget(String imageUrl) {
-    // Verifica se é URL ou path local
-    if (imageUrl.startsWith('http')) {
-      return Image.network(
-        imageUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return _buildImageLoading(loadingProgress);
-        },
-      );
-    } else {
-      // Path local
-      return Image.file(
-        File(imageUrl),
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => _buildImageError(),
-      );
-    }
+    // Usa OfflineImage para tratamento robusto de erros e caching
+    return OfflineImage(
+      networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
+      localPath: !imageUrl.startsWith('http') ? imageUrl : null,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.contain,
+      placeholder: _buildRobustPlaceholder(),
+      errorWidget: _buildRobustErrorWidget(),
+      enableCaching: true,
+    );
   }
 
-  /// Estado de erro da imagem
-  Widget _buildImageError() {
+  /// Placeholder robusto para carregamento
+  Widget _buildRobustPlaceholder() {
     return Container(
+      width: double.infinity,
+      height: double.infinity,
       color: AppTheme.surfaceColor,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.broken_image_outlined,
-            size: 64,
-            color: AppTheme.textSecondary,
+          CircularProgressIndicator(
+            color: AppTheme.primaryColor,
+            strokeWidth: 3,
           ),
           SizedBox(height: LayoutConstants.marginMd),
           Text(
-            'Imagem não disponível',
+            'Carregando imagem...',
             style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: LayoutConstants.fontSizeMedium,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: LayoutConstants.marginSm),
+          Text(
+            'Verifique sua conexão com a internet',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: LayoutConstants.fontSizeSmall,
             ),
           ),
         ],
@@ -302,50 +305,183 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     );
   }
 
-  /// Loading da imagem
-  Widget _buildImageLoading(ImageChunkEvent loadingProgress) {
+  /// Widget de erro robusto para imagens
+  Widget _buildRobustErrorWidget() {
     return Container(
-      color: AppTheme.surfaceColor,
-      child: Center(
-        child: CircularProgressIndicator(
-          color: AppTheme.primaryColor,
-          value: loadingProgress.expectedTotalBytes != null
-              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-              : null,
-        ),
-      ),
-    );
-  }
-
-  /// Estado vazio (sem imagens)
-  Widget _buildEmptyState() {
-    return Container(
+      width: double.infinity,
+      height: double.infinity,
       color: AppTheme.surfaceColor,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.photo_library_outlined,
-            size: 64,
+            Icons.broken_image_outlined,
+            size: 80,
             color: AppTheme.textSecondary,
           ),
           SizedBox(height: LayoutConstants.marginMd),
           Text(
-            'Nenhuma imagem disponível',
+            'Imagem não disponível',
             style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: LayoutConstants.fontSizeLarge,
               fontWeight: FontWeight.w600,
             ),
           ),
+          SizedBox(height: LayoutConstants.marginSm),
+          Text(
+            'A imagem pode ter sido removida ou\no caminho está incorreto',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: LayoutConstants.fontSizeMedium,
+            ),
+          ),
           SizedBox(height: LayoutConstants.marginMd),
           ElevatedButton.icon(
-            onPressed: _addImages,
-            icon: const Icon(Icons.add_photo_alternate),
-            label: const Text('Adicionar Imagens'),
+            onPressed: () {
+              // Força reload do widget
+              setState(() {});
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Tentar Novamente'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Estado vazio (sem imagens) - informativo para novos menus
+  Widget _buildEmptyState() {
+    return Container(
+      color: AppTheme.surfaceColor,
+      padding: EdgeInsets.all(LayoutConstants.paddingXl),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Ícone principal
+          Container(
+            padding: EdgeInsets.all(LayoutConstants.paddingXl),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.photo_library_outlined,
+              size: 80,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+          
+          SizedBox(height: LayoutConstants.marginXl),
+          
+          // Título
+          Text(
+            'Menu "${widget.title}" criado com sucesso!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppTheme.onSurface,
+              fontSize: LayoutConstants.fontSizeXLarge,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          
+          SizedBox(height: LayoutConstants.marginMd),
+          
+          // Subtítulo explicativo
+          Text(
+            'Este é um novo menu e ainda não possui imagens.\nVocê pode adicionar imagens, vídeos, mapas e muito mais.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: LayoutConstants.fontSizeMedium,
+              height: 1.5,
+            ),
+          ),
+          
+          SizedBox(height: LayoutConstants.marginXl),
+          
+          // Botões de ação
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: LayoutConstants.marginMd,
+            runSpacing: LayoutConstants.marginMd,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _addImages,
+                icon: const Icon(Icons.add_photo_alternate),
+                label: const Text('Adicionar Imagens'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: LayoutConstants.paddingLg,
+                    vertical: LayoutConstants.paddingMd,
+                  ),
+                ),
+              ),
+              
+              OutlinedButton.icon(
+                onPressed: _addOrViewVideo,
+                icon: const Icon(Icons.videocam_outlined),
+                label: const Text('Adicionar Vídeo'),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: LayoutConstants.paddingLg,
+                    vertical: LayoutConstants.paddingMd,
+                  ),
+                ),
+              ),
+              
+              OutlinedButton.icon(
+                onPressed: _addOrEditMap,
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('Adicionar Mapa'),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: LayoutConstants.paddingLg,
+                    vertical: LayoutConstants.paddingMd,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          SizedBox(height: LayoutConstants.marginXl),
+          
+          // Dica informativa
+          Container(
+            padding: EdgeInsets.all(LayoutConstants.paddingMd),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              border: Border.all(
+                color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lightbulb_outline,
+                  color: AppTheme.primaryColor,
+                  size: LayoutConstants.iconMedium,
+                ),
+                SizedBox(width: LayoutConstants.marginMd),
+                Expanded(
+                  child: Text(
+                    'Dica: Toque na tela para esconder/mostrar os controles quando houver conteúdo',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: LayoutConstants.fontSizeSmall,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1269,9 +1405,42 @@ class _ReorderImagesScreenState extends State<_ReorderImagesScreen> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: imageUrl.startsWith('http')
-                      ? Image.network(imageUrl, fit: BoxFit.cover)
-                      : Image.file(File(imageUrl), fit: BoxFit.cover),
+                  child: OfflineImage(
+                    networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
+                    localPath: !imageUrl.startsWith('http') ? imageUrl : null,
+                    fit: BoxFit.cover,
+                    borderRadius: BorderRadius.circular(8),
+                    placeholder: Container(
+                      color: AppTheme.surfaceVariant,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppTheme.primaryColor,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                    errorWidget: Container(
+                      color: AppTheme.surfaceVariant,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image_outlined,
+                            color: AppTheme.textSecondary,
+                            size: 32,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Erro',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
                 
                 Positioned(

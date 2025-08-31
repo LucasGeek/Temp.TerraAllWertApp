@@ -87,19 +87,29 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
                             ),
                             SizedBox(height: LayoutConstants.marginMd),
                             Text(
-                              'Documento não disponível',
+                              'Documento ainda não disponível',
                               style: TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: LayoutConstants.fontSizeLarge,
+                                color: AppTheme.onSurface,
+                                fontSize: LayoutConstants.fontSizeXLarge,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            SizedBox(height: LayoutConstants.marginSm),
+                            SizedBox(height: LayoutConstants.marginMd),
                             Text(
-                              'O documento para "${widget.title}" ainda não foi carregado',
+                              'O documento técnico para "${widget.title}" ainda não foi carregado.\n\nEste é um menu recém-criado e o conteúdo será adicionado em breve.',
                               style: TextStyle(
                                 color: AppTheme.textSecondary,
                                 fontSize: LayoutConstants.fontSizeMedium,
+                                height: 1.5,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            SizedBox(height: LayoutConstants.marginMd),
+                            Text(
+                              'Verifique novamente mais tarde ou entre em contato com o administrador.',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: LayoutConstants.fontSizeSmall,
                               ),
                               textAlign: TextAlign.center,
                             ),
