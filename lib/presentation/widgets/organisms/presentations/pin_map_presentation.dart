@@ -10,6 +10,7 @@ import '../../../../domain/enums/pin_content_type.dart';
 import '../../../../infra/storage/map_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
+import '../../molecules/offline_image.dart';
 
 /// Apresentação de mapa interativo com pins editáveis
 /// Permite visualização, edição e gerenciamento de pins no mapa
@@ -41,6 +42,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   MapPin? _selectedPin;
   bool _isEditMode = false;
   bool _isLoading = false;
+  bool _hasError = false;
   VideoPlayerController? _videoController;
 
   // Mock data para demonstração
@@ -61,13 +63,16 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   /// Carrega os dados do mapa do storage local
   Future<void> _loadMapData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
     
     try {
       final mapData = await _mapStorage.loadMapData(widget.route);
       
       if (mapData == null) {
-        // Cria dados iniciais se não existir
+        // Cria dados iniciais se não existir - não é erro, é menu novo
         _mapData = InteractiveMapData(
           id: _uuid.v4(),
           routeId: widget.route,
@@ -79,6 +84,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         _mapData = mapData;
       }
     } catch (e) {
+      setState(() => _hasError = true);
       _showErrorSnackBar('Erro ao carregar dados do mapa: $e');
     } finally {
       setState(() => _isLoading = false);
@@ -106,15 +112,37 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
         body: Center(
-          child: CircularProgressIndicator(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: AppTheme.primaryColor,
+              ),
+              SizedBox(height: LayoutConstants.marginMd),
+              Text(
+                'Carregando mapa interativo...',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: LayoutConstants.fontSizeMedium,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    if (_mapData == null) {
+    // Só mostra erro se realmente houve um erro de carregamento
+    if (_hasError || _mapData == null) {
       return _buildErrorState();
+    }
+
+    // Se o mapa está vazio mas foi carregado com sucesso, mostra estado vazio informativo
+    if (_mapData!.pins.isEmpty) {
+      return _buildEmptyState();
     }
 
     return Scaffold(
@@ -170,48 +198,62 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   Widget _buildBackgroundImage() {
     final imageUrl = _mapData!.backgroundImageUrl ?? _mockBackgroundImage;
     
-    return Image.network(
-      imageUrl,
+    return OfflineImage(
+      networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
+      localPath: !imageUrl.startsWith('http') ? imageUrl : null,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          color: AppTheme.surfaceColor,
+      placeholder: Container(
+        color: AppTheme.surfaceColor,
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.map_outlined,
-                size: 64,
-                color: AppTheme.textSecondary,
+              CircularProgressIndicator(
+                color: AppTheme.primaryColor,
+                strokeWidth: 3,
               ),
               SizedBox(height: LayoutConstants.marginMd),
               Text(
-                'Imagem do mapa não disponível',
+                'Carregando mapa...',
                 style: TextStyle(
                   color: AppTheme.textSecondary,
-                  fontSize: LayoutConstants.fontSizeLarge,
-                  fontWeight: FontWeight.w600,
+                  fontSize: LayoutConstants.fontSizeMedium,
                 ),
               ),
             ],
           ),
-        );
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          color: AppTheme.surfaceColor,
-          child: Center(
-            child: CircularProgressIndicator(
+        ),
+      ),
+      errorWidget: Container(
+        color: AppTheme.surfaceColor,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.map_outlined,
+              size: 80,
               color: AppTheme.primaryColor,
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / 
-                    loadingProgress.expectedTotalBytes!
-                  : null,
             ),
-          ),
-        );
-      },
+            SizedBox(height: LayoutConstants.marginMd),
+            Text(
+              'Imagem do mapa não disponível',
+              style: TextStyle(
+                color: AppTheme.onSurface,
+                fontSize: LayoutConstants.fontSizeLarge,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: LayoutConstants.marginSm),
+            Text(
+              'Usando visualização padrão de mapa',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: LayoutConstants.fontSizeMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -489,9 +531,152 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     );
   }
 
+  /// Constrói estado vazio informativo para novos menus Pins
+  Widget _buildEmptyState() {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      body: Stack(
+        children: [
+          // Imagem de fundo com overlay
+          Positioned.fill(
+            child: Stack(
+              children: [
+                _buildBackgroundImage(),
+                Container(
+                  color: AppTheme.backgroundColor.withValues(alpha: 0.85),
+                ),
+              ],
+            ),
+          ),
+          
+          // Header
+          _buildHeader(),
+          
+          // Conteúdo central
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.all(LayoutConstants.paddingXl),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Ícone principal
+                  Container(
+                    padding: EdgeInsets.all(LayoutConstants.paddingXl),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.map_outlined,
+                      size: 80,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  
+                  SizedBox(height: LayoutConstants.marginXl),
+                  
+                  // Título
+                  Text(
+                    'Menu "${widget.title}" criado com sucesso!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.onSurface,
+                      fontSize: LayoutConstants.fontSizeXLarge,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  
+                  SizedBox(height: LayoutConstants.marginMd),
+                  
+                  // Subtítulo explicativo
+                  Text(
+                    'Este é um novo mapa interativo e ainda não possui pins.\nVocê pode adicionar pins clicando no botão de edição e tocando no mapa.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: LayoutConstants.fontSizeMedium,
+                      height: 1.5,
+                    ),
+                  ),
+                  
+                  SizedBox(height: LayoutConstants.marginXl),
+                  
+                  // Botão de ação principal
+                  ElevatedButton.icon(
+                    onPressed: _toggleEditMode,
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Começar a Editar'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: LayoutConstants.paddingXl,
+                        vertical: LayoutConstants.paddingMd,
+                      ),
+                    ),
+                  ),
+                  
+                  SizedBox(height: LayoutConstants.marginMd),
+                  
+                  // Botão secundário
+                  OutlinedButton.icon(
+                    onPressed: _showEmptyMapInstructions,
+                    icon: const Icon(Icons.help_outline),
+                    label: const Text('Como usar mapas com pins'),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: LayoutConstants.paddingLg,
+                        vertical: LayoutConstants.paddingMd,
+                      ),
+                    ),
+                  ),
+                  
+                  SizedBox(height: LayoutConstants.marginXl),
+                  
+                  // Dica informativa
+                  Container(
+                    padding: EdgeInsets.all(LayoutConstants.paddingMd),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb_outline,
+                          color: AppTheme.primaryColor,
+                          size: LayoutConstants.iconMedium,
+                        ),
+                        SizedBox(width: LayoutConstants.marginMd),
+                        Expanded(
+                          child: Text(
+                            'Dica: Cada pin pode conter imagens, textos e informações detalhadas sobre pontos específicos',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: LayoutConstants.fontSizeSmall,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Constrói estado de erro
   Widget _buildErrorState() {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -926,22 +1111,34 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       builder: (BuildContext context) {
         return Dialog(
           child: InteractiveViewer(
-            child: Image.network(
-              imageUrl,
+            child: OfflineImage(
+              networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
+              localPath: !imageUrl.startsWith('http') ? imageUrl : null,
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 200,
-                  color: AppTheme.surfaceColor,
-                  child: Center(
-                    child: Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: AppTheme.textSecondary,
-                    ),
+              errorWidget: Container(
+                height: 200,
+                color: AppTheme.surfaceColor,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.broken_image_outlined,
+                        size: 48,
+                        color: AppTheme.textSecondary,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Imagem não disponível',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ),
         );
@@ -960,22 +1157,35 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
             child: PageView.builder(
               itemCount: imageUrls.length,
               itemBuilder: (context, index) {
+                final imageUrl = imageUrls[index];
                 return InteractiveViewer(
-                  child: Image.network(
-                    imageUrls[index],
+                  child: OfflineImage(
+                    networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
+                    localPath: !imageUrl.startsWith('http') ? imageUrl : null,
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: AppTheme.surfaceColor,
-                        child: Center(
-                          child: Icon(
-                            Icons.error_outline,
-                            size: 48,
-                            color: AppTheme.textSecondary,
-                          ),
+                    errorWidget: Container(
+                      color: AppTheme.surfaceColor,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image_outlined,
+                              size: 48,
+                              color: AppTheme.textSecondary,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Imagem ${index + 1} não disponível',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   ),
                 );
               },
@@ -1034,6 +1244,155 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         content: Text(message),
         backgroundColor: Colors.green,
       ),
+    );
+  }
+
+  /// Mostra instruções sobre como usar mapas com pins
+  Future<void> _showEmptyMapInstructions() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.map, color: AppTheme.primaryColor),
+              SizedBox(width: LayoutConstants.marginSm),
+              const Text('Como usar Mapas com Pins'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInstructionStep(
+                  '1',
+                  'Modo de Edição',
+                  'Clique no botão de edição (✏️) para começar a adicionar pins',
+                ),
+                
+                SizedBox(height: LayoutConstants.marginMd),
+                
+                _buildInstructionStep(
+                  '2',
+                  'Adicionar Pins',
+                  'Toque em qualquer lugar do mapa para adicionar um pin com informações',
+                ),
+                
+                SizedBox(height: LayoutConstants.marginMd),
+                
+                _buildInstructionStep(
+                  '3',
+                  'Conteúdo dos Pins',
+                  'Cada pin pode conter título, descrição, imagens e diferentes tipos de apresentação',
+                ),
+                
+                SizedBox(height: LayoutConstants.marginMd),
+                
+                _buildInstructionStep(
+                  '4',
+                  'Visualizar',
+                  'Saia do modo de edição para tocar nos pins e ver as informações',
+                ),
+                
+                SizedBox(height: LayoutConstants.marginMd),
+                
+                Container(
+                  padding: EdgeInsets.all(LayoutConstants.paddingMd),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.lightbulb_outline,
+                        color: AppTheme.primaryColor,
+                        size: LayoutConstants.iconMedium,
+                      ),
+                      SizedBox(width: LayoutConstants.marginSm),
+                      Expanded(
+                        child: Text(
+                          'Ideal para plantas baixas, mapas de localização, ou qualquer imagem onde você precisa destacar pontos específicos.',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: LayoutConstants.fontSizeSmall,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Entendi'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _toggleEditMode();
+              },
+              child: const Text('Começar Agora'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Constrói um passo das instruções
+  Widget _buildInstructionStep(String number, String title, String description) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: LayoutConstants.marginMd),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: AppTheme.onSurface,
+                  fontSize: LayoutConstants.fontSizeMedium,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: LayoutConstants.fontSizeSmall,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
