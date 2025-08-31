@@ -3,22 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/auth_token.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
-import '../datasources/auth_local_datasource.dart';
-import '../datasources/auth_remote_datasource.dart';
-import '../../presentation/features/auth/data/mappers/auth_mapper.dart';
+import '../../infra/graphql/auth_service.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  final AuthRemoteDataSource _remoteDataSource;
-  final AuthLocalDataSource _localDataSource;
+  final GraphQLAuthService _authService;
 
   final StreamController<bool> _authStateController = StreamController<bool>.broadcast();
   final StreamController<User?> _userController = StreamController<User?>.broadcast();
 
   AuthRepositoryImpl({
-    required AuthRemoteDataSource remoteDataSource,
-    required AuthLocalDataSource localDataSource,
-  })  : _remoteDataSource = remoteDataSource,
-        _localDataSource = localDataSource;
+    required GraphQLAuthService authService,
+  }) : _authService = authService;
 
   @override
   Future<AuthToken> login({
@@ -26,17 +21,39 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
   }) async {
     try {
-      final response = await _remoteDataSource.login(
+      final authToken = await _authService.login(
         email: email,
         password: password,
       );
 
-      final authToken = AuthMapper.responseToToken(response);
-      await _localDataSource.storeAuthToken(response);
-      
-      if (response.user != null) {
-        final user = AuthMapper.dtoToUser(response.user!);
-        await _localDataSource.storeUser(response.user!);
+      final user = await _authService.getCurrentUser();
+      if (user != null) {
+        _userController.add(user);
+      }
+
+      _authStateController.add(true);
+      return authToken;
+    } catch (e) {
+      _authStateController.add(false);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<AuthToken> signup({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
+    try {
+      final authToken = await _authService.signup(
+        email: email,
+        password: password,
+        name: name,
+      );
+
+      final user = await _authService.getCurrentUser();
+      if (user != null) {
         _userController.add(user);
       }
 
@@ -51,10 +68,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<AuthToken> refreshToken(String refreshToken) async {
     try {
-      final response = await _remoteDataSource.refreshToken(refreshToken);
-      final authToken = AuthMapper.responseToToken(response);
-      await _localDataSource.storeAuthToken(response);
-      
+      final authToken = await _authService.refreshToken();
       _authStateController.add(true);
       return authToken;
     } catch (e) {
@@ -67,11 +81,10 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     try {
-      await _remoteDataSource.logout();
+      await _authService.logout();
     } catch (e) {
       // Continue even if remote logout fails
     } finally {
-      await clearToken();
       _authStateController.add(false);
       _userController.add(null);
     }
@@ -80,23 +93,9 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<User?> getCurrentUser() async {
     try {
-      final localUser = await _localDataSource.getStoredUser();
-      if (localUser != null) {
-        final user = AuthMapper.dtoToUser(localUser);
-        _userController.add(user);
-        return user;
-      }
-
-      final remoteUser = await _remoteDataSource.getCurrentUser();
-      if (remoteUser != null) {
-        await _localDataSource.storeUser(remoteUser);
-        final user = AuthMapper.dtoToUser(remoteUser);
-        _userController.add(user);
-        return user;
-      }
-
-      _userController.add(null);
-      return null;
+      final user = await _authService.getCurrentUser();
+      _userController.add(user);
+      return user;
     } catch (e) {
       _userController.add(null);
       return null;
@@ -105,17 +104,23 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<bool> isAuthenticated() async {
-    final isAuth = await _localDataSource.isAuthenticated();
+    final isAuth = await _authService.hasValidToken();
     _authStateController.add(isAuth);
     return isAuth;
   }
 
   @override
   Future<AuthToken?> getStoredToken() async {
-    final response = await _localDataSource.getStoredAuthToken();
-    if (response == null) return null;
+    final token = await _authService.getStoredAccessToken();
+    if (token == null) return null;
     
-    return AuthMapper.responseToToken(response);
+    // Return minimal token for validation purposes
+    return AuthToken(
+      accessToken: token,
+      refreshToken: '',
+      expiresAt: DateTime.now().add(Duration(hours: 1)),
+      tokenType: 'Bearer',
+    );
   }
 
   @override
@@ -126,8 +131,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> clearToken() async {
-    await _localDataSource.clearAuthToken();
-    await _localDataSource.clearUser();
+    await _authService.logout();
   }
 
   @override
@@ -145,3 +149,9 @@ class AuthRepositoryImpl implements AuthRepository {
     _userController.close();
   }
 }
+
+// Provider
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final authService = ref.watch(graphQLAuthServiceProvider);
+  return AuthRepositoryImpl(authService: authService);
+});

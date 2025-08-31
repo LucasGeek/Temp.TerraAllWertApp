@@ -7,6 +7,12 @@ abstract class AuthRepository {
     required String password,
   });
 
+  Future<AuthToken> signup({
+    required String email,
+    required String password,
+    required String name,
+  });
+
   Future<AuthToken> refreshToken(String refreshToken);
 
   Future<void> logout();

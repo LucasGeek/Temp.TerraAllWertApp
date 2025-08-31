@@ -1,41 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
-import '../../../../../domain/entities/auth_token.dart';
 import '../../../../../domain/entities/user.dart';
 import '../../../../../domain/repositories/auth_repository.dart';
 import '../../../../../domain/usecases/login_usecase.dart';
 import '../../../../../domain/usecases/logout_usecase.dart';
-import '../../../../../data/datasources/auth_local_datasource.dart';
-import '../../../../../data/datasources/auth_remote_datasource.dart';
 import '../../../../../data/repositories/auth_repository_impl.dart';
-import '../../../../../infra/graphql/graphql_config.dart';
-
-// Data Sources
-final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
-  return const FlutterSecureStorage();
-});
-
-final authLocalDataSourceProvider = Provider<AuthLocalDataSource>((ref) {
-  final secureStorage = ref.watch(secureStorageProvider);
-  return AuthLocalDataSourceImpl(secureStorage);
-});
-
-final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
-  final graphqlClient = ref.watch(graphqlClientProvider);
-  return AuthRemoteDataSourceImpl(graphqlClient);
-});
-
-// Repository
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  final localDataSource = ref.watch(authLocalDataSourceProvider);
-  final remoteDataSource = ref.watch(authRemoteDataSourceProvider);
-  
-  return AuthRepositoryImpl(
-    localDataSource: localDataSource,
-    remoteDataSource: remoteDataSource,
-  );
-});
 
 // Use Cases
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
