@@ -64,8 +64,8 @@ mutation Login($input: LoginInput!) {
     expiresAt
     user {
       id
-      username
       email
+      name
       role
       active
       lastLogin
@@ -78,7 +78,7 @@ mutation Login($input: LoginInput!) {
 ```json
 {
   "input": {
-    "username": "admin",
+    "email": "admin@terraallwert.com",
     "password": "admin123"
   }
 }
@@ -89,10 +89,10 @@ mutation Login($input: LoginInput!) {
 curl -X POST http://localhost:8080/graphql \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "mutation Login($input: LoginInput!) { login(input: $input) { token refreshToken user { username role } } }",
+    "query": "mutation Login($input: LoginInput!) { login(input: $input) { token refreshToken user { email name role } } }",
     "variables": {
       "input": {
-        "username": "admin",
+        "email": "admin@terraallwert.com",
         "password": "admin123"
       }
     }
@@ -107,7 +107,8 @@ mutation RefreshToken($refreshToken: String!) {
     refreshToken
     expiresAt
     user {
-      username
+      email
+      name
       role
     }
   }
@@ -119,8 +120,8 @@ mutation RefreshToken($refreshToken: String!) {
 query Me {
   me {
     id
-    username
     email
+    name
     role
     active
     lastLogin
@@ -501,8 +502,8 @@ query GenerateBulkDownload($towerId: ID) {
 query GetUsers {
   users {
     id
-    username
     email
+    name
     role
     active
     lastLogin
@@ -516,8 +517,8 @@ query GetUsers {
 mutation CreateUser($input: CreateUserInput!) {
   createUser(input: $input) {
     id
-    username
     email
+    name
     role
     active
     createdAt
@@ -529,7 +530,7 @@ mutation CreateUser($input: CreateUserInput!) {
 ```json
 {
   "input": {
-    "username": "novousuario",
+    "name": "Novo Usuário",
     "email": "novo@terraallwert.com",
     "password": "senha123",
     "role": "VIEWER",
@@ -586,7 +587,7 @@ class TerraAllwertAPI {
     return result.data;
   }
 
-  async login(username, password) {
+  async login(email, password) {
     const query = `
       mutation Login($input: LoginInput!) {
         login(input: $input) {
@@ -595,7 +596,8 @@ class TerraAllwertAPI {
           expiresAt
           user {
             id
-            username
+            email
+            name
             role
           }
         }
@@ -603,7 +605,7 @@ class TerraAllwertAPI {
     `;
 
     const data = await this.request(query, {
-      input: { username, password }
+      input: { email, password }
     });
 
     this.token = data.login.token;
@@ -678,8 +680,8 @@ const api = new TerraAllwertAPI();
 async function example() {
   try {
     // 1. Login
-    const loginResult = await api.login('admin', 'admin123');
-    console.log('Logged in as:', loginResult.user.username);
+    const loginResult = await api.login('admin@terraallwert.com', 'admin123');
+    console.log('Logged in as:', loginResult.user.email);
 
     // 2. Listar torres (público)
     const towers = await api.getTowers();
