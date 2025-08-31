@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../domain/enums/menu_presentation_type.dart';
 import '../../../design_system/app_theme.dart';
 import '../../navigation/providers/navigation_provider.dart';
 import '../../../widgets/components/organisms/presentations/image_carousel_presentation.dart';
@@ -35,34 +36,26 @@ class DynamicPage extends ConsumerWidget {
 
     // Determinar qual apresentação usar baseado no tipo de menu
     switch (menuType) {
-      case 'Menu Padrão':
+      case MenuPresentationType.standard:
         return ImageCarouselPresentation(
           title: itemTitle,
           route: route,
           description: description,
         );
       
-      case 'Menu com Pins':
+      case MenuPresentationType.pinMap:
         return PinMapPresentation(
           title: itemTitle,
           route: route,
           description: description,
         );
       
-      case 'Menu Pavimento':
+      case MenuPresentationType.floorPlan:
         return FloorPlanPresentation(
           title: itemTitle,
           route: route,
           description: description,
           floorNumber: _extractFloorNumber(itemTitle),
-        );
-      
-      default:
-        // Para tipos não reconhecidos, usar carrossel como padrão
-        return ImageCarouselPresentation(
-          title: itemTitle,
-          route: route,
-          description: description,
         );
     }
   }

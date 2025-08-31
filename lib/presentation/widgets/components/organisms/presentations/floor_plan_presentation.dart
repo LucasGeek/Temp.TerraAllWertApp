@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../domain/enums/floor_unit_type.dart';
 import '../../../../design_system/app_theme.dart';
 import '../../../../design_system/layout_constants.dart';
 import '../../../../responsive/breakpoints.dart';
@@ -9,7 +10,7 @@ import '../../../../responsive/breakpoints.dart';
 class FloorUnit {
   final String id;
   final String number;
-  final String type; // 'apartment', 'elevator', 'stairs', 'common'
+  final FloorUnitType type;
   final Rect area; // Área relativa (0.0 a 1.0)
   final String? description;
   final bool isAvailable;
@@ -29,31 +30,27 @@ class FloorUnit {
     if (customColor != null) return customColor!;
     
     switch (type) {
-      case 'apartment':
+      case FloorUnitType.apartment:
         return isAvailable ? Colors.green : Colors.red;
-      case 'elevator':
+      case FloorUnitType.elevator:
         return Colors.grey[600]!;
-      case 'stairs':
+      case FloorUnitType.stairs:
         return Colors.blue;
-      case 'common':
+      case FloorUnitType.common:
         return Colors.orange;
-      default:
-        return Colors.grey;
     }
   }
 
   String get label {
     switch (type) {
-      case 'apartment':
+      case FloorUnitType.apartment:
         return isAvailable ? 'Disponível' : 'Vendido';
-      case 'elevator':
+      case FloorUnitType.elevator:
         return 'Elevador';
-      case 'stairs':
+      case FloorUnitType.stairs:
         return 'Escada';
-      case 'common':
+      case FloorUnitType.common:
         return 'Área Comum';
-      default:
-        return type;
     }
   }
 }
@@ -96,7 +93,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
     FloorUnit(
       id: '101',
       number: '101',
-      type: 'apartment',
+      type: FloorUnitType.apartment,
       area: const Rect.fromLTWH(0.1, 0.1, 0.35, 0.4),
       description: '3 quartos, 2 banheiros, 85m²',
       isAvailable: true,
@@ -104,7 +101,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
     FloorUnit(
       id: '102',
       number: '102',
-      type: 'apartment',
+      type: FloorUnitType.apartment,
       area: const Rect.fromLTWH(0.55, 0.1, 0.35, 0.4),
       description: '2 quartos, 1 banheiro, 65m²',
       isAvailable: false,
@@ -112,7 +109,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
     FloorUnit(
       id: '103',
       number: '103',
-      type: 'apartment',
+      type: FloorUnitType.apartment,
       area: const Rect.fromLTWH(0.1, 0.55, 0.35, 0.4),
       description: '4 quartos, 3 banheiros, 120m²',
       isAvailable: true,
@@ -120,7 +117,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
     FloorUnit(
       id: '104',
       number: '104',
-      type: 'apartment',
+      type: FloorUnitType.apartment,
       area: const Rect.fromLTWH(0.55, 0.55, 0.35, 0.4),
       description: '3 quartos, 2 banheiros, 90m²',
       isAvailable: true,
@@ -130,21 +127,21 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
     FloorUnit(
       id: 'elevator1',
       number: 'EL',
-      type: 'elevator',
+      type: FloorUnitType.elevator,
       area: const Rect.fromLTWH(0.46, 0.35, 0.08, 0.1),
       description: 'Elevador social',
     ),
     FloorUnit(
       id: 'stairs1',
       number: 'ESC',
-      type: 'stairs',
+      type: FloorUnitType.stairs,
       area: const Rect.fromLTWH(0.46, 0.45, 0.08, 0.1),
       description: 'Escada de emergência',
     ),
     FloorUnit(
       id: 'hall',
       number: 'HALL',
-      type: 'common',
+      type: FloorUnitType.common,
       area: const Rect.fromLTWH(0.46, 0.2, 0.08, 0.15),
       description: 'Hall de entrada',
     ),
@@ -408,7 +405,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (unit.type == 'apartment') ...[
+                    if (unit.type == FloorUnitType.apartment) ...[
                       Icon(
                         Icons.home,
                         color: Colors.white,
@@ -463,7 +460,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  unit.type == 'apartment' ? Icons.home : Icons.location_on,
+                  unit.type == FloorUnitType.apartment ? Icons.home : Icons.location_on,
                   color: Colors.white,
                   size: 18,
                 ),
@@ -474,7 +471,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      unit.type == 'apartment' ? 'Apartamento ${unit.number}' : unit.number,
+                      unit.type == FloorUnitType.apartment ? 'Apartamento ${unit.number}' : unit.number,
                       style: TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: LayoutConstants.fontSizeLarge,
@@ -581,7 +578,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
   }
 
   Widget _buildStatistics(List<FloorUnit> units) {
-    final apartments = units.where((u) => u.type == 'apartment').toList();
+    final apartments = units.where((u) => u.type == FloorUnitType.apartment).toList();
     final available = apartments.where((a) => a.isAvailable).length;
     final sold = apartments.length - available;
 

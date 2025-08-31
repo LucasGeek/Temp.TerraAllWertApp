@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../domain/entities/navigation_item.dart';
+import '../../../../domain/enums/menu_presentation_type.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../features/navigation/providers/navigation_provider.dart';
@@ -31,18 +32,12 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   
-  String _selectedMenuType = 'Menu Padrão';
+  MenuPresentationType _selectedMenuType = MenuPresentationType.standard;
   String? _selectedParentId;
   IconData _selectedIcon = Icons.home_outlined;
   IconData _selectedSelectedIcon = Icons.home;
   bool _isLoading = false;
 
-  // Tipos de menu baseados no sistema legado
-  final List<String> _menuTypes = [
-    'Menu Padrão',
-    'Menu com Pins', 
-    'Menu Pavimento',
-  ];
 
   // Ícones disponíveis
   final List<IconData> _availableIcons = [
@@ -325,12 +320,7 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
           SizedBox(height: LayoutConstants.marginLg),
           
           // Dropdown Tipo de Menu
-          _buildDropdownField(
-            label: 'Tipo de Menu',
-            value: _selectedMenuType,
-            items: _menuTypes,
-            onChanged: (value) => setState(() => _selectedMenuType = value!),
-          ),
+          _buildMenuTypeDropdown(),
           
           SizedBox(height: LayoutConstants.marginLg),
           
@@ -491,19 +481,15 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
     );
   }
 
-  /// Dropdown customizado
-  Widget _buildDropdownField({
-    required String label,
-    required String value,
-    required List<String> items,
-    required void Function(String?) onChanged,
-  }) {
+
+  /// Dropdown para tipo de menu
+  Widget _buildMenuTypeDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          label,
+          'Tipo de Menu',
           style: TextStyle(
             fontSize: LayoutConstants.fontSizeMedium,
             fontWeight: FontWeight.w500,
@@ -513,9 +499,9 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
         
         SizedBox(height: LayoutConstants.marginSm),
         
-        DropdownButtonFormField<String>(
-          value: value,
-          onChanged: onChanged,
+        DropdownButtonFormField<MenuPresentationType>(
+          value: _selectedMenuType,
+          onChanged: (value) => setState(() => _selectedMenuType = value!),
           decoration: InputDecoration(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
@@ -531,9 +517,9 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
             ),
             contentPadding: EdgeInsets.all(LayoutConstants.paddingMd),
           ),
-          items: items.map((item) => DropdownMenuItem(
-            value: item,
-            child: Text(item),
+          items: MenuPresentationType.values.map((type) => DropdownMenuItem(
+            value: type,
+            child: Text(type.displayName),
           )).toList(),
         ),
       ],
