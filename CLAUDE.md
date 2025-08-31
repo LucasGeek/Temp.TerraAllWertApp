@@ -62,72 +62,77 @@ Aplicação multiplataforma (Web, iOS, Android, Desktop) para visualização e g
 - **Cached Network Image**: Cache de imagens
 - **GetIt**: Injeção de dependências
 
-## Estrutura do Projeto - Clean Architecture + Feature First
+## Estrutura do Projeto - Clean Architecture Top-Level + Feature First
 
 ```
 app/
 ├── lib/
-│   ├── core/                          # Shared/Cross-cutting concerns
-│   │   ├── presentation/             # UI comum a todas features
-│   │   │   ├── design_system/        # Design System (cores, tipografia)
-│   │   │   ├── components/           # Atomic Design components
-│   │   │   │   ├── atoms/           # Button, Input, Icon, etc.
-│   │   │   │   ├── molecules/       # FormFields, Cards, etc.
-│   │   │   │   ├── organisms/       # Forms, Lists, etc.
-│   │   │   │   └── templates/       # Layout templates
-│   │   │   └── responsive/          # Sistema responsivo
-│   │   ├── domain/                   # Business rules shared
-│   │   │   ├── entities/            # Core entities
-│   │   │   ├── failures/            # Error types
-│   │   │   └── validators/          # Business validation rules
-│   │   ├── infra/                    # External integrations
-│   │   │   ├── platform/            # Platform services
-│   │   │   ├── network/             # HTTP client, GraphQL
-│   │   │   ├── storage/             # Local storage
-│   │   │   └── cache/               # Cache management
-│   │   ├── data/                     # Data access shared
-│   │   │   ├── datasources/         # Remote/Local data sources
-│   │   │   ├── models/              # Data models (DTOs)
-│   │   │   └── repositories/        # Repository implementations
-│   │   ├── services/                 # Global services
-│   │   ├── router/                   # App routing
-│   │   ├── constants/                # App constants
-│   │   └── utils/                    # Utilities
-│   ├── features/                     # Feature modules
-│   │   ├── auth/
-│   │   │   ├── presentation/        # UI layer (pages, widgets, providers)
-│   │   │   ├── domain/             # Business logic (entities, repos, usecases)
-│   │   │   ├── infra/              # External integrations
-│   │   │   └── data/               # Data layer (datasources, models, repos)
-│   │   ├── towers/                  # Torre management
-│   │   ├── apartments/              # Apartamento management
-│   │   ├── gallery/                 # Gallery features
-│   │   └── profile/                 # User profile
+│   ├── domain/                       # Business Logic & Rules (Core)
+│   │   ├── constants/               # App constants
+│   │   ├── failures/                # Error types & exceptions
+│   │   ├── validators/              # Business validation rules
+│   │   └── utils/                   # Domain utilities
+│   ├── infra/                        # External Integrations & Infrastructure
+│   │   ├── platform/                # Platform services (iOS/Android/Web)
+│   │   ├── network/                 # HTTP client, API config
+│   │   ├── storage/                 # Local storage (Hive/SQLite)
+│   │   ├── cache/                   # Cache management
+│   │   ├── downloads/               # Download management
+│   │   ├── graphql/                 # GraphQL mutations/queries
+│   │   ├── sync/                    # Data synchronization
+│   │   ├── services/                # Global services (Snackbar, etc)
+│   │   └── router/                  # App routing
+│   ├── data/                         # Data Access Layer
+│   │   ├── datasources/             # Remote/Local data sources
+│   │   ├── models/                  # Data models (DTOs)
+│   │   └── repositories/            # Repository implementations
+│   ├── presentation/                 # UI/UX Layer
+│   │   ├── design_system/           # Cores, tipografia, theme
+│   │   ├── responsive/              # Sistema responsivo (breakpoints)
+│   │   ├── widgets/                 # Atomic Design components
+│   │   │   └── components/         # Atoms, Molecules, Organisms, Templates
+│   │   │       ├── atoms/          # Button, Input, Icon, etc.
+│   │   │       ├── molecules/      # FormFields, Cards, etc.
+│   │   │       ├── organisms/      # Forms, Lists, etc.
+│   │   │       └── templates/      # Layout templates
+│   │   ├── features/                # Feature modules
+│   │   │   ├── auth/               # Authentication feature
+│   │   │   │   ├── presentation/   # UI (pages, widgets, providers)
+│   │   │   │   ├── domain/         # Business logic (entities, usecases)
+│   │   │   │   ├── infra/          # External integrations
+│   │   │   │   └── data/           # Data layer (datasources, repos)
+│   │   │   ├── towers/             # Torre management
+│   │   │   ├── apartments/         # Apartamento management
+│   │   │   ├── gallery/            # Gallery features
+│   │   │   └── profile/            # User profile
+│   │   ├── shared/                  # Shared presentation components
+│   │   └── l10n/                    # Localization
 │   └── main.dart
 ├── assets/               # Imagens, fontes, ícones SVG
 ├── test/                 # Testes (mirror da estrutura lib/)
 └── web/                  # Configurações web
 ```
 
-## Arquitetura Clean Architecture + Feature First
+## Arquitetura Clean Architecture Top-Level + Feature First
 
 ### Princípios Fundamentais
 
-1. **Separação de Responsabilidades por Camadas**:
-   - **Presentation**: UI/UX, State Management, Widgets
-   - **Domain**: Business Logic, Entities, Use Cases
-   - **Infra**: External APIs, Platform Services, Third-party integrations
-   - **Data**: Data Access, Repository implementations, DTOs
+1. **Camadas Top-Level bem definidas**:
+   - **`lib/domain/`**: Business Logic puro, regras de negócio, validações
+   - **`lib/infra/`**: Infraestrutura externa, APIs, platform services
+   - **`lib/data/`**: Acesso a dados, repositories, DTOs
+   - **`lib/presentation/`**: UI/UX, features, widgets, design system
 
-2. **Regras de Dependência**:
-   - `presentation` → `domain`
-   - `data` → `domain`
-   - `infra` → `domain`
-   - `domain` → nada (business rules puras)
+2. **Regras de Dependência (Clean Architecture)**:
+   - `presentation/` → `domain/`
+   - `data/` → `domain/`
+   - `infra/` → `domain/`
+   - `domain/` → independente (business rules puras)
 
-3. **Feature First Organization**:
-   - Cada feature é auto-contida
-   - Core compartilha recursos entre features
+3. **Feature First dentro de Presentation**:
+   - Cada feature em `presentation/features/` é auto-contida
+   - Widgets globais em `presentation/widgets/`
+   - Design system centralizado em `presentation/design_system/`
    - Facilita trabalho em equipe e escalabilidade
 
 ### Atomic Design System

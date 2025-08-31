@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:terra_allwert_app/features/towers/domain/entities/tower.dart';
+import 'package:terra_allwert_app/presentation/features/towers/domain/entities/tower.dart';
 
 void main() {
   group('Tower Entity', () {

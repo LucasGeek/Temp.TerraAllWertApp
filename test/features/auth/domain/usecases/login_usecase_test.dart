@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:terra_allwert_app/features/auth/domain/entities/auth_token.dart';
-import 'package:terra_allwert_app/features/auth/domain/repositories/auth_repository.dart';
-import 'package:terra_allwert_app/features/auth/domain/usecases/login_usecase.dart';
+import 'package:terra_allwert_app/presentation/features/auth/domain/entities/auth_token.dart';
+import 'package:terra_allwert_app/presentation/features/auth/domain/repositories/auth_repository.dart';
+import 'package:terra_allwert_app/presentation/features/auth/domain/usecases/login_usecase.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
 

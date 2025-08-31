@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:terra_allwert_app/features/auth/presentation/providers/login_form_provider.dart';
+import 'package:terra_allwert_app/presentation/features/auth/presentation/providers/login_form_provider.dart';
 
 void main() {
   group('LoginFormProvider', () {

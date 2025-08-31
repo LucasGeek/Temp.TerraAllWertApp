@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:terra_allwert_app/core/downloads/download_manager.dart';
+import 'package:terra_allwert_app/infra/downloads/download_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

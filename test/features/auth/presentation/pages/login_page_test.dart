@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:terra_allwert_app/features/auth/presentation/pages/login_page.dart';
-import 'package:terra_allwert_app/features/auth/presentation/providers/auth_provider.dart';
-import 'package:terra_allwert_app/features/auth/domain/entities/auth_token.dart';
-import 'package:terra_allwert_app/features/auth/domain/usecases/login_usecase.dart';
+import 'package:terra_allwert_app/presentation/features/auth/presentation/pages/login_page.dart';
+import 'package:terra_allwert_app/presentation/features/auth/presentation/providers/auth_provider.dart';
+import 'package:terra_allwert_app/presentation/features/auth/domain/entities/auth_token.dart';
+import 'package:terra_allwert_app/presentation/features/auth/domain/usecases/login_usecase.dart';
 
 class MockLoginUseCase extends Mock implements LoginUseCase {}
 
