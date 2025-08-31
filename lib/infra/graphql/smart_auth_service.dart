@@ -38,12 +38,16 @@ class SmartAuthService {
     } catch (error) {
       final errorString = error.toString().toLowerCase();
       
-      // Se é erro de servidor interno ou conexão, tenta desenvolvimento
+      // Se é erro de servidor interno, conexão ou parsing, tenta desenvolvimento
       if (errorString.contains('erro interno do servidor') ||
           errorString.contains('internal server error') ||
           errorString.contains('500') ||
           errorString.contains('connection refused') ||
-          errorString.contains('network error')) {
+          errorString.contains('network error') ||
+          errorString.contains('connection failed') ||
+          errorString.contains('failed to fetch') ||
+          errorString.contains('parsedresponse: null') ||
+          errorString.contains('link exception')) {
         
         AuthLogger.warning('Smart auth: GraphQL authentication failed with server error, trying development mode');
         AuthLogger.warning('GraphQL error: $error');

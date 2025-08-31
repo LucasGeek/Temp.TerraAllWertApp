@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+
 import '../../domain/entities/auth_token.dart';
 import '../../domain/entities/user.dart';
 import '../../infra/logging/app_logger.dart';
@@ -10,16 +11,12 @@ import 'mutations/auth_mutations.dart';
 class GraphQLAuthService {
   final GraphQLClientService _client;
   final SecureStorageService _storage;
-  
-  GraphQLAuthService({
-    required GraphQLClientService client,
-    required SecureStorageService storage,
-  }) : _client = client, _storage = storage;
 
-  Future<AuthToken> login({
-    required String email,
-    required String password,
-  }) async {
+  GraphQLAuthService({required GraphQLClientService client, required SecureStorageService storage})
+    : _client = client,
+      _storage = storage;
+
+  Future<AuthToken> login({required String email, required String password}) async {
     AuthLogger.loginAttempt(email);
 
     try {
@@ -27,19 +24,18 @@ class GraphQLAuthService {
       final hasConnection = await _client.hasNetworkConnection();
       if (!hasConnection) {
         AuthLogger.error('No network connectivity during login attempt');
-        throw Exception('Não foi possível conectar ao servidor. Verifique sua conexão com a internet.');
+        throw Exception(
+          'Não foi possível conectar ao servidor. Verifique sua conexão com a internet.',
+        );
       }
 
       AuthLogger.debug('Network connection confirmed, proceeding with login mutation');
-      
+
       final result = await _client.mutateWithRetry(
         MutationOptions(
           document: gql(loginMutation),
           variables: {
-            'input': {
-              'email': email,
-              'password': password,
-            },
+            'input': {'email': email, 'password': password},
           },
         ),
         maxRetries: 2, // Retry login attempts up to 2 times
@@ -47,7 +43,7 @@ class GraphQLAuthService {
 
       if (result.hasException) {
         final errorMsg = result.exception.toString();
-        
+
         // Enhanced error logging for debugging
         if (result.exception?.graphqlErrors != null && result.exception!.graphqlErrors.isNotEmpty) {
           for (final error in result.exception!.graphqlErrors) {
@@ -57,18 +53,18 @@ class GraphQLAuthService {
             }
           }
         }
-        
+
         if (result.exception?.linkException != null) {
           AuthLogger.error('Link exception during login: ${result.exception!.linkException}');
         }
-        
+
         AuthLogger.loginFailure(email, errorMsg);
         throw Exception(errorMsg);
       }
 
       final data = result.data!['login'];
       AuthLogger.debug('Login response received from server');
-      
+
       final token = AuthToken(
         accessToken: data['token'],
         refreshToken: data['refreshToken'],
@@ -97,7 +93,7 @@ class GraphQLAuthService {
       return token;
     } catch (e, stackTrace) {
       AuthLogger.loginFailure(email, e.toString());
-      
+
       // Log apenas como info para erros de autenticação, evitando stack trace feio
       if (e is OperationException && e.graphqlErrors.isNotEmpty) {
         AuthLogger.info('Login failed with GraphQL error: ${e.graphqlErrors.first.message}');
@@ -117,9 +113,7 @@ class GraphQLAuthService {
     final result = await _client.mutate(
       MutationOptions(
         document: gql(refreshTokenMutation),
-        variables: {
-          'refreshToken': refreshToken,
-        },
+        variables: {'refreshToken': refreshToken},
       ),
     );
 
@@ -135,10 +129,7 @@ class GraphQLAuthService {
       tokenType: 'Bearer',
     );
 
-    await _storage.setTokens(
-      accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-    );
+    await _storage.setTokens(accessToken: token.accessToken, refreshToken: token.refreshToken);
 
     return token;
   }
@@ -151,11 +142,7 @@ class GraphQLAuthService {
     final result = await _client.mutate(
       MutationOptions(
         document: gql(signupMutation),
-        variables: {
-          'email': email,
-          'password': password,
-          'name': name,
-        },
+        variables: {'email': email, 'password': password, 'name': name},
       ),
     );
 
@@ -171,24 +158,17 @@ class GraphQLAuthService {
       tokenType: 'Bearer',
     );
 
-    await _storage.setTokens(
-      accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-    );
+    await _storage.setTokens(accessToken: token.accessToken, refreshToken: token.refreshToken);
 
     return token;
   }
 
   Future<void> logout() async {
     AuthLogger.logoutAttempt();
-    
+
     try {
       // Try to logout from server
-      await _client.mutate(
-        MutationOptions(
-          document: gql(logoutMutation),
-        ),
-      );
+      await _client.mutate(MutationOptions(document: gql(logoutMutation)));
       AuthLogger.debug('Server logout successful');
     } catch (e) {
       // Continue with local logout even if server logout fails
@@ -199,7 +179,7 @@ class GraphQLAuthService {
       // Clear local storage
       await _storage.clearTokens();
       await _client.clearCache();
-      
+
       AuthLogger.logoutSuccess();
     } catch (e, stackTrace) {
       AuthLogger.logoutFailure(e.toString());
@@ -211,11 +191,9 @@ class GraphQLAuthService {
   Future<User?> getCurrentUser() async {
     try {
       AuthLogger.debug('Fetching current user data from server');
-      
+
       final result = await _client.queryWithRetry(
-        QueryOptions(
-          document: gql(getCurrentUserQuery),
-        ),
+        QueryOptions(document: gql(getCurrentUserQuery)),
         maxRetries: 2, // Retry user data fetching
       );
 
@@ -247,10 +225,7 @@ class GraphQLAuthService {
         'id': user.id,
         'email': user.email,
         'name': user.name,
-        'role': {
-          'name': user.role.name,
-          'code': user.role.code,
-        }
+        'role': {'name': user.role.name, 'code': user.role.code},
       });
 
       return user;
@@ -277,9 +252,6 @@ class GraphQLAuthService {
 final graphQLAuthServiceProvider = Provider<GraphQLAuthService>((ref) {
   final client = ref.watch(graphQLClientProvider);
   final storage = ref.watch(secureStorageServiceProvider);
-  
-  return GraphQLAuthService(
-    client: client,
-    storage: storage,
-  );
+
+  return GraphQLAuthService(client: client, storage: storage);
 });

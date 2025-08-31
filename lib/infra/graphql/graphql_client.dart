@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../config/env_config.dart';
@@ -176,8 +177,15 @@ class GraphQLClientService {
 
   /// Check basic network connectivity
   Future<bool> hasNetworkConnection() async {
+    // On web, Socket constructor is not supported
+    // Always assume connectivity is available for web platform
+    if (kIsWeb) {
+      AppLogger.debug('Web platform detected, assuming connectivity available', tag: 'GRAPHQL');
+      return true;
+    }
+
     try {
-      AppLogger.debug('Checking network connectivity', tag: 'GRAPHQL');
+      AppLogger.debug('Checking network connectivity via socket', tag: 'GRAPHQL');
       
       final uri = Uri.parse(_endpoint);
       final host = uri.host;
@@ -199,8 +207,7 @@ class GraphQLClientService {
     } catch (e) {
       AppLogger.warning('Network connectivity check failed: $e', tag: 'GRAPHQL');
       
-      // For development, try a more lenient approach - just return true
-      // since we know localhost should be available
+      // For localhost endpoints, assume connectivity is available
       if (_endpoint.contains('localhost') || _endpoint.contains('127.0.0.1')) {
         AppLogger.info('Localhost endpoint detected, assuming connectivity available', tag: 'GRAPHQL');
         return true;
