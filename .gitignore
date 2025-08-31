@@ -1,0 +1,518 @@
+# ═══════════════════════════════════════════════════════════════
+# .gitignore para Projeto Flutter MoedaX
+# Configuração completa para desenvolvimento multiplataforma
+# ═══════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════
+# 🎯 FLUTTER & DART CORE
+# ═══════════════════════════════════════════════════════════════
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.fvm/
+.packages
+.pub-cache/
+.pub/
+/build/
+pubspec.lock
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# ═══════════════════════════════════════════════════════════════
+# 📱 ANDROID ESPECÍFICOS
+# ═══════════════════════════════════════════════════════════════
+
+# Gradle files
+.gradle/
+/build/
+/android/build/
+/android/app/build/
+/android/.gradle/
+/android/captures/
+/android/gradlew
+/android/gradlew.bat
+/android/local.properties
+android/key.properties
+
+# Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+/android/.idea/
+/android/app/.cxx/
+
+# Keystore files
+*.jks
+*.keystore
+/android/keystore/
+/android/app/keystore/
+
+# Google Services
+**/google-services.json
+/android/app/src/*/google-services.json
+
+# APK/AAB builds
+*.apk
+*.aab
+
+# NDK
+obj/
+
+# IntelliJ IDEA
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/jarRepositories.xml
+
+# ═══════════════════════════════════════════════════════════════
+# 🍎 iOS ESPECÍFICOS
+# ═══════════════════════════════════════════════════════════════
+
+# Xcode
+/ios/build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace
+
+# CocoaPods
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/ephemeral/
+/ios/Flutter/app.flx
+/ios/Flutter/app.zip
+/ios/Flutter/flutter_assets/
+/ios/Flutter/flutter_export_environment.sh
+/ios/ServiceDefinitions.json
+/ios/Runner/GeneratedPluginRegistrant.*
+
+# iOS Certificates & Provisioning
+*.p12
+*.mobileprovision
+*.certSigningRequest
+/ios/certificates/
+/ios/config/*/GoogleService-Info.plist
+**/GoogleService-Info.plist
+
+# Fastlane
+/ios/fastlane/report.xml
+/ios/fastlane/Preview.html
+/ios/fastlane/screenshots
+/ios/fastlane/test_output
+
+# ═══════════════════════════════════════════════════════════════
+# 🖥️ IDEs & EDITORES
+# ═══════════════════════════════════════════════════════════════
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Android Studio
+/android/.idea/
+/android/app/.cxx/
+/captures/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*~
+*.swp
+*.swo
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ═══════════════════════════════════════════════════════════════
+# 💻 SISTEMA OPERACIONAL
+# ═══════════════════════════════════════════════════════════════
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.tmp
+*.temp
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ═══════════════════════════════════════════════════════════════
+# 🔧 BUILD & GENERATED FILES
+# ═══════════════════════════════════════════════════════════════
+
+# Build outputs organizados
+/dist/
+/dist/build/
+/dist/build/android/
+/dist/build/ios/
+
+# Generated files
+lib/common/generated/
+lib/**/*.g.dart
+lib/**/*.freezed.dart
+lib/**/*.config.dart
+lib/**/*.mocks.dart
+
+# Test generated files
+test/**/*.mocks.dart
+
+# Build runner
+*.g.dart
+
+# JSON generated files
+lib/common/generated/exchange_rates_constants.dart
+
+# ═══════════════════════════════════════════════════════════════
+# 📊 LOGS & TEMPORÁRIOS
+# ═══════════════════════════════════════════════════════════════
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Flutter logs
+flutter_*.log
+
+# Test coverage
+coverage/
+test-results/
+.nyc_output
+
+# Screenshots
+screenshots/
+test_driver/screenshots/
+
+# ═══════════════════════════════════════════════════════════════
+# 🔐 SEGURANÇA & CREDENCIAIS
+# ═══════════════════════════════════════════════════════════════
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+
+# Firebase
+firebase_options.dart
+/lib/firebase_options.dart
+
+# API Keys
+**/api_keys.dart
+**/secrets.dart
+**/config/secrets/
+
+# Certificates and private keys
+*.pem
+*.key
+*.crt
+*.p8
+*.p12
+*.mobileprovision
+*.certSigningRequest
+
+# Keystores
+*.jks
+*.keystore
+key.properties
+keystore.properties
+
+# ═══════════════════════════════════════════════════════════════
+# 🚀 CI/CD & DEPLOYMENT
+# ═══════════════════════════════════════════════════════════════
+
+# Version control
+version.json
+release-notes/
+build.env
+
+# CI/CD temporaries
+.gitlab-ci-local/
+.github-ci-local/
+
+# Deployment artifacts
+*.tar.gz
+*.zip
+*.dmg
+
+# Release files
+CHANGELOG.tmp
+release-trigger.md
+
+# ═══════════════════════════════════════════════════════════════
+# 📦 DEPENDÊNCIAS & CACHE
+# ═══════════════════════════════════════════════════════════════
+
+# Node.js (para tools)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Yarn
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# FVM (Flutter Version Management)
+.fvm/flutter_sdk
+.fvm/version
+
+# Pub cache
+.pub-cache/
+.pub/
+
+# ═══════════════════════════════════════════════════════════════
+# 🧪 TESTES & ANÁLISE
+# ═══════════════════════════════════════════════════════════════
+
+# Test results
+test-results.xml
+junit.xml
+coverage.xml
+coverage.lcov
+
+# Lint results
+lint-results.xml
+lint-results.html
+
+# Static analysis
+analysis_options.local.yaml
+dart_code_metrics.json
+
+# Integration test artifacts
+integration_test/screenshots/
+integration_test/videos/
+integration_test/logs/
+
+# Golden files (generated)
+test/**/goldens/failures/
+
+# ═══════════════════════════════════════════════════════════════
+# 🔧 FERRAMENTAS & UTILITÁRIOS
+# ═══════════════════════════════════════════════════════════════
+
+# Melos (monorepo tool)
+melos_*.yaml
+.melos
+
+# Mason (code generation)
+.mason/
+
+# Very Good CLI
+.vgv/
+
+# Dart Code Metrics
+dart_code_metrics/
+
+# Import sorter
+.dart_tool/package_config.json
+
+# ═══════════════════════════════════════════════════════════════
+# 📱 DEVICE & SIMULATOR
+# ═══════════════════════════════════════════════════════════════
+
+# Device logs
+device_logs/
+simulator_logs/
+
+# Crash reports
+crash_reports/
+
+# Performance profiles
+*.trace
+*.profile
+
+# ═══════════════════════════════════════════════════════════════
+# 🎨 ASSETS TEMPORÁRIOS
+# ═══════════════════════════════════════════════════════════════
+
+# Asset generation temporaries
+.asset_generator/
+.asset_cache/
+
+# Icon generation
+android/app/src/main/res/mipmap-*/
+ios/Runner/Assets.xcassets/AppIcon.appiconset/
+assets/icon/generated/
+
+# Splash screen generation
+assets/splash/generated/
+
+# ═══════════════════════════════════════════════════════════════
+# 🌐 WEB ESPECÍFICOS (se aplicável)
+# ═══════════════════════════════════════════════════════════════
+
+# Web build
+/web/build/
+/web/.dart_tool/
+
+# PWA
+/web/manifest.json.backup
+
+# ═══════════════════════════════════════════════════════════════
+# 🖥️ DESKTOP (se aplicável)
+# ═══════════════════════════════════════════════════════════════
+
+# Windows
+/windows/build/
+*.exe
+*.dll
+*.pdb
+
+# macOS
+/macos/build/
+*.app
+
+# Linux
+/linux/build/
+
+# ═══════════════════════════════════════════════════════════════
+# 📝 EXCEÇÕES IMPORTANTES
+# ═══════════════════════════════════════════════════════════════
+
+# Manter arquivos importantes
+!/.gitkeep
+!android/gradle/wrapper/gradle-wrapper.jar
+!android/gradle/wrapper/gradle-wrapper.properties
+
+# Manter configs necessários (mas sem dados sensíveis)
+!android/app/src/main/res/
+!ios/Runner/Info.plist
+!ios/Runner/Assets.xcassets/
+!pubspec.yaml
+
+# Manter scripts
+!.gitlab/scripts/*.sh
+!scripts/*.sh
+
+# Manter configurações de exemplo
+!.env.example
+!android/key.properties.example
+!ios/certificates/README.md
+
+# ═══════════════════════════════════════════════════════════════
+# 🎯 PROJETO ESPECÍFICO - MoedaX
+# ═══════════════════════════════════════════════════════════════
+
+# Exchange rates cache
+exchange_rates_cache.json
+exchange_rates_backup.json
+
+# Currency icons cache
+assets/images/currencies/cache/
+
+# Trading data cache
+trading_data/
+market_data_cache/
+
+# User preferences backup
+user_preferences_backup.json
+
+# Analytics data
+analytics_data/
+usage_stats.json
+
+# Performance monitoring
+performance_logs/
+apm_data/
+
+lib/firebase_options*.dart
+ios/Runner/GoogleService-Info.plist
+ios/flavors/*/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+macos/flavors/*/GoogleService-Info.plist
+android/app/google-services.json
+android/app/src/*/google-services.jsonandroid/key.properties
+android/app/*.jks
