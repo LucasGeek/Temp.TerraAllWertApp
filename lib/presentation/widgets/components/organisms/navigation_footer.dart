@@ -5,6 +5,7 @@ import '../../../design_system/layout_constants.dart';
 import '../../../notification/snackbar_notification.dart';
 import '../../../responsive/breakpoints.dart';
 import 'logout_confirmation_sheet.dart';
+import 'menu_configuration_dialog.dart';
 
 /// Footer de navegação com ações do usuário
 /// Contém logout, settings e editar menu
@@ -76,7 +77,7 @@ class NavigationFooter extends StatelessWidget {
 
   void _handleEditMenu(BuildContext context) {
     _closeDrawerIfNeeded(context);
-    SnackbarNotification.showInfo('Editar menu em desenvolvimento');
+    MenuConfigurationDialog.show(context);
   }
 
   void _closeDrawerIfNeeded(BuildContext context) {

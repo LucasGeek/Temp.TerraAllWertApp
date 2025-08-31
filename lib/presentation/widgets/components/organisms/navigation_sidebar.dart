@@ -64,44 +64,162 @@ class NavigationSidebar extends ConsumerWidget {
         'NavigationSidebar: Building navigation list with ${navigationItems.length} items',
       );
 
+      // Estado vazio com feedback melhorado
       if (navigationItems.isEmpty) {
-        return const Expanded(
-          child: Center(
-            child: Text(
-              'Nenhum item de navegação disponível',
-              style: TextStyle(color: AppTheme.onPrimary, fontSize: 14),
-            ),
-          ),
-        );
+        return _buildEmptyState();
       }
 
       return Expanded(
-        child: ListView(
-          padding: EdgeInsets.symmetric(vertical: LayoutConstants.paddingXs),
-          children: navigationItems.map((item) {
-            final isSelected = item.route == currentRoute;
-
-            return NavigationMenuItem(
-              icon: item.icon,
-              selectedIcon: item.selectedIcon,
-              label: item.label,
-              isSelected: isSelected,
-              onTap: () => _handleNavigation(context, item.route),
-            );
-          }).toList(),
+        child: Scrollbar(
+          thumbVisibility: true,
+          thickness: 6.0,
+          radius: const Radius.circular(LayoutConstants.radiusSmall),
+          trackVisibility: false,
+          child: ListView.builder(
+            padding: EdgeInsets.symmetric(
+              vertical: LayoutConstants.paddingXs,
+              horizontal: LayoutConstants.paddingXs,
+            ),
+            itemCount: navigationItems.length,
+            physics: const BouncingScrollPhysics(),
+            itemBuilder: (context, index) {
+              final item = navigationItems[index];
+              
+              // Improved active route detection baseado no sistema legado
+              final isSelected = _isRouteActive(item.route, currentRoute);
+              
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                child: NavigationMenuItem(
+                  icon: item.icon,
+                  selectedIcon: item.selectedIcon,
+                  label: item.label,
+                  isSelected: isSelected,
+                  onTap: () => _handleNavigation(context, _cleanRoute(item.route)),
+                ),
+              );
+            },
+          ),
         ),
       );
     } catch (e) {
       debugPrint('NavigationSidebar: Error building navigation list - $e');
-      return const Expanded(
-        child: Center(
-          child: Text(
-            'Erro ao carregar itens de navegação',
-            style: TextStyle(color: AppTheme.onPrimary, fontSize: 14),
-          ),
-        ),
-      );
+      return _buildErrorState();
     }
+  }
+
+  /// Estado vazio melhorado com ícone visual
+  Widget _buildEmptyState() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.menu,
+              size: LayoutConstants.iconXLarge,
+              color: AppTheme.onPrimary.withValues(alpha: 0.4),
+            ),
+            SizedBox(height: LayoutConstants.marginMd),
+            Text(
+              'Nenhum item de navegação disponível',
+              style: TextStyle(
+                color: AppTheme.onPrimary.withValues(alpha: 0.7),
+                fontSize: LayoutConstants.fontSizeMedium,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: LayoutConstants.marginSm),
+            Text(
+              'Verifique sua conexão ou recarregue a página',
+              style: TextStyle(
+                color: AppTheme.onPrimary.withValues(alpha: 0.5),
+                fontSize: LayoutConstants.fontSizeSmall,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Estado de erro melhorado com ação de retry
+  Widget _buildErrorState() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: LayoutConstants.iconXLarge,
+              color: AppTheme.errorColor.withValues(alpha: 0.6),
+            ),
+            SizedBox(height: LayoutConstants.marginMd),
+            Text(
+              'Erro ao carregar navegação',
+              style: TextStyle(
+                color: AppTheme.onPrimary,
+                fontSize: LayoutConstants.fontSizeMedium,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: LayoutConstants.marginSm),
+            Text(
+              'Toque para tentar novamente',
+              style: TextStyle(
+                color: AppTheme.onPrimary.withValues(alpha: 0.7),
+                fontSize: LayoutConstants.fontSizeSmall,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Detecção melhorada de rota ativa baseada no sistema legado
+  bool _isRouteActive(String itemRoute, String currentRoute) {
+    // Limpar rotas para comparação
+    final cleanItemRoute = _cleanRoute(itemRoute);
+    final cleanCurrentRoute = _cleanRoute(currentRoute);
+    
+    // Exact match tem prioridade
+    if (cleanCurrentRoute == cleanItemRoute) {
+      return true;
+    }
+    
+    // Para rotas nested, verificar se a rota atual contém a rota do item
+    if (cleanCurrentRoute.isNotEmpty && cleanItemRoute.isNotEmpty) {
+      // Verificar se é uma rota parent (ex: /torre1 ativo quando em /torre1/apartamentos)
+      return cleanCurrentRoute.startsWith('$cleanItemRoute/') ||
+             cleanCurrentRoute.contains(cleanItemRoute.replaceAll('/', ''));
+    }
+    
+    return false;
+  }
+
+  /// Limpeza e normalização de rotas baseada no sistema legado
+  String _cleanRoute(String route) {
+    if (route.isEmpty) return route;
+    
+    // Remove múltiplas barras e normaliza
+    String cleaned = route.replaceAll(RegExp(r'/+'), '/').trim();
+    
+    // Garante que comece com /
+    if (!cleaned.startsWith('/')) {
+      cleaned = '/$cleaned';
+    }
+    
+    // Remove barra final se não for root
+    if (cleaned.length > 1 && cleaned.endsWith('/')) {
+      cleaned = cleaned.substring(0, cleaned.length - 1);
+    }
+    
+    return cleaned;
   }
 
   void _handleNavigation(BuildContext context, String route) {

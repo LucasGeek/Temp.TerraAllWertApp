@@ -18,30 +18,6 @@ class AppRouter {
             name: 'dashboard',
             builder: (context, state) => const DashboardPage(),
           ),
-          GoRoute(
-            path: '/towers',
-            name: 'towers',
-            builder: (context, state) =>
-                const Scaffold(body: Center(child: Text('Torres - Em desenvolvimento'))),
-          ),
-          GoRoute(
-            path: '/apartments',
-            name: 'apartments',
-            builder: (context, state) =>
-                const Scaffold(body: Center(child: Text('Apartamentos - Em desenvolvimento'))),
-          ),
-          GoRoute(
-            path: '/favorites',
-            name: 'favorites',
-            builder: (context, state) =>
-                const Scaffold(body: Center(child: Text('Favoritos - Em desenvolvimento'))),
-          ),
-          GoRoute(
-            path: '/profile',
-            name: 'profile',
-            builder: (context, state) =>
-                const Scaffold(body: Center(child: Text('Perfil - Em desenvolvimento'))),
-          ),
         ],
       ),
     ],

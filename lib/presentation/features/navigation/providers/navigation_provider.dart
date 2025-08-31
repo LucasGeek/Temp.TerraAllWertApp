@@ -1,13 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../domain/entities/navigation_item.dart';
+import '../../../../infra/storage/menu_storage_service.dart';
 
 final navigationItemsProvider = StateNotifierProvider<NavigationNotifier, List<NavigationItem>>(
-  (ref) => NavigationNotifier(),
+  (ref) => NavigationNotifier(ref.read(menuStorageServiceProvider)),
 );
 
 class NavigationNotifier extends StateNotifier<List<NavigationItem>> {
-  NavigationNotifier() : super(_getDefaultNavigationItems());
+  final MenuStorageService _storageService;
+  
+  NavigationNotifier(this._storageService) : super([]) {
+    _loadItemsFromStorage();
+  }
+
+  /// Carrega itens do armazenamento local na inicialização
+  Future<void> _loadItemsFromStorage() async {
+    try {
+      final items = await _storageService.loadNavigationItems();
+      state = items;
+    } catch (e) {
+      // Fallback para itens padrão em caso de erro
+      state = _getDefaultNavigationItems();
+    }
+  }
 
   static List<NavigationItem> _getDefaultNavigationItems() {
     return [
@@ -18,71 +35,72 @@ class NavigationNotifier extends StateNotifier<List<NavigationItem>> {
         selectedIcon: Icons.dashboard,
         route: '/dashboard',
         order: 0,
-      ),
-      const NavigationItem(
-        id: 'towers',
-        label: 'Torres',
-        icon: Icons.business_outlined,
-        selectedIcon: Icons.business,
-        route: '/towers',
-        order: 1,
-      ),
-      const NavigationItem(
-        id: 'apartments',
-        label: 'Apartamentos',
-        icon: Icons.apartment_outlined,
-        selectedIcon: Icons.apartment,
-        route: '/apartments',
-        order: 2,
-      ),
-      const NavigationItem(
-        id: 'favorites',
-        label: 'Favoritos',
-        icon: Icons.favorite_outline,
-        selectedIcon: Icons.favorite,
-        route: '/favorites',
-        order: 3,
-      ),
-      const NavigationItem(
-        id: 'profile',
-        label: 'Perfil',
-        icon: Icons.person_outline,
-        selectedIcon: Icons.person,
-        route: '/profile',
-        order: 4,
+        description: 'Painel principal da aplicação',
       ),
     ];
   }
 
   /// Adiciona um novo item de navegação
-  void addNavigationItem(NavigationItem item) {
-    state = [...state, item]..sort((a, b) => a.order.compareTo(b.order));
+  Future<void> addNavigationItem(NavigationItem item) async {
+    try {
+      await _storageService.addNavigationItem(item);
+      state = [...state, item]..sort((a, b) => a.order.compareTo(b.order));
+    } catch (e) {
+      // Fallback para state apenas se storage falhar
+      state = [...state, item]..sort((a, b) => a.order.compareTo(b.order));
+      rethrow;
+    }
   }
 
   /// Remove um item de navegação pelo ID
-  void removeNavigationItem(String id) {
-    state = state.where((item) => item.id != id).toList();
+  Future<void> removeNavigationItem(String id) async {
+    try {
+      await _storageService.removeNavigationItem(id);
+      state = state.where((item) => item.id != id).toList();
+    } catch (e) {
+      // Fallback para state apenas se storage falhar
+      state = state.where((item) => item.id != id).toList();
+      rethrow;
+    }
   }
 
   /// Atualiza um item de navegação existente
-  void updateNavigationItem(NavigationItem updatedItem) {
-    state = state.map((item) {
-      return item.id == updatedItem.id ? updatedItem : item;
-    }).toList()..sort((a, b) => a.order.compareTo(b.order));
+  Future<void> updateNavigationItem(NavigationItem updatedItem) async {
+    try {
+      await _storageService.updateNavigationItem(updatedItem);
+      state = state.map((item) {
+        return item.id == updatedItem.id ? updatedItem : item;
+      }).toList()..sort((a, b) => a.order.compareTo(b.order));
+    } catch (e) {
+      // Fallback para state apenas se storage falhar
+      state = state.map((item) {
+        return item.id == updatedItem.id ? updatedItem : item;
+      }).toList()..sort((a, b) => a.order.compareTo(b.order));
+      rethrow;
+    }
   }
 
   /// Reordena os itens de navegação
-  void reorderNavigationItems(List<NavigationItem> reorderedItems) {
-    final updatedItems = reorderedItems.asMap().entries.map((entry) {
-      return entry.value.copyWith(order: entry.key);
-    }).toList();
-    
-    state = updatedItems;
+  Future<void> reorderNavigationItems(List<NavigationItem> reorderedItems) async {
+    try {
+      await _storageService.reorderNavigationItems(reorderedItems);
+      final updatedItems = reorderedItems.asMap().entries.map((entry) {
+        return entry.value.copyWith(order: entry.key);
+      }).toList();
+      state = updatedItems;
+    } catch (e) {
+      // Fallback para state apenas se storage falhar
+      final updatedItems = reorderedItems.asMap().entries.map((entry) {
+        return entry.value.copyWith(order: entry.key);
+      }).toList();
+      state = updatedItems;
+      rethrow;
+    }
   }
 
   /// Ativa/desativa um item de navegação
-  void toggleNavigationItem(String id, {bool? isVisible, bool? isEnabled}) {
-    state = state.map((item) {
+  Future<void> toggleNavigationItem(String id, {bool? isVisible, bool? isEnabled}) async {
+    final updatedState = state.map((item) {
       if (item.id == id) {
         return item.copyWith(
           isVisible: isVisible ?? item.isVisible,
@@ -91,6 +109,15 @@ class NavigationNotifier extends StateNotifier<List<NavigationItem>> {
       }
       return item;
     }).toList();
+
+    try {
+      await _storageService.saveNavigationItems(updatedState);
+      state = updatedState;
+    } catch (e) {
+      // Fallback para state apenas se storage falhar
+      state = updatedState;
+      rethrow;
+    }
   }
 
   /// Obtém itens visíveis e habilitados
@@ -117,8 +144,26 @@ class NavigationNotifier extends StateNotifier<List<NavigationItem>> {
   }
 
   /// Reseta para os itens padrão
-  void resetToDefault() {
-    state = _getDefaultNavigationItems();
+  Future<void> resetToDefault() async {
+    try {
+      await _storageService.resetToDefault();
+      state = _getDefaultNavigationItems();
+    } catch (e) {
+      // Fallback para state apenas se storage falhar
+      state = _getDefaultNavigationItems();
+      rethrow;
+    }
+  }
+
+  /// Força reload dos itens do storage
+  Future<void> reloadFromStorage() async {
+    try {
+      final items = await _storageService.loadNavigationItems();
+      state = items;
+    } catch (e) {
+      // Mantém state atual se reload falhar
+      rethrow;
+    }
   }
 }
 
@@ -131,12 +176,12 @@ final visibleNavigationItemsProvider = Provider<List<NavigationItem>>((ref) {
 /// Provider para obter o índice selecionado baseado na rota atual
 final selectedNavigationIndexProvider = Provider.family<int, String>((ref, currentRoute) {
   final visibleItems = ref.watch(visibleNavigationItemsProvider);
-  
+
   for (int i = 0; i < visibleItems.length; i++) {
     if (visibleItems[i].route == currentRoute) {
       return i;
     }
   }
-  
+
   return 0; // Default to first item if route not found
 });
