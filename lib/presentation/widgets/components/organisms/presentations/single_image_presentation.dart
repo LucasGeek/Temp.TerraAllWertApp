@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -29,7 +30,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
   bool _isZoomed = false;
 
   // Mock image URL for technical sheets
-  final String _mockImageUrl = 'https://via.placeholder.com/1200x800/2E7D32/FFFFFF?text=Ficha+Técnica';
+  final String _mockImageUrl = 'https://placehold.co/1200x800/2E7D32/FFFFFF?text=Ficha+Técnica';
 
   @override
   void dispose() {
@@ -48,7 +49,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
         children: [
           // Main image viewer
           Center(
-            child: Container(
+            child: SizedBox(
               width: double.infinity,
               height: double.infinity,
               child: InteractiveViewer(
@@ -67,10 +68,10 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
                 },
                 child: Container(
                   padding: EdgeInsets.all(LayoutConstants.paddingLg),
-                  child: Image.network(
-                    displayImageUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: displayImageUrl,
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
+                    errorWidget: (context, url, error) {
                       return Container(
                         decoration: BoxDecoration(
                           color: AppTheme.surfaceColor,
@@ -107,8 +108,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
                         ),
                       );
                     },
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
+                    placeholder: (context, url) {
                       return Container(
                         decoration: BoxDecoration(
                           color: AppTheme.surfaceColor,
@@ -124,10 +124,6 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
                               child: CircularProgressIndicator(
                                 color: AppTheme.primaryColor,
                                 strokeWidth: 4,
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded / 
-                                      loadingProgress.expectedTotalBytes!
-                                    : null,
                               ),
                             ),
                             SizedBox(height: LayoutConstants.marginMd),
@@ -197,10 +193,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
                           SizedBox(height: 4),
                           Text(
                             widget.description!,
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 14,
-                            ),
+                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -208,7 +201,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
                       ],
                     ),
                   ),
-                  
+
                   // Zoom controls
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -290,10 +283,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
               top: MediaQuery.of(context).padding.top + 100,
               right: LayoutConstants.paddingMd,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor,
                   borderRadius: BorderRadius.circular(16),
@@ -301,11 +291,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.zoom_in,
-                      color: Colors.white,
-                      size: 16,
-                    ),
+                    Icon(Icons.zoom_in, color: Colors.white, size: 16),
                     SizedBox(width: 4),
                     Text(
                       'Ampliado',
@@ -337,18 +323,11 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
         decoration: BoxDecoration(
           color: AppTheme.primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppTheme.primaryColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
+          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3), width: 1),
         ),
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: AppTheme.primaryColor,
-            size: 20,
-          ),
+          icon: Icon(icon, color: AppTheme.primaryColor, size: 20),
           padding: EdgeInsets.zero,
         ),
       ),
@@ -358,7 +337,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
   void _zoomIn() {
     final currentTransform = _transformationController.value;
     final currentScale = currentTransform.getMaxScaleOnAxis();
-    
+
     if (currentScale < 4.0) {
       final newScale = (currentScale * 1.5).clamp(1.0, 4.0);
       _transformationController.value = Matrix4.identity()..scale(newScale);
@@ -371,7 +350,7 @@ class _SingleImagePresentationState extends ConsumerState<SingleImagePresentatio
   void _zoomOut() {
     final currentTransform = _transformationController.value;
     final currentScale = currentTransform.getMaxScaleOnAxis();
-    
+
     if (currentScale > 1.0) {
       final newScale = (currentScale / 1.5).clamp(1.0, 4.0);
       _transformationController.value = Matrix4.identity()..scale(newScale);

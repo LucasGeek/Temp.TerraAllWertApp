@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../design_system/app_theme.dart';
-import '../../navigation/providers/navigation_provider.dart';
+import '../../../widgets/components/organisms/presentations/floor_plan_presentation.dart';
 import '../../../widgets/components/organisms/presentations/image_carousel_presentation.dart';
 import '../../../widgets/components/organisms/presentations/pin_map_presentation.dart';
-import '../../../widgets/components/organisms/presentations/floor_plan_presentation.dart';
+import '../../navigation/providers/navigation_provider.dart';
 
 /// Página dinâmica para rotas criadas pelo usuário
 /// Apresenta diferentes tipos de conteúdo baseado no tipo de menu
@@ -12,11 +13,7 @@ class DynamicPage extends ConsumerWidget {
   final String route;
   final String? title;
 
-  const DynamicPage({
-    super.key,
-    required this.route,
-    this.title,
-  });
+  const DynamicPage({super.key, required this.route, this.title});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,19 +33,11 @@ class DynamicPage extends ConsumerWidget {
     // Determinar qual apresentação usar baseado no tipo de menu
     switch (menuType) {
       case 'Menu Padrão':
-        return ImageCarouselPresentation(
-          title: itemTitle,
-          route: route,
-          description: description,
-        );
-      
+        return ImageCarouselPresentation(title: itemTitle, route: route, description: description);
+
       case 'Menu com Pins':
-        return PinMapPresentation(
-          title: itemTitle,
-          route: route,
-          description: description,
-        );
-      
+        return PinMapPresentation(description: description);
+
       case 'Menu Pavimento':
         return FloorPlanPresentation(
           title: itemTitle,
@@ -56,14 +45,10 @@ class DynamicPage extends ConsumerWidget {
           description: description,
           floorNumber: _extractFloorNumber(itemTitle),
         );
-      
+
       default:
         // Para tipos não reconhecidos, usar carrossel como padrão
-        return ImageCarouselPresentation(
-          title: itemTitle,
-          route: route,
-          description: description,
-        );
+        return ImageCarouselPresentation(title: itemTitle, route: route, description: description);
     }
   }
 
@@ -77,10 +62,7 @@ class DynamicPage extends ConsumerWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              AppTheme.primaryColor.withValues(alpha: 0.05),
-              AppTheme.backgroundColor,
-            ],
+            colors: [AppTheme.primaryColor.withValues(alpha: 0.05), AppTheme.backgroundColor],
           ),
         ),
         child: Column(
@@ -121,19 +103,12 @@ class DynamicPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     'Esta página foi criada automaticamente para a rota:\n$route',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppTheme.textSecondary,
-                      height: 1.5,
-                    ),
+                    style: TextStyle(fontSize: 16, color: AppTheme.textSecondary, height: 1.5),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -145,11 +120,7 @@ class DynamicPage extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 20,
-                          color: AppTheme.primaryColor,
-                        ),
+                        Icon(Icons.info_outline, size: 20, color: AppTheme.primaryColor),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(

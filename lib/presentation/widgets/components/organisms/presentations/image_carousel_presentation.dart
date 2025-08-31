@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,11 +32,11 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   // Mock images - later this will come from API/storage
   final List<String> _mockImages = [
-    'https://via.placeholder.com/800x600/2E7D32/FFFFFF?text=Apartamento+1',
-    'https://via.placeholder.com/800x600/FFA726/FFFFFF?text=Apartamento+2',
-    'https://via.placeholder.com/800x600/1976D2/FFFFFF?text=Apartamento+3',
-    'https://via.placeholder.com/800x600/388E3C/FFFFFF?text=Apartamento+4',
-    'https://via.placeholder.com/800x600/F57C00/FFFFFF?text=Apartamento+5',
+    'https://placehold.co/800x600/2E7D32/FFFFFF?text=Apartamento+1',
+    'https://placehold.co/800x600/FFA726/FFFFFF?text=Apartamento+2',
+    'https://placehold.co/800x600/1976D2/FFFFFF?text=Apartamento+3',
+    'https://placehold.co/800x600/388E3C/FFFFFF?text=Apartamento+4',
+    'https://placehold.co/800x600/F57C00/FFFFFF?text=Apartamento+5',
   ];
 
   @override
@@ -71,47 +72,34 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 child: InteractiveViewer(
                   minScale: 1.0,
                   maxScale: 3.0,
-                  child: Image.network(
-                    displayImages[index],
+                  child: CachedNetworkImage(
+                    imageUrl: displayImages[index],
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: AppTheme.surfaceColor,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.broken_image_outlined,
-                              size: 64,
-                              color: AppTheme.textSecondary,
-                            ),
-                            SizedBox(height: LayoutConstants.marginMd),
-                            Text(
-                              'Imagem não disponível',
-                              style: TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: LayoutConstants.fontSizeMedium,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: AppTheme.surfaceColor,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.primaryColor,
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                : null,
+                    placeholder: (context, url) => Container(
+                      color: AppTheme.surfaceColor,
+                      child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: AppTheme.surfaceColor,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image_outlined,
+                            size: 64,
+                            color: AppTheme.textSecondary,
                           ),
-                        ),
-                      );
-                    },
+                          SizedBox(height: LayoutConstants.marginMd),
+                          Text(
+                            'Imagem não disponível',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: LayoutConstants.fontSizeMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               );

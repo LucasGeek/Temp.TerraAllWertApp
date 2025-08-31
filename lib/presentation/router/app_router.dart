@@ -115,8 +115,8 @@ class AppRouter {
           ),
           routes: [
             GoRoute(
-              path: '/dashboard',
-              name: 'dashboard',
+              path: '/home',
+              name: 'home',
               builder: (context, state) => const DashboardPage(),
             ),
             ..._buildDynamicRoutes(navigationItems),
@@ -135,8 +135,8 @@ class AppRouter {
       final dynamicRoutes = <GoRoute>[];
 
       for (final item in navigationItems) {
-        // Skip dashboard route as it's already defined
-        if (item.route == '/dashboard') continue;
+        // Skip home route as it's already defined
+        if (item.route == '/home') continue;
 
         // Create dynamic route for each navigation item
         final route = GoRoute(
@@ -167,10 +167,10 @@ class AppRouter {
 
       AppLogger.debug('AppRouter: Checking redirect for path: $currentPath, authenticated: $isAuthenticated', tag: 'ROUTER');
 
-      // Se está autenticado e tenta acessar login, redireciona para dashboard
+      // Se está autenticado e tenta acessar login, redireciona para home
       if (isAuthenticated && currentPath == '/login') {
-        AppLogger.info('AppRouter: Authenticated user tried to access login, redirecting to dashboard', tag: 'ROUTER');
-        return '/dashboard';
+        AppLogger.info('AppRouter: Authenticated user tried to access login, redirecting to home', tag: 'ROUTER');
+        return '/home';
       }
 
       // Se não está autenticado e não está na página de login, redireciona para login
@@ -179,9 +179,9 @@ class AppRouter {
         return '/login';
       }
 
-      // Redirecionar root para dashboard se autenticado, para login se não autenticado
+      // Redirecionar root para home se autenticado, para login se não autenticado
       if (currentPath == '/') {
-        final redirectTo = isAuthenticated ? '/dashboard' : '/login';
+        final redirectTo = isAuthenticated ? '/home' : '/login';
         AppLogger.info('AppRouter: Root path accessed, redirecting to $redirectTo', tag: 'ROUTER');
         return redirectTo;
       }
@@ -221,8 +221,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
         routes: [
           GoRoute(
-            path: '/dashboard',
-            name: 'dashboard',
+            path: '/home',
+            name: 'home',
             pageBuilder: (context, state) => AppPageTransitions.slideTransition(
               const DashboardPage(),
               state,
@@ -247,10 +247,10 @@ String? _redirectHandler(BuildContext context, GoRouterState state, Ref ref) {
 
     AppLogger.debug('AppRouter: Checking redirect for path: $currentPath, authenticated: $isAuthenticated', tag: 'ROUTER');
 
-    // Se está autenticado e tenta acessar login, redireciona para dashboard
+    // Se está autenticado e tenta acessar login, redireciona para home
     if (isAuthenticated && currentPath == '/login') {
-      AppLogger.info('AppRouter: Authenticated user tried to access login, redirecting to dashboard', tag: 'ROUTER');
-      return '/dashboard';
+      AppLogger.info('AppRouter: Authenticated user tried to access login, redirecting to home', tag: 'ROUTER');
+      return '/home';
     }
 
     // Se não está autenticado e não está na página de login, redireciona para login
@@ -259,9 +259,9 @@ String? _redirectHandler(BuildContext context, GoRouterState state, Ref ref) {
       return '/login';
     }
 
-    // Redirecionar root para dashboard se autenticado, para login se não autenticado
+    // Redirecionar root para home se autenticado, para login se não autenticado
     if (currentPath == '/') {
-      final redirectTo = isAuthenticated ? '/dashboard' : '/login';
+      final redirectTo = isAuthenticated ? '/home' : '/login';
       AppLogger.info('AppRouter: Root path accessed, redirecting to $redirectTo', tag: 'ROUTER');
       return redirectTo;
     }
@@ -278,8 +278,8 @@ List<GoRoute> _buildDynamicRoutesFromItems(List<dynamic> navigationItems) {
     final dynamicRoutes = <GoRoute>[];
 
     for (final item in navigationItems) {
-      // Skip dashboard route as it's already defined
-      if (item.route == '/dashboard') continue;
+      // Skip home route as it's already defined  
+      if (item.route == '/home') continue;
 
       // Create dynamic route for each navigation item with scale transition
       final route = GoRoute(

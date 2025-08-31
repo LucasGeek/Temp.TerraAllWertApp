@@ -27,7 +27,7 @@ class FloorUnit {
 
   Color get color {
     if (customColor != null) return customColor!;
-    
+
     switch (type) {
       case 'apartment':
         return isAvailable ? Colors.green : Colors.red;
@@ -89,8 +89,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
   late Animation<double> _highlightAnimation;
 
   // Mock floor plan and units
-  final String _mockFloorPlan = 'https://via.placeholder.com/1000x700/F5F5F5/333333?text=Planta+do+Pavimento';
-  
+  final String _mockFloorPlan =
+      'https://placehold.co/1000x700/F5F5F5/333333?text=Planta+do+Pavimento';
+
   final List<FloorUnit> _mockUnits = [
     // Apartments
     FloorUnit(
@@ -125,7 +126,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
       description: '3 quartos, 2 banheiros, 90m²',
       isAvailable: true,
     ),
-    
+
     // Common areas
     FloorUnit(
       id: 'elevator1',
@@ -157,10 +158,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    _highlightAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _highlightAnimationController, curve: Curves.easeInOut),
-    );
-    
+    _highlightAnimation = Tween<double>(
+      begin: 0.3,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _highlightAnimationController, curve: Curves.easeInOut));
+
     _highlightAnimationController.repeat(reverse: true);
   }
 
@@ -246,8 +248,8 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
                                       child: CircularProgressIndicator(
                                         color: AppTheme.primaryColor,
                                         value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded / 
-                                              loadingProgress.expectedTotalBytes!
+                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                  loadingProgress.expectedTotalBytes!
                                             : null,
                                       ),
                                     ),
@@ -316,16 +318,13 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
                           SizedBox(height: 4),
                           Text(
                             'Pavimento ${widget.floorNumber}',
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 14,
-                            ),
+                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
                           ),
                         ],
                       ],
                     ),
                   ),
-                  
+
                   // Reset zoom button
                   _buildControlButton(
                     icon: Icons.fit_screen,
@@ -369,12 +368,12 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
     final margin = LayoutConstants.paddingXl;
     final effectiveWidth = constraints.maxWidth - (margin * 2);
     final effectiveHeight = constraints.maxHeight - (margin * 2);
-    
+
     final left = margin + (unit.area.left * effectiveWidth);
     final top = margin + (unit.area.top * effectiveHeight);
     final width = unit.area.width * effectiveWidth;
     final height = unit.area.height * effectiveHeight;
-    
+
     return Positioned(
       left: left,
       top: top,
@@ -387,7 +386,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
           builder: (context, child) {
             final isSelected = _selectedUnit?.id == unit.id;
             final opacity = isSelected ? _highlightAnimation.value : 0.7;
-            
+
             return Container(
               decoration: BoxDecoration(
                 color: unit.color.withValues(alpha: opacity),
@@ -409,11 +408,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (unit.type == 'apartment') ...[
-                      Icon(
-                        Icons.home,
-                        color: Colors.white,
-                        size: width > 60 ? 24 : 16,
-                      ),
+                      Icon(Icons.home, color: Colors.white, size: width > 60 ? 24 : 16),
                       if (height > 40) SizedBox(height: 4),
                     ],
                     Text(
@@ -560,20 +555,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
           Container(
             width: 16,
             height: 16,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(2),
-            ),
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
           ),
           SizedBox(width: 8),
           Flexible(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 12,
-              ),
-            ),
+            child: Text(label, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
           ),
         ],
       ),
@@ -626,20 +612,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 12,
-            ),
-          ),
+          Text(label, style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
           Text(
             value,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -659,18 +635,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation>
         decoration: BoxDecoration(
           color: AppTheme.primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppTheme.primaryColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
+          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3), width: 1),
         ),
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: AppTheme.primaryColor,
-            size: 20,
-          ),
+          icon: Icon(icon, color: AppTheme.primaryColor, size: 20),
           padding: EdgeInsets.zero,
         ),
       ),
