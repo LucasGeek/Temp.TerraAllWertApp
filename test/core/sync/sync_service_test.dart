@@ -2,12 +2,12 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:terra_allwert_app/infra/sync/sync_service.dart';
-import 'package:terra_allwert_app/infra/sync/domain/entities/sync_status.dart';
+import 'package:terra_allwert_app/data/sync/sync_service.dart';
+import 'package:terra_allwert_app/domain/entities/sync_status.dart';
 import 'package:terra_allwert_app/infra/cache/cache_manager.dart';
-import 'package:terra_allwert_app/presentation/features/towers/domain/repositories/tower_repository.dart';
-import 'package:terra_allwert_app/presentation/features/apartments/domain/repositories/apartment_repository.dart';
-import 'package:terra_allwert_app/presentation/features/gallery/domain/repositories/gallery_repository.dart';
+import 'package:terra_allwert_app/domain/repositories/tower_repository.dart';
+import 'package:terra_allwert_app/domain/repositories/apartment_repository.dart';
+import 'package:terra_allwert_app/domain/repositories/gallery_repository.dart';
 
 class MockTowerRepository extends Mock implements TowerRepository {}
 class MockApartmentRepository extends Mock implements ApartmentRepository {}

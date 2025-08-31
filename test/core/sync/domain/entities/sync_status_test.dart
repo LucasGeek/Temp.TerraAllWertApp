@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:terra_allwert_app/infra/sync/domain/entities/sync_status.dart';
+import 'package:terra_allwert_app/domain/entities/sync_status.dart';
 
 void main() {
   group('SyncStatus Entity', () {

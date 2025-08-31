@@ -62,49 +62,49 @@ Aplicação multiplataforma (Web, iOS, Android, Desktop) para visualização e g
 - **Cached Network Image**: Cache de imagens
 - **GetIt**: Injeção de dependências
 
-## Estrutura do Projeto - Clean Architecture Top-Level + Feature First
+## Estrutura do Projeto - Uncle Bob Clean Architecture + Feature First
 
 ```
 app/
 ├── lib/
-│   ├── domain/                       # Business Logic & Rules (Core)
-│   │   ├── constants/               # App constants
+│   ├── domain/                       # Enterprise Business Rules (Uncle Bob Layer 1)
+│   │   ├── entities/                # Business entities (User, Tower, Apartment...)
+│   │   ├── repositories/            # Repository interfaces (abstracts)
+│   │   ├── usecases/                # Application business rules
+│   │   ├── constants/               # Domain constants
 │   │   ├── failures/                # Error types & exceptions
 │   │   ├── validators/              # Business validation rules
 │   │   └── utils/                   # Domain utilities
-│   ├── infra/                        # External Integrations & Infrastructure
+│   ├── data/                         # Data Layer (Uncle Bob Layer 3 - Data Access)
+│   │   ├── repositories/            # Repository implementations
+│   │   ├── datasources/             # Remote/Local data sources
+│   │   ├── models/                  # Data models (DTOs)
+│   │   └── sync/                    # Data synchronization implementations
+│   ├── infra/                        # Infrastructure Layer (Uncle Bob Layer 4)
 │   │   ├── platform/                # Platform services (iOS/Android/Web)
 │   │   ├── network/                 # HTTP client, API config
 │   │   ├── storage/                 # Local storage (Hive/SQLite)
 │   │   ├── cache/                   # Cache management
 │   │   ├── downloads/               # Download management
-│   │   ├── graphql/                 # GraphQL mutations/queries
-│   │   ├── sync/                    # Data synchronization
-│   │   ├── services/                # Global services (Snackbar, etc)
-│   │   └── router/                  # App routing
-│   ├── data/                         # Data Access Layer
-│   │   ├── datasources/             # Remote/Local data sources
-│   │   ├── models/                  # Data models (DTOs)
-│   │   └── repositories/            # Repository implementations
-│   ├── presentation/                 # UI/UX Layer
-│   │   ├── design_system/           # Cores, tipografia, theme
+│   │   └── graphql/                 # GraphQL mutations/queries
+│   ├── presentation/                 # UI Layer (Uncle Bob Layer 2 - Interface Adapters)
+│   │   ├── design_system/           # Design system (cores, tipografia, theme)
 │   │   ├── responsive/              # Sistema responsivo (breakpoints)
-│   │   ├── widgets/                 # Atomic Design components
+│   │   ├── widgets/                 # Atomic Design components globais
 │   │   │   └── components/         # Atoms, Molecules, Organisms, Templates
 │   │   │       ├── atoms/          # Button, Input, Icon, etc.
 │   │   │       ├── molecules/      # FormFields, Cards, etc.
 │   │   │       ├── organisms/      # Forms, Lists, etc.
 │   │   │       └── templates/      # Layout templates
-│   │   ├── features/                # Feature modules
+│   │   ├── features/                # Feature modules (presentation only)
 │   │   │   ├── auth/               # Authentication feature
-│   │   │   │   ├── presentation/   # UI (pages, widgets, providers)
-│   │   │   │   ├── domain/         # Business logic (entities, usecases)
-│   │   │   │   ├── infra/          # External integrations
-│   │   │   │   └── data/           # Data layer (datasources, repos)
-│   │   │   ├── towers/             # Torre management
-│   │   │   ├── apartments/         # Apartamento management
-│   │   │   ├── gallery/            # Gallery features
-│   │   │   └── profile/            # User profile
+│   │   │   │   └── presentation/   # UI (pages, widgets, providers)
+│   │   │   ├── towers/             # Torre management UI
+│   │   │   ├── apartments/         # Apartamento management UI
+│   │   │   ├── gallery/            # Gallery features UI
+│   │   │   └── profile/            # User profile UI
+│   │   ├── router/                  # App routing
+│   │   ├── services/                # UI services (notifications)
 │   │   ├── shared/                  # Shared presentation components
 │   │   └── l10n/                    # Localization
 │   └── main.dart
@@ -113,27 +113,42 @@ app/
 └── web/                  # Configurações web
 ```
 
-## Arquitetura Clean Architecture Top-Level + Feature First
+## Uncle Bob Clean Architecture + Feature First
 
-### Princípios Fundamentais
+### Princípios Uncle Bob (4 Camadas)
 
-1. **Camadas Top-Level bem definidas**:
-   - **`lib/domain/`**: Business Logic puro, regras de negócio, validações
-   - **`lib/infra/`**: Infraestrutura externa, APIs, platform services
-   - **`lib/data/`**: Acesso a dados, repositories, DTOs
-   - **`lib/presentation/`**: UI/UX, features, widgets, design system
+1. **Layer 1 - Enterprise Business Rules (`domain/`)**:
+   - **Entities**: Regras de negócio mais gerais e fundamentais
+   - **Repository Interfaces**: Contratos para acesso a dados
+   - **Use Cases**: Regras de negócio específicas da aplicação
+   - **Pure Business Logic**: Sem dependências externas
 
-2. **Regras de Dependência (Clean Architecture)**:
-   - `presentation/` → `domain/`
-   - `data/` → `domain/`
-   - `infra/` → `domain/`
-   - `domain/` → independente (business rules puras)
+2. **Layer 2 - Interface Adapters (`presentation/`)**:
+   - **Controllers**: Gerenciam entrada do usuário (Riverpod Providers)
+   - **Presenters**: Formatam dados para UI (View Models, States)
+   - **Views**: Interface do usuário (Pages, Widgets)
+   - **Gateways**: Interfaces para dados externos
 
-3. **Feature First dentro de Presentation**:
-   - Cada feature em `presentation/features/` é auto-contida
-   - Widgets globais em `presentation/widgets/`
-   - Design system centralizado em `presentation/design_system/`
-   - Facilita trabalho em equipe e escalabilidade
+3. **Layer 3 - Framework & Drivers (`data/` + `infra/`)**:
+   - **`data/`**: Repository implementations, DataSources, Models
+   - **`infra/`**: External frameworks (HTTP, Database, Platform APIs)
+   - **Databases, Web, APIs**: Detalhes de implementação externos
+
+### Regras de Dependência (Uncle Bob)
+
+```
+presentation/ → domain/
+data/ → domain/
+infra/ → domain/
+domain/ → nada (independente)
+```
+
+### Feature Organization
+
+- **Domain Centralized**: Entities, repositories, usecases em `domain/`
+- **Data Centralized**: Implementações de repository em `data/`
+- **UI por Feature**: Features organizadas em `presentation/features/`
+- **Infrastructure Shared**: External concerns em `infra/`
 
 ### Atomic Design System
 

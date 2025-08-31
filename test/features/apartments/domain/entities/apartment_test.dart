@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:terra_allwert_app/presentation/features/apartments/domain/entities/apartment.dart';
-import 'package:terra_allwert_app/presentation/features/apartments/domain/entities/apartment_type.dart';
+import 'package:terra_allwert_app/domain/entities/apartment.dart';
+import 'package:terra_allwert_app/domain/entities/apartment_type.dart';
 
 void main() {
   group('Apartment Entity', () {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../design_system/app_theme.dart';
-import '../../../../infra/services/snackbar_service.dart';
+import '../../../notification/snackbar_notification.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/auth/presentation/providers/login_form_provider.dart';
 import '../atoms/primary_button.dart';
@@ -45,11 +45,11 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           );
 
       ref.read(loginFormProvider.notifier).submitSuccess();
-      SnackbarService.showSuccess('Login realizado com sucesso!');
+      SnackbarNotification.showSuccess('Login realizado com sucesso!');
     } catch (error) {
       final errorMessage = error.toString().replaceFirst('Exception: ', '');
       ref.read(loginFormProvider.notifier).submitError(errorMessage);
-      SnackbarService.showError(errorMessage);
+      SnackbarNotification.showError(errorMessage);
     }
   }
 
@@ -59,12 +59,12 @@ class _LoginFormState extends ConsumerState<LoginForm> {
 
   void _handleSignUp() {
     // TODO: Implementar navegação para tela de cadastro
-    SnackbarService.showInfo('Funcionalidade de cadastro em desenvolvimento');
+    SnackbarNotification.showInfo('Funcionalidade de cadastro em desenvolvimento');
   }
 
   void _handleSocialLogin(String provider) {
     // TODO: Implementar login social
-    SnackbarService.showInfo('Login com $provider em desenvolvimento');
+    SnackbarNotification.showInfo('Login com $provider em desenvolvimento');
   }
 
   @override

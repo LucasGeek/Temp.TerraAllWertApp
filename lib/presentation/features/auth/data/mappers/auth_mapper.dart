@@ -1,7 +1,7 @@
-import '../../domain/entities/auth_token.dart';
-import '../../domain/entities/user.dart';
-import '../models/auth_response.dart';
-import '../models/user_dto.dart';
+import '../../../../../domain/entities/auth_token.dart';
+import '../../../../../domain/entities/user.dart';
+import '../../../../../data/models/auth_response.dart';
+import '../../../../../data/models/user_dto.dart';
 
 class AuthMapper {
   static AuthToken responseToToken(AuthResponse response) {

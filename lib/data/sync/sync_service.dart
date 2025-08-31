@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import '../cache/cache_manager.dart';
-import 'domain/entities/sync_status.dart';
-import '../../presentation/features/towers/domain/repositories/tower_repository.dart';
-import '../../presentation/features/apartments/domain/repositories/apartment_repository.dart';
-import '../../presentation/features/gallery/domain/repositories/gallery_repository.dart';
+import '../../infra/cache/cache_manager.dart';
+import '../../domain/entities/sync_status.dart';
+import '../../domain/repositories/tower_repository.dart';
+import '../../domain/repositories/apartment_repository.dart';
+import '../../domain/repositories/gallery_repository.dart';
 
 abstract class SyncService {
   Future<void> initialize();

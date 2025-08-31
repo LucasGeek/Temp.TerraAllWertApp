@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:terra_allwert_app/presentation/features/apartments/domain/entities/apartment.dart';
-import 'package:terra_allwert_app/presentation/features/apartments/domain/entities/apartment_type.dart';
-import 'package:terra_allwert_app/presentation/features/apartments/domain/repositories/apartment_repository.dart';
-import 'package:terra_allwert_app/presentation/features/apartments/domain/usecases/search_apartments_usecase.dart';
+import 'package:terra_allwert_app/domain/entities/apartment.dart';
+import 'package:terra_allwert_app/domain/entities/apartment_type.dart';
+import 'package:terra_allwert_app/domain/repositories/apartment_repository.dart';
+import 'package:terra_allwert_app/domain/usecases/search_apartments_usecase.dart';
 
 class MockApartmentRepository extends Mock implements ApartmentRepository {}
 

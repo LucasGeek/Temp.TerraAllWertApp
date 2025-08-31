@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talker/talker.dart';
 
 import 'infra/network/env_config.dart';
-import 'infra/router/app_router.dart';
+import 'presentation/router/app_router.dart';
 import 'presentation/design_system/app_theme.dart';
-import 'infra/services/snackbar_service.dart';
+import 'presentation/notification/snackbar_notification.dart';
 
 final talkerProvider = Provider<Talker>((ref) => Talker());
 
@@ -32,7 +32,7 @@ class TerraAllwertApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       routerConfig: AppRouter.router,
       debugShowCheckedModeBanner: config.environment != 'production',
-      scaffoldMessengerKey: SnackbarService.messengerKey,
+      scaffoldMessengerKey: SnackbarNotification.messengerKey,
     );
   }
 }

@@ -1,5 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import '../../../apartments/domain/entities/apartment.dart';
+import 'apartment.dart';
 
 part 'pavimento.freezed.dart';
 part 'pavimento.g.dart';

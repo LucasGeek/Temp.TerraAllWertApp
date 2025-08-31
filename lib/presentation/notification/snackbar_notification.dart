@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../presentation/design_system/app_theme.dart';
+import '../design_system/app_theme.dart';
 
-/// Serviço global de Snackbar
-class SnackbarService {
+/// Serviço global de Snackbar Notification
+class SnackbarNotification {
   static final GlobalKey<ScaffoldMessengerState> messengerKey = 
       GlobalKey<ScaffoldMessengerState>();
 
@@ -177,6 +177,6 @@ class SnackbarService {
 }
 
 /// Provider para o serviço de snackbar
-final snackbarServiceProvider = Provider<SnackbarService>((ref) {
-  return SnackbarService();
+final snackbarNotificationProvider = Provider<SnackbarNotification>((ref) {
+  return SnackbarNotification();
 });

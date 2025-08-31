@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../presentation/features/auth/presentation/pages/login_page.dart';
+import '../features/auth/presentation/pages/login_page.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
