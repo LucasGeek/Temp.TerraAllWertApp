@@ -16,7 +16,7 @@ class MenuManagementDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isMobile = context.isMobile || (context.isTablet && context.isXs);
+    final isMobile = context.isMobile;
     
     if (isMobile) {
       return _buildMobileBottomSheet(context, ref);
@@ -180,6 +180,9 @@ class MenuManagementDialog extends ConsumerWidget {
 
   /// Item da lista de menus
   Widget _buildMenuListItem(BuildContext context, WidgetRef ref, NavigationItem item, int index) {
+    final bool isProtectedRoute = item.route.toLowerCase() == '/dashboard' || 
+                                  item.route.toLowerCase() == 'dashboard';
+    
     return Card(
       key: ValueKey(item.id),
       margin: EdgeInsets.symmetric(
@@ -250,7 +253,35 @@ class MenuManagementDialog extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Status badges
-              if (!item.isVisible)
+              if (isProtectedRoute)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.shield,
+                        size: 10,
+                        color: AppTheme.primaryColor,
+                      ),
+                      SizedBox(width: 2),
+                      Text(
+                        'Protegido',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              if (!item.isVisible && !isProtectedRoute)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
@@ -276,17 +307,17 @@ class MenuManagementDialog extends ConsumerWidget {
                 color: AppTheme.infoColor,
                 iconSize: LayoutConstants.iconMedium,
                 splashRadius: LayoutConstants.iconSplashRadius,
-                tooltip: 'Editar menu',
+                tooltip: isProtectedRoute ? 'Editar menu (rota protegida)' : 'Editar menu',
               ),
               
               // Botão excluir
               IconButton(
-                onPressed: () => _handleDeleteMenu(context, ref, item),
+                onPressed: isProtectedRoute ? null : () => _handleDeleteMenu(context, ref, item),
                 icon: const Icon(Icons.delete_outline),
-                color: AppTheme.errorColor,
+                color: isProtectedRoute ? AppTheme.textSecondary : AppTheme.errorColor,
                 iconSize: LayoutConstants.iconMedium,
                 splashRadius: LayoutConstants.iconSplashRadius,
-                tooltip: 'Excluir menu',
+                tooltip: isProtectedRoute ? 'Rota protegida (não pode ser removida)' : 'Excluir menu',
               ),
             ],
           ),
@@ -437,13 +468,19 @@ class MenuManagementDialog extends ConsumerWidget {
 
   /// Handler para editar menu
   void _handleEditMenu(BuildContext context, NavigationItem item) {
-    Navigator.of(context).pop(); // Fechar dialog atual
-    _showEditMenuDialog(context, item);
+    // Proteger rota principal do dashboard da edição da rota
+    if (item.route.toLowerCase() == '/dashboard' || item.route.toLowerCase() == 'dashboard') {
+      Navigator.of(context).pop(); // Fechar dialog atual
+      _showEditMenuDialog(context, item, isProtectedRoute: true);
+    } else {
+      Navigator.of(context).pop(); // Fechar dialog atual
+      _showEditMenuDialog(context, item);
+    }
   }
 
   /// Mostra dialog de criação de menu
   void _showCreateMenuDialog(BuildContext context) {
-    final isMobile = context.isMobile || (context.isTablet && context.isXs);
+    final isMobile = context.isMobile;
     
     if (isMobile) {
       showModalBottomSheet(
@@ -462,27 +499,41 @@ class MenuManagementDialog extends ConsumerWidget {
   }
 
   /// Mostra dialog de edição de menu
-  void _showEditMenuDialog(BuildContext context, NavigationItem item) {
-    final isMobile = context.isMobile || (context.isTablet && context.isXs);
+  void _showEditMenuDialog(BuildContext context, NavigationItem item, {bool isProtectedRoute = false}) {
+    final isMobile = context.isMobile;
     
     if (isMobile) {
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (context) => MenuCrudDialog(itemToEdit: item, isEditing: true),
+        builder: (context) => MenuCrudDialog(
+          itemToEdit: item, 
+          isEditing: true,
+          isProtectedRoute: isProtectedRoute,
+        ),
       );
     } else {
       showDialog(
         context: context,
         barrierColor: Colors.black.withValues(alpha: 0.5),
-        builder: (context) => MenuCrudDialog(itemToEdit: item, isEditing: true),
+        builder: (context) => MenuCrudDialog(
+          itemToEdit: item, 
+          isEditing: true,
+          isProtectedRoute: isProtectedRoute,
+        ),
       );
     }
   }
 
   /// Handler para excluir menu com confirmação
   void _handleDeleteMenu(BuildContext context, WidgetRef ref, NavigationItem item) {
+    // Proteger rota principal do dashboard
+    if (item.route.toLowerCase() == '/dashboard' || item.route.toLowerCase() == 'dashboard') {
+      _showProtectedRouteDialog(context);
+      return;
+    }
+    
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -568,9 +619,86 @@ class MenuManagementDialog extends ConsumerWidget {
     }
   }
 
+  /// Mostra dialog informando que a rota é protegida
+  void _showProtectedRouteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.shield,
+              color: AppTheme.primaryColor,
+              size: LayoutConstants.iconMedium,
+            ),
+            SizedBox(width: LayoutConstants.marginSm),
+            const Text(
+              'Rota Protegida',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('A rota "Dashboard" é a rota principal do aplicativo e não pode ser removida.'),
+            SizedBox(height: LayoutConstants.marginMd),
+            Container(
+              padding: EdgeInsets.all(LayoutConstants.paddingMd),
+              decoration: BoxDecoration(
+                color: AppTheme.infoColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                border: Border.all(color: AppTheme.infoColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: AppTheme.infoColor,
+                    size: LayoutConstants.iconMedium,
+                  ),
+                  SizedBox(width: LayoutConstants.marginSm),
+                  Expanded(
+                    child: Text(
+                      'Você pode editar o nome e ícone, mas a rota permanecerá protegida.',
+                      style: TextStyle(
+                        fontSize: LayoutConstants.fontSizeSmall,
+                        color: AppTheme.infoColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              ),
+            ),
+            child: const Text(
+              'Entendi',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Método estático para mostrar o dialog
   static void show(BuildContext context) {
-    final isMobile = context.isMobile || (context.isTablet && context.isXs);
+    final isMobile = context.isMobile;
     
     if (isMobile) {
       showModalBottomSheet(

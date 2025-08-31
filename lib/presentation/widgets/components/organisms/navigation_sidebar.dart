@@ -69,36 +69,52 @@ class NavigationSidebar extends ConsumerWidget {
         return _buildEmptyState();
       }
 
+      // Organizar items hierarquicamente
+      final List<Widget> menuWidgets = [];
+      
+      // Primeiro, adicionar menus de nível raiz
+      final rootItems = navigationItems.where((item) => item.parentId == null).toList();
+      
+      for (final rootItem in rootItems) {
+        // Verificar se tem submenus
+        final subItems = navigationItems.where((item) => item.parentId == rootItem.id).toList();
+        
+        if (subItems.isEmpty) {
+          // Menu sem submenus - renderizar normalmente
+          final isSelected = _isRouteActive(rootItem.route, currentRoute);
+          menuWidgets.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: NavigationMenuItem(
+                icon: rootItem.icon,
+                selectedIcon: rootItem.selectedIcon,
+                label: rootItem.label,
+                isSelected: isSelected,
+                onTap: () => _handleNavigation(context, _cleanRoute(rootItem.route)),
+              ),
+            ),
+          );
+        } else {
+          // Menu com submenus - renderizar como expansível
+          menuWidgets.add(
+            _buildExpandableMenuItem(context, rootItem, subItems),
+          );
+        }
+      }
+
       return Expanded(
         child: Scrollbar(
           thumbVisibility: true,
           thickness: 6.0,
           radius: const Radius.circular(LayoutConstants.radiusSmall),
           trackVisibility: false,
-          child: ListView.builder(
+          child: ListView(
             padding: EdgeInsets.symmetric(
               vertical: LayoutConstants.paddingXs,
               horizontal: LayoutConstants.paddingXs,
             ),
-            itemCount: navigationItems.length,
             physics: const BouncingScrollPhysics(),
-            itemBuilder: (context, index) {
-              final item = navigationItems[index];
-              
-              // Improved active route detection baseado no sistema legado
-              final isSelected = _isRouteActive(item.route, currentRoute);
-              
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: NavigationMenuItem(
-                  icon: item.icon,
-                  selectedIcon: item.selectedIcon,
-                  label: item.label,
-                  isSelected: isSelected,
-                  onTap: () => _handleNavigation(context, _cleanRoute(item.route)),
-                ),
-              );
-            },
+            children: menuWidgets,
           ),
         ),
       );
@@ -232,6 +248,62 @@ class NavigationSidebar extends ConsumerWidget {
     } catch (e) {
       debugPrint('NavigationSidebar: Navigation error - $e');
     }
+  }
+
+  Widget _buildExpandableMenuItem(BuildContext context, dynamic rootItem, List<dynamic> subItems) {
+    final isAnySubItemActive = subItems.any((subItem) => _isRouteActive(subItem.route, currentRoute));
+    final isRootActive = _isRouteActive(rootItem.route, currentRoute);
+    final shouldExpand = isAnySubItemActive || isRootActive;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: ExpansionTile(
+        initiallyExpanded: shouldExpand,
+        leading: Icon(
+          rootItem.icon,
+          color: (isRootActive || isAnySubItemActive) 
+              ? AppTheme.onPrimary 
+              : AppTheme.onPrimary.withValues(alpha: 0.7),
+          size: LayoutConstants.iconMedium,
+        ),
+        title: Text(
+          rootItem.label,
+          style: TextStyle(
+            color: (isRootActive || isAnySubItemActive) 
+                ? AppTheme.onPrimary 
+                : AppTheme.onPrimary.withValues(alpha: 0.8),
+            fontSize: LayoutConstants.fontSizeMedium,
+            fontWeight: (isRootActive || isAnySubItemActive) 
+                ? FontWeight.w600 
+                : FontWeight.w400,
+          ),
+        ),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+        childrenPadding: const EdgeInsets.only(left: 32.0),
+        iconColor: AppTheme.onPrimary.withValues(alpha: 0.8),
+        collapsedIconColor: AppTheme.onPrimary.withValues(alpha: 0.8),
+        backgroundColor: Colors.transparent,
+        collapsedBackgroundColor: Colors.transparent,
+        onExpansionChanged: (expanded) {
+          // Opcional: lógica adicional quando expandir/recolher
+        },
+        children: subItems.map((subItem) {
+          final isSubItemSelected = _isRouteActive(subItem.route, currentRoute);
+          
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1.0),
+            child: NavigationMenuItem(
+              icon: subItem.icon,
+              selectedIcon: subItem.selectedIcon,
+              label: subItem.label,
+              isSelected: isSubItemSelected,
+              isSubmenuItem: true,
+              onTap: () => _handleNavigation(context, _cleanRoute(subItem.route)),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   Widget _buildFallbackSidebar() {

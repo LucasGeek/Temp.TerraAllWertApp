@@ -10,6 +10,7 @@ class NavigationMenuItem extends StatelessWidget {
   final IconData? selectedIcon;
   final String label;
   final bool isSelected;
+  final bool isSubmenuItem;
   final VoidCallback onTap;
 
   const NavigationMenuItem({
@@ -18,14 +19,15 @@ class NavigationMenuItem extends StatelessWidget {
     this.selectedIcon,
     required this.label,
     this.isSelected = false,
+    this.isSubmenuItem = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: LayoutConstants.paddingXs,
+      padding: EdgeInsets.symmetric(
+        horizontal: isSubmenuItem ? 0 : LayoutConstants.paddingXs,
         vertical: 2,
       ),
       child: Container(
@@ -45,19 +47,19 @@ class NavigationMenuItem extends StatelessWidget {
           leading: Icon(
             isSelected && selectedIcon != null ? selectedIcon! : icon,
             color: isSelected ? AppTheme.onPrimary : AppTheme.onPrimary.withValues(alpha: 0.7),
-            size: LayoutConstants.iconLarge,
+            size: isSubmenuItem ? LayoutConstants.iconMedium : LayoutConstants.iconLarge,
           ),
           title: Text(
             label,
             style: TextStyle(
               color: isSelected ? AppTheme.onPrimary : AppTheme.onPrimary.withValues(alpha: 0.7),
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              fontSize: 16,
+              fontSize: isSubmenuItem ? 14 : 16,
             ),
           ),
           onTap: onTap,
           contentPadding: EdgeInsets.symmetric(
-            horizontal: LayoutConstants.paddingMd,
+            horizontal: isSubmenuItem ? LayoutConstants.paddingMd : LayoutConstants.paddingMd,
             vertical: LayoutConstants.paddingXs,
           ),
           shape: RoundedRectangleBorder(

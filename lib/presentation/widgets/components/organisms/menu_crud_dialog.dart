@@ -13,11 +13,13 @@ import '../../../responsive/breakpoints.dart';
 class MenuCrudDialog extends ConsumerStatefulWidget {
   final NavigationItem? itemToEdit;
   final bool isEditing;
+  final bool isProtectedRoute;
 
   const MenuCrudDialog({
     super.key,
     this.itemToEdit,
     this.isEditing = false,
+    this.isProtectedRoute = false,
   });
 
   @override
@@ -27,15 +29,12 @@ class MenuCrudDialog extends ConsumerStatefulWidget {
 class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _routeController = TextEditingController();
   final _descriptionController = TextEditingController();
   
   String _selectedMenuType = 'Menu Padrão';
   String? _selectedParentId;
   IconData _selectedIcon = Icons.home_outlined;
   IconData _selectedSelectedIcon = Icons.home;
-  bool _isVisible = true;
-  bool _isEnabled = true;
   bool _isLoading = false;
 
   // Tipos de menu baseados no sistema legado
@@ -46,32 +45,37 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
   ];
 
   // Ícones disponíveis
-  final Map<String, List<IconData>> _availableIcons = {
-    'Geral': [
-      Icons.home_outlined, Icons.home,
-      Icons.dashboard_outlined, Icons.dashboard,
-      Icons.menu_outlined, Icons.menu,
-      Icons.settings_outlined, Icons.settings,
-    ],
-    'Navegação': [
-      Icons.explore_outlined, Icons.explore,
-      Icons.location_on_outlined, Icons.location_on,
-      Icons.map_outlined, Icons.map,
-      Icons.directions_outlined, Icons.directions,
-    ],
-    'Conteúdo': [
-      Icons.photo_library_outlined, Icons.photo_library,
-      Icons.video_library_outlined, Icons.video_library,
-      Icons.article_outlined, Icons.article,
-      Icons.description_outlined, Icons.description,
-    ],
-    'Imóveis': [
-      Icons.business_outlined, Icons.business,
-      Icons.apartment_outlined, Icons.apartment,
-      Icons.house_outlined, Icons.house,
-      Icons.architecture_outlined, Icons.architecture,
-    ],
-  };
+  final List<IconData> _availableIcons = [
+    // Ícones principais solicitados
+    Icons.menu_book, Icons.menu_book_outlined,
+    Icons.architecture, Icons.architecture_outlined,
+    Icons.description, Icons.description_outlined,
+    Icons.location_on, Icons.location_on_outlined,
+    Icons.house, Icons.house_outlined,
+    Icons.apartment, Icons.apartment_outlined,
+    Icons.local_parking, Icons.local_parking_outlined,
+    Icons.villa, Icons.villa_outlined,
+    
+    // Ícones gerais úteis
+    Icons.home, Icons.home_outlined,
+    Icons.dashboard, Icons.dashboard_outlined,
+    Icons.menu, Icons.menu_outlined,
+    Icons.settings, Icons.settings_outlined,
+    Icons.business, Icons.business_outlined,
+    Icons.explore, Icons.explore_outlined,
+    Icons.map, Icons.map_outlined,
+    Icons.directions, Icons.directions_outlined,
+    Icons.photo_library, Icons.photo_library_outlined,
+    Icons.video_library, Icons.video_library_outlined,
+    Icons.article, Icons.article_outlined,
+    Icons.folder, Icons.folder_outlined,
+    Icons.info, Icons.info_outlined,
+    Icons.star, Icons.star_outlined,
+    Icons.favorite, Icons.favorite_outlined,
+    Icons.build, Icons.build_outlined,
+    Icons.group, Icons.group_outlined,
+    Icons.account_circle, Icons.account_circle_outlined,
+  ];
 
   @override
   void initState() {
@@ -84,25 +88,107 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
   void _loadItemData() {
     final item = widget.itemToEdit!;
     _titleController.text = item.label;
-    _routeController.text = item.route;
     _descriptionController.text = item.description ?? '';
     _selectedIcon = item.icon;
     _selectedSelectedIcon = item.selectedIcon;
-    _isVisible = item.isVisible;
-    _isEnabled = item.isEnabled;
+    _selectedParentId = item.parentId; // Carregar ID do menu pai
+  }
+
+  /// Gera rota automaticamente baseada no título usando regex
+  /// Evita duplicatas adicionando números sequenciais quando necessário
+  String _generateRoute(String title, List<NavigationItem> existingItems, {String? currentItemId}) {
+    if (title.trim().isEmpty) return '/';
+    
+    // Convert para minúsculo e remove acentos
+    String route = title
+        .toLowerCase()
+        .replaceAll(RegExp(r'[áàâãä]'), 'a')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll(RegExp(r'[ç]'), 'c')
+        .replaceAll(RegExp(r'[ñ]'), 'n');
+    
+    // Remove caracteres especiais e substitui espaços por hífens
+    route = route
+        .replaceAll(RegExp(r'[^\w\s-]'), '') // Remove caracteres especiais
+        .replaceAll(RegExp(r'\s+'), '-') // Substitui espaços por hífens
+        .replaceAll(RegExp(r'-+'), '-'); // Remove hífens duplicados
+    
+    // Remove hífens no início e fim
+    route = route.replaceAll(RegExp(r'^-+|-+$'), '');
+    
+    // Garante que comece com /
+    String baseRoute = '/$route';
+    
+    // Verifica duplicatas e adiciona número se necessário
+    return _ensureUniqueRoute(baseRoute, existingItems, currentItemId: currentItemId);
+  }
+
+  /// Garante que a rota seja única adicionando números sequenciais
+  String _ensureUniqueRoute(String baseRoute, List<NavigationItem> existingItems, {String? currentItemId}) {
+    // Filtra itens existentes, excluindo o item atual se estiver editando
+    final existingRoutes = existingItems
+        .where((item) => currentItemId == null || item.id != currentItemId)
+        .map((item) => item.route)
+        .toSet();
+    
+    // Se a rota base não existe, usa ela
+    if (!existingRoutes.contains(baseRoute)) {
+      return baseRoute;
+    }
+    
+    // Procura por um número sequencial disponível
+    int counter = 2;
+    String candidateRoute;
+    
+    do {
+      candidateRoute = '$baseRoute-$counter';
+      counter++;
+    } while (existingRoutes.contains(candidateRoute));
+    
+    return candidateRoute;
+  }
+
+  /// Gera apenas a rota base sem verificação de duplicatas (para comparação)
+  String _generateBaseRoute(String title) {
+    if (title.trim().isEmpty) return '/';
+    
+    // Convert para minúsculo e remove acentos
+    String route = title
+        .toLowerCase()
+        .replaceAll(RegExp(r'[áàâãä]'), 'a')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll(RegExp(r'[ç]'), 'c')
+        .replaceAll(RegExp(r'[ñ]'), 'n');
+    
+    // Remove caracteres especiais e substitui espaços por hífens
+    route = route
+        .replaceAll(RegExp(r'[^\w\s-]'), '') // Remove caracteres especiais
+        .replaceAll(RegExp(r'\s+'), '-') // Substitui espaços por hífens
+        .replaceAll(RegExp(r'-+'), '-'); // Remove hífens duplicados
+    
+    // Remove hífens no início e fim
+    route = route.replaceAll(RegExp(r'^-+|-+$'), '');
+    
+    // Garante que comece com /
+    return '/$route';
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _routeController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = context.isMobile || (context.isTablet && context.isXs);
+    final isMobile = context.isMobile;
     
     if (isMobile) {
       return _buildMobileBottomSheet(context);
@@ -113,29 +199,32 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
 
   /// BottomSheet para mobile
   Widget _buildMobileBottomSheet(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      decoration: const BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(LayoutConstants.radiusLarge),
-          topRight: Radius.circular(LayoutConstants.radiusLarge),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: double.infinity,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildHandle(),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(LayoutConstants.paddingXl),
-              child: _buildForm(context, isMobile: true),
-            ),
+        decoration: const BoxDecoration(
+          color: AppTheme.surfaceColor,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(LayoutConstants.radiusLarge),
+            topRight: Radius.circular(LayoutConstants.radiusLarge),
           ),
-        ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildHandle(),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(LayoutConstants.paddingXl),
+                child: _buildForm(context, isMobile: true),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -143,38 +232,41 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
   /// Dialog para desktop/tablet
   Widget _buildDesktopDialog(BuildContext context) {
     return Center(
-      child: Container(
-        width: context.responsive<double>(
-          xs: 400,
-          md: 500,
-          lg: 600,
-          xl: 650,
-        ),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
-        ),
-        margin: EdgeInsets.all(LayoutConstants.marginXl),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: LayoutConstants.shadowBlurLarge,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(LayoutConstants.paddingXl),
-                child: _buildForm(context, isMobile: false),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: context.responsive<double>(
+            xs: 400,
+            md: 500,
+            lg: 600,
+            xl: 650,
+          ),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          margin: EdgeInsets.all(LayoutConstants.marginXl),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: LayoutConstants.shadowBlurLarge,
+                offset: const Offset(0, 4),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(LayoutConstants.paddingXl),
+                  child: _buildForm(context, isMobile: false),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -190,6 +282,7 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
         children: [
           // Header
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 widget.isEditing ? Icons.edit : Icons.add,
@@ -205,6 +298,8 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
                     fontWeight: FontWeight.w600,
                     color: AppTheme.onSurface,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -221,25 +316,6 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
                 return 'Título é obrigatório';
-              }
-              return null;
-            },
-          ),
-          
-          SizedBox(height: LayoutConstants.marginLg),
-          
-          // Campo Rota
-          _buildTextField(
-            controller: _routeController,
-            label: 'Rota',
-            hint: 'Ex: /apartamentos, /torres/torre1',
-            isRequired: true,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Rota é obrigatória';
-              }
-              if (!value.startsWith('/')) {
-                return 'Rota deve começar com /';
               }
               return null;
             },
@@ -275,29 +351,13 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
             maxLines: 3,
           ),
           
-          SizedBox(height: LayoutConstants.marginLg),
-          
-          // Switches
-          _buildSwitchRow(
-            'Visível no menu',
-            _isVisible,
-            (value) => setState(() => _isVisible = value),
-          ),
-          
-          SizedBox(height: LayoutConstants.marginSm),
-          
-          _buildSwitchRow(
-            'Habilitado',
-            _isEnabled,
-            (value) => setState(() => _isEnabled = value),
-          ),
-          
           SizedBox(height: LayoutConstants.marginXl),
           
           // Botões de ação
           SizedBox(
             width: double.infinity,
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Expanded(
                   child: OutlinedButton(
@@ -367,6 +427,8 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
     bool isRequired = false,
     String? Function(String?)? validator,
     int maxLines = 1,
+    bool enabled = true,
+    Widget? suffixIcon,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,15 +459,25 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
           controller: controller,
           validator: validator,
           maxLines: maxLines,
+          enabled: enabled,
           decoration: InputDecoration(
             hintText: hint,
+            suffixIcon: suffixIcon,
+            filled: !enabled,
+            fillColor: enabled ? null : AppTheme.outline.withValues(alpha: 0.1),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
-              borderSide: const BorderSide(color: AppTheme.outline),
+              borderSide: BorderSide(
+                color: enabled ? AppTheme.outline : AppTheme.outline.withValues(alpha: 0.5),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
               borderSide: const BorderSide(color: AppTheme.outline),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              borderSide: BorderSide(color: AppTheme.outline.withValues(alpha: 0.5)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
@@ -472,10 +544,19 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
     final navigationItems = ref.watch(navigationItemsProvider);
     
     // Filtrar apenas items que podem ser pais (não incluir o item atual se editando)
+    // e que não sejam submenus (para limitar a 1 nível)
     final availableParents = navigationItems.where((item) {
+      // Não pode ser pai de si mesmo
       if (widget.isEditing && widget.itemToEdit?.id == item.id) {
-        return false; // Não pode ser pai de si mesmo
+        return false;
       }
+      
+      // Apenas menus de nível raiz podem ser pais (parentId == null)
+      // Isso garante que só teremos 1 nível de profundidade
+      if (item.parentId != null) {
+        return false;
+      }
+      
       return true;
     }).toList();
 
@@ -502,14 +583,30 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
         DropdownButtonFormField<String>(
           value: _selectedParentId == null 
               ? 'Nenhum (menu principal)'
-              : availableParents.firstWhere((item) => item.id == _selectedParentId).label,
+              : availableParents.where((item) => item.id == _selectedParentId).isNotEmpty
+                  ? availableParents.firstWhere((item) => item.id == _selectedParentId).label
+                  : 'Nenhum (menu principal)',
           onChanged: (value) {
             setState(() {
               if (value == 'Nenhum (menu principal)') {
                 _selectedParentId = null;
               } else {
-                final parent = availableParents.firstWhere((item) => item.label == value);
-                _selectedParentId = parent.id;
+                final parentMatches = availableParents.where((item) => item.label == value);
+                if (parentMatches.isNotEmpty) {
+                  final parent = parentMatches.first;
+                  
+                  // Verificação adicional de segurança
+                  if (parent.parentId != null) {
+                    SnackbarNotification.showWarning(
+                      'Não é possível criar submenus com mais de 1 nível de profundidade'
+                    );
+                    _selectedParentId = null;
+                  } else {
+                    _selectedParentId = parent.id;
+                  }
+                } else {
+                  _selectedParentId = null;
+                }
               }
             });
           },
@@ -564,7 +661,9 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
           child: Row(
             children: [
               Expanded(
-                child: Row(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: LayoutConstants.marginSm,
                   children: [
                     Text(
                       'Selecionados: ',
@@ -574,7 +673,6 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
                       ),
                     ),
                     Icon(_selectedIcon, size: LayoutConstants.iconMedium),
-                    SizedBox(width: LayoutConstants.marginSm),
                     Icon(_selectedSelectedIcon, size: LayoutConstants.iconMedium, color: AppTheme.primaryColor),
                   ],
                 ),
@@ -591,25 +689,6 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
   }
 
   /// Switch row customizado
-  Widget _buildSwitchRow(String label, bool value, void Function(bool) onChanged) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: LayoutConstants.fontSizeMedium,
-            color: AppTheme.onSurface,
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeColor: AppTheme.primaryColor,
-        ),
-      ],
-    );
-  }
 
   /// Handle visual para mobile
   Widget _buildHandle() {
@@ -633,60 +712,55 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
         content: SizedBox(
           width: 400,
           height: 400,
-          child: DefaultTabController(
-            length: _availableIcons.keys.length,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TabBar(
-                  isScrollable: true,
-                  tabs: _availableIcons.keys.map((category) => Tab(text: category)).toList(),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: _availableIcons.entries.map((entry) {
-                      return GridView.builder(
-                        padding: EdgeInsets.all(LayoutConstants.paddingMd),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
-                        itemCount: entry.value.length ~/ 2,
-                        itemBuilder: (context, index) {
-                          final normalIcon = entry.value[index * 2];
-                          final selectedIcon = entry.value[index * 2 + 1];
-                          
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedIcon = normalIcon;
-                                _selectedSelectedIcon = selectedIcon;
-                              });
-                              Navigator.of(context).pop();
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: AppTheme.outline),
-                                borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(normalIcon, size: 24),
-                                  const SizedBox(height: 4),
-                                  Icon(selectedIcon, size: 16, color: AppTheme.primaryColor),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    }).toList(),
+          child: GridView.builder(
+            padding: EdgeInsets.all(LayoutConstants.paddingMd),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 5,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: _availableIcons.length ~/ 2,
+            itemBuilder: (context, index) {
+              final normalIcon = _availableIcons[index * 2];
+              final selectedIcon = _availableIcons[index * 2 + 1];
+              
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedIcon = normalIcon;
+                    _selectedSelectedIcon = selectedIcon;
+                  });
+                  Navigator.of(context).pop();
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.outline),
+                    borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                    color: (_selectedIcon == normalIcon) 
+                        ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        normalIcon, 
+                        size: 24,
+                        color: (_selectedIcon == normalIcon) 
+                            ? AppTheme.primaryColor 
+                            : null,
+                      ),
+                      const SizedBox(height: 4),
+                      Icon(
+                        selectedIcon, 
+                        size: 14, 
+                        color: AppTheme.primaryColor.withValues(alpha: 0.6),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
         actions: [
@@ -718,15 +792,29 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
       final maxOrder = allItems.isEmpty ? 0 : allItems.map((item) => item.order).reduce((a, b) => a > b ? a : b);
       final newOrder = widget.isEditing ? widget.itemToEdit!.order : maxOrder + 1;
       
+      // Gerar rota única evitando duplicatas
+      final route = widget.isProtectedRoute 
+          ? widget.itemToEdit!.route 
+          : _generateRoute(
+              _titleController.text.trim(), 
+              allItems,
+              currentItemId: widget.isEditing ? widget.itemToEdit!.id : null,
+            );
+      
+      // Verificar se a rota foi modificada para evitar duplicata
+      final baseRoute = _generateBaseRoute(_titleController.text.trim());
+      final routeWasModified = route != baseRoute;
+
       final newItem = NavigationItem(
         id: itemId,
         label: _titleController.text.trim(),
         icon: _selectedIcon,
         selectedIcon: _selectedSelectedIcon,
-        route: _routeController.text.trim(),
+        route: route,
         order: newOrder,
-        isVisible: _isVisible,
-        isEnabled: _isEnabled,
+        parentId: _selectedParentId, // Incluir ID do menu pai
+        isVisible: true, // Sempre visível
+        isEnabled: true, // Sempre habilitado
         description: _descriptionController.text.trim().isEmpty 
             ? null 
             : _descriptionController.text.trim(),
@@ -734,10 +822,18 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
       
       if (widget.isEditing) {
         navigationNotifier.updateNavigationItem(newItem);
-        SnackbarNotification.showSuccess('Menu atualizado com sucesso!');
+        if (routeWasModified && !widget.isProtectedRoute) {
+          SnackbarNotification.showInfo('Menu atualizado! Rota ajustada para evitar duplicata: $route');
+        } else {
+          SnackbarNotification.showSuccess('Menu atualizado com sucesso!');
+        }
       } else {
         navigationNotifier.addNavigationItem(newItem);
-        SnackbarNotification.showSuccess('Menu criado com sucesso!');
+        if (routeWasModified) {
+          SnackbarNotification.showInfo('Menu criado! Rota ajustada para evitar duplicata: $route');
+        } else {
+          SnackbarNotification.showSuccess('Menu criado com sucesso!');
+        }
       }
       
       if (context.mounted) {
