@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talker/talker.dart';
 
+import 'core/logging/app_logger.dart';
 import 'infra/config/env_config.dart';
 import 'infra/storage/secure_storage_service.dart';
-import 'core/logging/app_logger.dart';
-import 'presentation/router/app_router.dart';
 import 'presentation/design_system/app_theme.dart';
 import 'presentation/notification/snackbar_notification.dart';
+import 'presentation/router/app_router.dart';
 
 final talkerProvider = Provider<Talker>((ref) => Talker());
 
@@ -28,11 +28,7 @@ void main() async {
 
   AppLogger.info('🏁 Terra Allwert app initialization complete');
 
-  runApp(
-    const ProviderScope(
-      child: TerraAllwertApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: TerraAllwertApp()));
 }
 
 class TerraAllwertApp extends ConsumerWidget {
@@ -41,11 +37,12 @@ class TerraAllwertApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(envConfigProvider);
-    
+
     return MaterialApp.router(
       title: config.appName,
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      // darkTheme: AppTheme.darkTheme,
+      darkTheme: AppTheme.lightTheme,
       routerConfig: AppRouter.router,
       debugShowCheckedModeBanner: config.environment != 'production',
       scaffoldMessengerKey: SnackbarNotification.messengerKey,

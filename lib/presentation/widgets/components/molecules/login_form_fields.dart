@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../design_system/app_theme.dart';
+import '../../../design_system/layout_constants.dart';
 import '../atoms/login_text_field.dart';
 
 /// Molecule: Campo de email específico para login
@@ -90,7 +91,7 @@ class _PasswordFieldState extends State<PasswordField> {
           size: 20,
         ),
         onPressed: _togglePasswordVisibility,
-        splashRadius: 20,
+        splashRadius: LayoutConstants.iconSplashRadius,
         tooltip: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
       ),
       obscureText: _obscurePassword,

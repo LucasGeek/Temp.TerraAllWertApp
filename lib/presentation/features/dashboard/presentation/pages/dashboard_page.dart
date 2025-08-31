@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../design_system/app_theme.dart';
 import '../../../../notification/snackbar_notification.dart';
-import '../../../../../core/logging/app_logger.dart';
+import '../../../../responsive/breakpoints.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -13,41 +12,39 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsyncValue = ref.watch(authControllerProvider);
     
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            onPressed: () => _handleLogout(context, ref),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return Padding(
+      padding: EdgeInsets.all(context.responsive<double>(
+        xs: 16,
+        sm: 20,
+        md: 24,
+        lg: 32,
+      )),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             // Welcome Header
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24.0),
+              padding: EdgeInsets.all(context.responsive<double>(
+                xs: 16,
+                sm: 20,
+                md: 24,
+                lg: 28,
+              )),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
                     AppTheme.primaryColor,
-                    AppTheme.primaryColor.withOpacity(0.8),
+                    AppTheme.primaryColor.withValues(alpha: 0.8),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -79,14 +76,14 @@ class DashboardPage extends ConsumerWidget {
                             Text(
                               user.email,
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.white.withOpacity(0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -136,11 +133,26 @@ class DashboardPage extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Action Cards Grid
-            Expanded(
+            Flexible(
               child: GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
+                crossAxisCount: context.responsive<int>(
+                  xs: 1,
+                  sm: 2,
+                  md: 2,
+                  lg: 3,
+                  xl: 4,
+                ),
+                mainAxisSpacing: context.responsive<double>(
+                  xs: 12,
+                  sm: 16,
+                  md: 20,
+                ),
+                crossAxisSpacing: context.responsive<double>(
+                  xs: 12,
+                  sm: 16,
+                  md: 20,
+                ),
+                shrinkWrap: true,
                 children: [
                   _ActionCard(
                     icon: Icons.business,
@@ -183,26 +195,7 @@ class DashboardPage extends ConsumerWidget {
             ),
           ],
         ),
-      ),
     );
-  }
-
-  void _handleLogout(BuildContext context, WidgetRef ref) async {
-    try {
-      AuthLogger.info('User initiated logout from dashboard');
-      
-      await ref.read(authControllerProvider.notifier).logout();
-      
-      SnackbarNotification.showSuccess('Logout realizado com sucesso!');
-      
-      if (context.mounted) {
-        context.go('/login');
-        AuthLogger.info('Successfully navigated to login after logout');
-      }
-    } catch (error) {
-      SnackbarNotification.showError('Erro ao fazer logout');
-      AuthLogger.error('Logout failed from dashboard', error: error);
-    }
   }
 }
 
@@ -239,7 +232,7 @@ class _ActionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

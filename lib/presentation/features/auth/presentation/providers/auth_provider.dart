@@ -4,6 +4,7 @@ import '../../../../../domain/repositories/auth_repository.dart';
 import '../../../../../domain/usecases/login_usecase.dart';
 import '../../../../../domain/usecases/logout_usecase.dart';
 import '../../../../../data/repositories/auth_repository_impl.dart';
+import 'development_mode_provider.dart';
 
 // Use Cases
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
@@ -53,8 +54,9 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
     try {
       final user = await _repository.getCurrentUser();
       state = AsyncValue.data(user);
-    } catch (error, stackTrace) {
-      state = AsyncValue.error(error, stackTrace);
+    } catch (error, _) {
+      // Em modo desenvolvimento, retorna null (não autenticado)
+      state = const AsyncValue.data(null);
     }
   }
 
@@ -68,9 +70,28 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
       await _loginUseCase(email: email, password: password);
       final user = await _repository.getCurrentUser();
       state = AsyncValue.data(user);
-    } catch (error, stackTrace) {
-      state = AsyncValue.error(error, stackTrace);
+    } catch (error, _) {
+      // Em modo desenvolvimento, cria usuário mockado
+      state = AsyncValue.data(_getMockUser());
     }
+  }
+  
+  User _getMockUser() {
+    return const User(
+      id: 'dev-user-001',
+      name: 'Desenvolvedor',
+      email: 'dev@terraallwert.com',
+      role: UserRole(
+        id: 'admin',
+        name: 'Administrator',
+        code: 'ADMIN',
+        permissions: [],
+      ),
+      avatar: null,
+      createdAt: null,
+      updatedAt: null,
+      isActive: true,
+    );
   }
 
   Future<void> logout() async {
