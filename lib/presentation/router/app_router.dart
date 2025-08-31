@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/presentation/pages/login_page.dart';
+import '../features/dashboard/presentation/pages/dashboard_page.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -27,18 +28,3 @@ class AppRouter {
   );
 }
 
-class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-      ),
-      body: const Center(
-        child: Text('Dashboard - Coming Soon'),
-      ),
-    );
-  }
-}

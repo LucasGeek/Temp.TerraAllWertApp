@@ -10,7 +10,7 @@ fi
 case $1 in
     dev)
         flutterfire config \
-        --project=moedax-dev \
+        --project=terra_allwert-dev \
         --out=lib/firebase_options_dev.dart \
         --ios-bundle-id=com.terraallwert.app.dev \
         --ios-out=ios/Flavors/dev/GoogleService-Info.plist \
@@ -19,7 +19,7 @@ case $1 in
     ;;
     stg)
         flutterfire config \
-        --project=moedax-stg \
+        --project=terra_allwert-stg \
         --out=lib/firebase_options_stg.dart \
         --ios-bundle-id=com.terraallwert.app.stg \
         --ios-out=ios/Flavors/stg/GoogleService-Info.plist \
@@ -28,7 +28,7 @@ case $1 in
     ;;
     prd)
         flutterfire config \
-        --project=moedax-prd \
+        --project=terra_allwert-prd \
         --out=lib/firebase_options_prd.dart \
         --ios-bundle-id=com.terraallwert.app \
         --ios-out=ios/Flavors/prd/GoogleService-Info.plist \

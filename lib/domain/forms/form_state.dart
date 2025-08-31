@@ -26,9 +26,9 @@ class LoginFormState {
     bool? obscurePassword,
     bool? isSubmitting,
     bool? isValid,
-    String? emailError,
-    String? passwordError,
-    String? submitError,
+    Object? emailError = _sentinel,
+    Object? passwordError = _sentinel,
+    Object? submitError = _sentinel,
   }) {
     return LoginFormState(
       email: email ?? this.email,
@@ -36,11 +36,13 @@ class LoginFormState {
       obscurePassword: obscurePassword ?? this.obscurePassword,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isValid: isValid ?? this.isValid,
-      emailError: emailError ?? this.emailError,
-      passwordError: passwordError ?? this.passwordError,
-      submitError: submitError ?? this.submitError,
+      emailError: emailError == _sentinel ? this.emailError : emailError as String?,
+      passwordError: passwordError == _sentinel ? this.passwordError : passwordError as String?,
+      submitError: submitError == _sentinel ? this.submitError : submitError as String?,
     );
   }
+
+  static const _sentinel = Object();
 
   @override
   bool operator ==(Object other) =>

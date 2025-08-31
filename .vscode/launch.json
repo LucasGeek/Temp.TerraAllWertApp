@@ -1,0 +1,360 @@
+{
+    // VS Code Launch Configuration for Flutter Multi-Platform Development
+    // Compatible with Flutter 3.x and FVM
+    // Updated to remove deprecated flags like --web-renderer and --hot
+    // 
+    // Quick Usage:
+    // - F5 or Ctrl+Shift+P → "Debug: Start Debugging"
+    // - Select configuration: 🌐 for Web, 📱 for Mobile, 💻 for Desktop
+    // - Use compounds (🚀) to run multiple platforms simultaneously
+    "version": "0.2.0",
+    "configurations": [
+        // === WEB CONFIGURATIONS ===
+        {
+            "name": "🌐 Web - Chrome (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "chrome"
+            ],
+            "toolArgs": [
+                "-d", 
+                "chrome"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+        {
+            "name": "🌐 Web - Edge (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "edge"
+            ],
+            "toolArgs": [
+                "-d", 
+                "edge"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+        {
+            "name": "🌐 Web - Chrome (Release)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "chrome",
+                "--release"
+            ],
+            "toolArgs": [
+                "-d", 
+                "chrome",
+                "--release"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "release"
+        },
+
+        // === MOBILE CONFIGURATIONS ===
+        {
+            "name": "📱 Android - Emulator (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "android"
+            ],
+            "toolArgs": [
+                "-d",
+                "android"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+        {
+            "name": "📱 Android - Device (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "deviceId": "android",
+            "toolArgs": [],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+        {
+            "name": "🍎 iOS - Simulator (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "ios"
+            ],
+            "toolArgs": [
+                "-d",
+                "ios"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+        {
+            "name": "🍎 iOS - Device (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "deviceId": "ios",
+            "toolArgs": [],
+            "console": "debugConsole", 
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+
+        // === DESKTOP CONFIGURATIONS ===
+        {
+            "name": "💻 macOS Desktop (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "macos"
+            ],
+            "toolArgs": [
+                "-d",
+                "macos"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+        {
+            "name": "💻 Windows Desktop (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "windows"
+            ],
+            "toolArgs": [
+                "-d",
+                "windows"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+        {
+            "name": "💻 Linux Desktop (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "linux"
+            ],
+            "toolArgs": [
+                "-d",
+                "linux"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+
+        // === RELEASE CONFIGURATIONS ===
+        {
+            "name": "📱 Android - Release",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "android",
+                "--release"
+            ],
+            "toolArgs": [
+                "-d",
+                "android",
+                "--release"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "release"
+        },
+        {
+            "name": "🍎 iOS - Release",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "ios",
+                "--release"
+            ],
+            "toolArgs": [
+                "-d",
+                "ios",
+                "--release"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "release"
+        },
+        {
+            "name": "💻 macOS - Release",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "macos",
+                "--release"
+            ],
+            "toolArgs": [
+                "-d",
+                "macos",
+                "--release"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "release"
+        },
+
+        // === DEVELOPMENT CONFIGURATIONS ===
+        {
+            "name": "🔧 Default Platform (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [],
+            "toolArgs": [],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+        {
+            "name": "🔥 Hot Reload Enabled",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [],
+            "toolArgs": [],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "debug"
+        },
+
+        // === PROFILE MODE ===
+        {
+            "name": "📊 Android - Profile",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "android",
+                "--profile"
+            ],
+            "toolArgs": [
+                "-d",
+                "android",
+                "--profile"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "📊 iOS - Profile",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "ios",
+                "--profile"
+            ],
+            "toolArgs": [
+                "-d",
+                "ios",
+                "--profile"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "📊 Web - Profile",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "-d",
+                "chrome",
+                "--profile"
+            ],
+            "toolArgs": [
+                "-d",
+                "chrome",
+                "--profile"
+            ],
+            "console": "debugConsole",
+            "cwd": "${workspaceFolder}",
+            "flutterMode": "profile"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "🚀 Multi-Platform Debug",
+            "configurations": [
+                "🌐 Web - Chrome (Debug)",
+                "📱 Android - Emulator (Debug)",
+                "💻 macOS Desktop (Debug)"
+            ]
+        },
+        {
+            "name": "🌐 All Web Browsers",
+            "configurations": [
+                "🌐 Web - Chrome (Debug)",
+                "🌐 Web - Edge (Debug)"
+            ]
+        },
+        {
+            "name": "📱 Mobile Platforms",
+            "configurations": [
+                "📱 Android - Emulator (Debug)",
+                "🍎 iOS - Simulator (Debug)"
+            ]
+        },
+        {
+            "name": "💻 Desktop Platforms",
+            "configurations": [
+                "💻 macOS Desktop (Debug)",
+                "💻 Windows Desktop (Debug)",
+                "💻 Linux Desktop (Debug)"
+            ]
+        },
+        {
+            "name": "📊 Performance Analysis",
+            "configurations": [
+                "📊 Android - Profile",
+                "📊 iOS - Profile",
+                "📊 Web - Profile"
+            ]
+        }
+    ]
+}

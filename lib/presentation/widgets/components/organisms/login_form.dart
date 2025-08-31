@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../notification/snackbar_notification.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/auth/presentation/providers/login_form_provider.dart';
+import '../../../../core/logging/app_logger.dart';
 import '../atoms/primary_button.dart';
 import '../molecules/login_form_fields.dart';
 import '../molecules/social_buttons_row.dart';
@@ -33,8 +35,11 @@ class _LoginFormState extends ConsumerState<LoginForm> {
 
     if (!formState.isValid) {
       ref.read(loginFormProvider.notifier).validate();
+      AuthLogger.warning('Login form validation failed');
       return;
     }
+
+    AuthLogger.info('Starting login process from UI');
 
     try {
       ref.read(loginFormProvider.notifier).startSubmitting();
@@ -45,11 +50,24 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           );
 
       ref.read(loginFormProvider.notifier).submitSuccess();
+      
+      // Show success message
       SnackbarNotification.showSuccess('Login realizado com sucesso!');
+      
+      // Log navigation
+      AuthLogger.navigationToHome();
+      
+      // Navigate to dashboard after successful login
+      if (mounted) {
+        context.go('/dashboard');
+        AuthLogger.info('Successfully navigated to dashboard');
+      }
     } catch (error) {
       final errorMessage = error.toString().replaceFirst('Exception: ', '');
       ref.read(loginFormProvider.notifier).submitError(errorMessage);
       SnackbarNotification.showError(errorMessage);
+      
+      AuthLogger.error('Login process failed in UI', error: error);
     }
   }
 

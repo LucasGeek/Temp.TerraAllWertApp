@@ -45,6 +45,7 @@ dependencies:
   # --- Cache & Storage ---
   get_storage: ^2.1.1
   flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.3.4
 
   # --- Navigation ---
   go_router: ^15.1.3

@@ -19,7 +19,9 @@ class FormValidators {
     if (value?.isEmpty ?? true) {
       return 'Email é obrigatório';
     }
-    if (!_emailRegex.hasMatch(value!.trim())) {
+    
+    final trimmed = value!.trim();
+    if (!_emailRegex.hasMatch(trimmed)) {
       return 'Email inválido';
     }
     return null;
