@@ -23,6 +23,15 @@ class GraphQLAuthService {
     AuthLogger.loginAttempt(email);
 
     try {
+      // First test basic connectivity
+      final hasConnection = await _client.hasNetworkConnection();
+      if (!hasConnection) {
+        AuthLogger.error('No network connectivity during login attempt');
+        throw Exception('Não foi possível conectar ao servidor. Verifique sua conexão com a internet.');
+      }
+
+      AuthLogger.debug('Network connection confirmed, proceeding with login mutation');
+      
       final result = await _client.mutateWithRetry(
         MutationOptions(
           document: gql(loginMutation),
@@ -38,6 +47,21 @@ class GraphQLAuthService {
 
       if (result.hasException) {
         final errorMsg = result.exception.toString();
+        
+        // Enhanced error logging for debugging
+        if (result.exception?.graphqlErrors != null && result.exception!.graphqlErrors.isNotEmpty) {
+          for (final error in result.exception!.graphqlErrors) {
+            AuthLogger.error('GraphQL error during login: ${error.message}', error: error);
+            if (error.extensions != null) {
+              AuthLogger.error('GraphQL error extensions: ${error.extensions}');
+            }
+          }
+        }
+        
+        if (result.exception?.linkException != null) {
+          AuthLogger.error('Link exception during login: ${result.exception!.linkException}');
+        }
+        
         AuthLogger.loginFailure(email, errorMsg);
         throw Exception(errorMsg);
       }

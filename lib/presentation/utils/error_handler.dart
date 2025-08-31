@@ -88,8 +88,9 @@ class ErrorHandler {
     // Erro de servidor
     if (errorString.contains('500') ||
         errorString.contains('server error') ||
-        errorString.contains('internal server error')) {
-      return 'Erro interno do servidor. Tente novamente em alguns instantes.';
+        errorString.contains('internal server error') ||
+        errorString.contains('erro interno do servidor')) {
+      return 'Erro interno do servidor. Possível problema com credenciais ou configuração do servidor. Tente com diferentes credenciais ou entre em contato com o administrador.';
     }
     
     // Erro de serviço indisponível

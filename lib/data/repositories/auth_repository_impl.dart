@@ -3,16 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/auth_token.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
-import '../../infra/graphql/auth_service.dart';
+import '../../infra/graphql/smart_auth_service.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  final GraphQLAuthService _authService;
+  final SmartAuthService _authService;
 
   final StreamController<bool> _authStateController = StreamController<bool>.broadcast();
   final StreamController<User?> _userController = StreamController<User?>.broadcast();
 
   AuthRepositoryImpl({
-    required GraphQLAuthService authService,
+    required SmartAuthService authService,
   }) : _authService = authService;
 
   @override
@@ -161,6 +161,6 @@ class AuthRepositoryImpl implements AuthRepository {
 
 // Provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  final authService = ref.watch(graphQLAuthServiceProvider);
+  final authService = ref.watch(smartAuthServiceProvider);
   return AuthRepositoryImpl(authService: authService);
 });
