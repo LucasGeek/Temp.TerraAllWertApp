@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../../../core/logging/app_logger.dart';
+import '../../../../../../infra/logging/app_logger.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../notification/snackbar_notification.dart';
@@ -40,14 +40,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final isMobile = context.isMobile || (context.isTablet && context.isXs);
 
     return Scaffold(
-      appBar: isMobile ? _buildAppBar() : null,
+      appBar: isMobile ? _buildMobileAppBar() : null,
       body: _buildMainBody(userAsyncValue, isMobile),
       drawer: isMobile ? _buildMobileDrawer(userAsyncValue) : null,
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppHeader(showMenuButton: true, currentRoute: widget.currentRoute);
+  PreferredSizeWidget _buildMobileAppBar() {
+    return AppHeader(
+      showMenuButton: true, 
+      currentRoute: widget.currentRoute,
+    );
   }
 
   Widget _buildMainBody(AsyncValue userAsyncValue, bool isMobile) {
@@ -71,10 +74,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!isMobile) _buildAppBar(),
+          if (!isMobile) _buildDesktopAppBar(),
           Expanded(child: widget.child),
         ],
       ),
+    );
+  }
+
+  Widget _buildDesktopAppBar() {
+    return AppHeader(
+      showMenuButton: true,
+      currentRoute: widget.currentRoute,
     );
   }
 

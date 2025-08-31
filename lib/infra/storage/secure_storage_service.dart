@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/logging/app_logger.dart';
+import '../../infra/logging/app_logger.dart';
 import '../../domain/entities/user.dart';
 
 /// Service for secure storage of authentication data

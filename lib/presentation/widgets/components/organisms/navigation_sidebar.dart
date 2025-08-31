@@ -7,7 +7,7 @@ import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../features/navigation/providers/navigation_provider.dart';
 import '../../../responsive/breakpoints.dart';
-import '../molecules/navigation_menu_item.dart';
+import '../molecules/navigation_item.dart';
 import 'navigation_footer.dart';
 import 'navigation_header.dart';
 
@@ -85,7 +85,7 @@ class NavigationSidebar extends ConsumerWidget {
           menuWidgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2.0),
-              child: NavigationMenuItem(
+              child: AppNavigationItem.sidebar(
                 icon: rootItem.icon,
                 selectedIcon: rootItem.selectedIcon,
                 label: rootItem.label,
@@ -286,7 +286,7 @@ class NavigationSidebar extends ConsumerWidget {
           
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 1.0),
-            child: NavigationMenuItem(
+            child: AppNavigationItem.sidebar(
               icon: subItem.icon,
               selectedIcon: subItem.selectedIcon,
               label: subItem.label,

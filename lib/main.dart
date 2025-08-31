@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talker/talker.dart';
 
-import 'core/logging/app_logger.dart';
+import 'infra/logging/app_logger.dart';
 import 'infra/config/env_config.dart';
 import 'infra/storage/secure_storage_service.dart';
 import 'presentation/design_system/app_theme.dart';

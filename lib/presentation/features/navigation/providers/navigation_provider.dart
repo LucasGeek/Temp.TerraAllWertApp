@@ -29,13 +29,13 @@ class NavigationNotifier extends StateNotifier<List<NavigationItem>> {
   static List<NavigationItem> _getDefaultNavigationItems() {
     return [
       const NavigationItem(
-        id: 'home',
-        label: 'Início',
-        icon: Icons.home_outlined,
-        selectedIcon: Icons.home,
-        route: '/home',
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+        selectedIcon: Icons.dashboard,
+        route: '/dashboard',
         order: 0,
-        description: 'Página inicial da aplicação',
+        description: 'Painel principal da aplicação',
       ),
     ];
   }

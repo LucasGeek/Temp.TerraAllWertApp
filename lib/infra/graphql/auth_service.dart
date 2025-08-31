@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../domain/entities/auth_token.dart';
 import '../../domain/entities/user.dart';
-import '../../core/logging/app_logger.dart';
+import '../../infra/logging/app_logger.dart';
 import '../storage/secure_storage_service.dart';
 import 'graphql_client.dart';
 import 'mutations/auth_mutations.dart';

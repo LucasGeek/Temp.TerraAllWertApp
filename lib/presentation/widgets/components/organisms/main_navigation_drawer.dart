@@ -7,7 +7,7 @@ import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../features/navigation/providers/navigation_provider.dart';
 import '../../../responsive/breakpoints.dart';
-import '../molecules/navigation_menu_item.dart';
+import '../molecules/navigation_item.dart';
 import 'navigation_footer.dart';
 import 'navigation_header.dart';
 
@@ -71,7 +71,7 @@ class MainNavigationDrawer extends ConsumerWidget {
 
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2.0),
-              child: NavigationMenuItem(
+              child: AppNavigationItem.sidebar(
                 icon: item.icon,
                 selectedIcon: item.selectedIcon,
                 label: item.label,

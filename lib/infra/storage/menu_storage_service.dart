@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/logging/app_logger.dart';
+import '../../infra/logging/app_logger.dart';
 import '../../domain/entities/navigation_item.dart';
 
 /// Service para armazenamento local de menus customizados

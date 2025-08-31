@@ -34,7 +34,7 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
         backgroundColor: AppTheme.surfaceColor,
         foregroundColor: AppTheme.onSurface,
         elevation: LayoutConstants.elevationXs,
-        leading: showMenuButton ? const MenuToggleButton() : null,
+        leading: showMenuButton ? const AppMenuButton() : null,
         title: _buildTitleRow(context),
         automaticallyImplyLeading: false,
         actions: _buildActions(context),

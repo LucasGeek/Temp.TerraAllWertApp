@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../config/env_config.dart';
-import '../../core/logging/app_logger.dart';
+import '../../infra/logging/app_logger.dart';
 
 class GraphQLClientService {
   late final GraphQLClient _client;

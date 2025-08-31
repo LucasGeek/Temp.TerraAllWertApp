@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,17 +27,19 @@ class MapPin {
 /// Apresentação de mapa com pins interativos
 /// Usado para localização, plantas baixas com pontos de interesse, etc.
 class PinMapPresentation extends ConsumerStatefulWidget {
+  final String title;
+  final String route;
   final String? backgroundImageUrl;
   final List<MapPin>? pins;
   final String? description;
-  final String? videoUrl;
 
   const PinMapPresentation({
     super.key,
+    required this.title,
+    required this.route,
     this.backgroundImageUrl,
     this.pins,
     this.description,
-    this.videoUrl,
   });
 
   @override
@@ -53,9 +54,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
   late Animation<double> _pinAnimation;
 
   // Mock background image and pins
-  final String _mockBackgroundImage =
-      'https://placehold.co/1200x800/E8F5E8/2E7D32?text=Mapa+do+Empreendimento';
-
+  final String _mockBackgroundImage = 'https://via.placeholder.com/1200x800/E8F5E8/2E7D32?text=Mapa+do+Empreendimento';
+  
   final List<MapPin> _mockPins = [
     MapPin(
       id: '1',
@@ -106,11 +106,10 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    _pinAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(parent: _pinAnimationController, curve: Curves.elasticOut));
-
+    _pinAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _pinAnimationController, curve: Curves.elasticOut),
+    );
+    
     // Start animation loop for pins
     _pinAnimationController.repeat(reverse: true);
   }
@@ -148,11 +147,10 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
                       children: [
                         // Background image
                         Positioned.fill(
-                          child: CachedNetworkImage(
-                            imageUrl: displayBackgroundImage,
+                          child: Image.network(
+                            displayBackgroundImage,
                             fit: BoxFit.cover,
-                            errorWidget: (context, url, error) {
-                              debugPrint('Error loading background image: $error');
+                            errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 color: AppTheme.surfaceColor,
                                 child: Column(
@@ -176,11 +174,18 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
                                 ),
                               );
                             },
-                            placeholder: (context, url) {
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
                               return Container(
                                 color: AppTheme.surfaceColor,
                                 child: Center(
-                                  child: CircularProgressIndicator(color: AppTheme.primaryColor),
+                                  child: CircularProgressIndicator(
+                                    color: AppTheme.primaryColor,
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded / 
+                                          loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
                                 ),
                               );
                             },
@@ -226,24 +231,36 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
                     icon: Icon(Icons.arrow_back, color: AppTheme.primaryColor),
                     iconSize: LayoutConstants.iconLarge,
                   ),
-                  const Spacer(),
-                  
-                  // Share button
-                  _buildControlButton(
-                    icon: Icons.add,
-                    onPressed: _shareMap,
-                    tooltip: 'Compartilhar',
-                  ),
-                  SizedBox(width: LayoutConstants.marginXs),
-                  
-                  // Video player button
-                  if (widget.videoUrl != null)
-                    _buildControlButton(
-                      icon: Icons.play_arrow,
-                      onPressed: _playVideo,
-                      tooltip: 'Ver vídeo',
+                  SizedBox(width: LayoutConstants.marginSm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (widget.description != null) ...[
+                          SizedBox(height: 4),
+                          Text(
+                            widget.description!,
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
                     ),
-                  if (widget.videoUrl != null) SizedBox(width: LayoutConstants.marginXs),
+                  ),
                   
                   // Reset zoom button
                   _buildControlButton(
@@ -280,7 +297,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
   Widget _buildPin(MapPin pin, BoxConstraints constraints) {
     final left = pin.position.dx * constraints.maxWidth - 24; // 24 = pin width/2
     final top = pin.position.dy * constraints.maxHeight - 48; // 48 = pin height
-
+    
     return Positioned(
       left: left,
       top: top,
@@ -311,9 +328,13 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
                         ),
                       ],
                     ),
-                    child: Icon(pin.icon, color: Colors.white, size: 24),
+                    child: Icon(
+                      pin.icon,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
-
+                  
                   // Pin point
                   Container(
                     width: 6,
@@ -362,7 +383,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
                   color: pin.color,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(pin.icon, color: Colors.white, size: 18),
+                child: Icon(
+                  pin.icon,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               SizedBox(width: LayoutConstants.marginSm),
               Expanded(
@@ -399,7 +424,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
   Widget _buildLegend(List<MapPin> pins) {
     final uniqueCategories = <String, MapPin>{};
     for (final pin in pins) {
-      final key = '${pin.icon.codePoint}_${pin.color.hashCode}';
+      final key = '${pin.icon.codePoint}_${pin.color.toARGB32()}';
       if (!uniqueCategories.containsKey(key)) {
         uniqueCategories[key] = pin;
       }
@@ -445,13 +470,20 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
                       color: pin.color,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(pin.icon, color: Colors.white, size: 12),
+                    child: Icon(
+                      pin.icon,
+                      color: Colors.white,
+                      size: 12,
+                    ),
                   ),
                   SizedBox(width: 8),
                   Flexible(
                     child: Text(
                       _getCategoryName(pin),
-                      style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -476,11 +508,18 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
         decoration: BoxDecoration(
           color: AppTheme.primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3), width: 1),
+          border: Border.all(
+            color: AppTheme.primaryColor.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(icon, color: AppTheme.primaryColor, size: 20),
+          icon: Icon(
+            icon,
+            color: AppTheme.primaryColor,
+            size: 20,
+          ),
           padding: EdgeInsets.zero,
         ),
       ),
@@ -510,19 +549,5 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation>
 
   void _resetZoom() {
     _transformationController.value = Matrix4.identity();
-  }
-
-  void _shareMap() {
-    // TODO: Implementar compartilhamento do mapa
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Compartilhamento em desenvolvimento')),
-    );
-  }
-
-  void _playVideo() {
-    // TODO: Implementar player de vídeo
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Player de vídeo em desenvolvimento')),
-    );
   }
 }

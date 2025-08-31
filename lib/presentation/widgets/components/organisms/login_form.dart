@@ -6,10 +6,10 @@ import '../../../notification/snackbar_notification.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/auth/presentation/providers/login_form_provider.dart';
 import '../../../utils/error_handler.dart';
-import '../../../../core/logging/app_logger.dart';
+import '../../../../infra/logging/app_logger.dart';
 import '../atoms/primary_button.dart';
 import '../molecules/login_form_fields.dart';
-import '../molecules/social_buttons_row.dart';
+import '../molecules/social_login_buttons.dart';
 
 /// Organism: Formulário completo de login
 class LoginForm extends ConsumerStatefulWidget {
@@ -114,7 +114,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           const SizedBox(height: 32),
 
           // Campo de email
-          EmailField(
+          AppFormField.email(
             focusNode: _emailFocus,
             errorText: formState.emailError,
             onChanged: (value) {
@@ -125,7 +125,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           const SizedBox(height: 20),
 
           // Campo de senha
-          PasswordField(
+          AppFormField.password(
             focusNode: _passwordFocus,
             errorText: formState.passwordError,
             onChanged: (value) {
@@ -136,7 +136,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           const SizedBox(height: 24),
 
           // Botão de login
-          PrimaryButton(
+          AppButton.primary(
             text: 'Entrar',
             isLoading: formState.isSubmitting,
             onPressed: formState.isValid && !formState.isSubmitting 
@@ -149,7 +149,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           const SizedBox(height: 32),
 
           // Botões de login social
-          SocialButtonsRow(
+          AppSocialLoginButtons(
             onGooglePressed: () => _handleSocialLogin('Google'),
             onFacebookPressed: () => _handleSocialLogin('Facebook'),
             onApplePressed: () => _handleSocialLogin('Apple'),

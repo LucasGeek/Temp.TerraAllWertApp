@@ -22,7 +22,7 @@ class LoginPage extends ConsumerWidget {
     );
 
     return ResponsiveAuthLayout(
-      header: TerraLogo(
+      header: AppLogo(
         size: logoSize,
         showText: true,
         alignment: MainAxisAlignment.start,

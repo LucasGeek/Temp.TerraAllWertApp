@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../design_system/app_theme.dart';
 
-/// Atom: Campo de texto para login seguindo Material Design 2
-class LoginTextField extends StatefulWidget {
+/// Atom: Campo de texto reutilizável seguindo SOLID principles
+/// Interface Segregation: Separado em tipos específicos para diferentes usos
+class AppTextField extends StatefulWidget {
   final String? label;
   final String? hint;
   final String? errorText;
@@ -19,7 +20,7 @@ class LoginTextField extends StatefulWidget {
   final String? initialValue;
   final bool autofocus;
 
-  const LoginTextField({
+  const AppTextField({
     super.key,
     this.label,
     this.hint,
@@ -38,10 +39,10 @@ class LoginTextField extends StatefulWidget {
   });
 
   @override
-  State<LoginTextField> createState() => _LoginTextFieldState();
+  State<AppTextField> createState() => _AppTextFieldState();
 }
 
-class _LoginTextFieldState extends State<LoginTextField> {
+class _AppTextFieldState extends State<AppTextField> {
   late final TextEditingController _controller;
   bool _hasFocus = false;
 
