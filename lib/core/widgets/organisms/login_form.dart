@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_theme.dart';
+import '../../services/snackbar_service.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/auth/presentation/providers/login_form_provider.dart';
 import '../atoms/primary_button.dart';
@@ -44,10 +45,11 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           );
 
       ref.read(loginFormProvider.notifier).submitSuccess();
+      SnackbarService.showSuccess('Login realizado com sucesso!');
     } catch (error) {
-      ref.read(loginFormProvider.notifier).submitError(
-        error.toString().replaceFirst('Exception: ', ''),
-      );
+      final errorMessage = error.toString().replaceFirst('Exception: ', '');
+      ref.read(loginFormProvider.notifier).submitError(errorMessage);
+      SnackbarService.showError(errorMessage);
     }
   }
 
@@ -57,16 +59,12 @@ class _LoginFormState extends ConsumerState<LoginForm> {
 
   void _handleSignUp() {
     // TODO: Implementar navegação para tela de cadastro
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Funcionalidade em desenvolvimento')),
-    );
+    SnackbarService.showInfo('Funcionalidade de cadastro em desenvolvimento');
   }
 
   void _handleSocialLogin(String provider) {
     // TODO: Implementar login social
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Login com $provider em desenvolvimento')),
-    );
+    SnackbarService.showInfo('Login com $provider em desenvolvimento');
   }
 
   @override
@@ -127,37 +125,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
                 : null,
           ),
           
-          // Mensagem de erro geral
-          if (formState.submitError != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.errorColor.withValues(alpha: 0.1),
-                border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    color: AppTheme.errorColor,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      formState.submitError!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.errorColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          // Removido o container de erro local - usando snackbar global
 
           const SizedBox(height: 32),
 

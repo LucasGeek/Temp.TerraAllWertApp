@@ -114,9 +114,11 @@ class _LoginTextFieldState extends State<LoginTextField> {
                 prefixIcon: widget.prefixIcon != null
                     ? Icon(
                         widget.prefixIcon,
-                        color: _hasFocus 
-                            ? AppTheme.primaryColor 
-                            : AppTheme.textHint,
+                        color: widget.errorText != null
+                            ? AppTheme.errorColor
+                            : _hasFocus 
+                                ? AppTheme.primaryColor 
+                                : AppTheme.textHint,
                         size: 20,
                       )
                     : null,
@@ -129,21 +131,27 @@ class _LoginTextFieldState extends State<LoginTextField> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
                   borderSide: BorderSide(
-                    color: AppTheme.secondaryLight,
+                    color: widget.errorText != null 
+                        ? AppTheme.errorColor 
+                        : AppTheme.secondaryLight,
                     width: 1,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
                   borderSide: BorderSide(
-                    color: AppTheme.secondaryLight,
+                    color: widget.errorText != null 
+                        ? AppTheme.errorColor 
+                        : AppTheme.secondaryLight,
                     width: 1,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
                   borderSide: BorderSide(
-                    color: AppTheme.primaryColor,
+                    color: widget.errorText != null 
+                        ? AppTheme.errorColor 
+                        : AppTheme.primaryColor,
                     width: 2,
                   ),
                 ),

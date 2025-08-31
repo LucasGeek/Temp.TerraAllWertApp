@@ -5,6 +5,7 @@ import 'package:talker/talker.dart';
 import 'core/network/env_config.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/snackbar_service.dart';
 
 final talkerProvider = Provider<Talker>((ref) => Talker());
 
@@ -31,6 +32,7 @@ class TerraAllwertApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       routerConfig: AppRouter.router,
       debugShowCheckedModeBanner: config.environment != 'production',
+      scaffoldMessengerKey: SnackbarService.messengerKey,
     );
   }
 }
