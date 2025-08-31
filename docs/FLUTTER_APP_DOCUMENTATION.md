@@ -2323,7 +2323,7 @@ void main() {
       // Initialize GraphQL service with test client
       final testClient = GraphQLClient(
         cache: GraphQLCache(),
-        link: HttpLink('http://localhost:8080/graphql'),
+        link: HttpLink('http://localhost:3000/graphql'),
       );
       graphqlService = GraphQLService(testClient);
       

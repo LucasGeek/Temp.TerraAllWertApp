@@ -45,6 +45,9 @@ class GraphQLClientService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'TerraAllwert-App/1.0',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
       );
 

@@ -27,8 +27,10 @@ class GraphQLAuthService {
         MutationOptions(
           document: gql(loginMutation),
           variables: {
-            'email': email,
-            'password': password,
+            'input': {
+              'email': email,
+              'password': password,
+            },
           },
         ),
         maxRetries: 2, // Retry login attempts up to 2 times
@@ -71,7 +73,13 @@ class GraphQLAuthService {
       return token;
     } catch (e, stackTrace) {
       AuthLogger.loginFailure(email, e.toString());
-      AuthLogger.error('Login failed with exception', error: e, stackTrace: stackTrace);
+      
+      // Log apenas como info para erros de autenticação, evitando stack trace feio
+      if (e is OperationException && e.graphqlErrors.isNotEmpty) {
+        AuthLogger.info('Login failed with GraphQL error: ${e.graphqlErrors.first.message}');
+      } else {
+        AuthLogger.error('Login failed with exception', error: e, stackTrace: stackTrace);
+      }
       rethrow;
     }
   }
@@ -201,12 +209,13 @@ class GraphQLAuthService {
       final user = User(
         id: userData['id'],
         email: userData['email'],
-        name: userData['name'],
-        avatar: userData['avatar'],
+        name: userData['username'] ?? userData['email'], // Use username or fallback to email
+        avatar: null, // API doesn't return avatar
+        isActive: userData['active'] ?? true,
         role: UserRole(
-          id: userData['role']['id'] ?? '',
-          name: userData['role']['name'] ?? 'User',
-          code: userData['role']['code'] ?? 'USER',
+          id: '1', // API returns role as string, not object
+          name: userData['role'] ?? 'User',
+          code: userData['role']?.toString().toUpperCase() ?? 'USER',
         ),
       );
 
@@ -232,8 +241,11 @@ class GraphQLAuthService {
   }
 
   Future<bool> hasValidToken() async {
-    final token = await getStoredAccessToken();
-    return token != null && token.isNotEmpty;
+    return await _storage.isAuthenticated();
+  }
+
+  Future<User?> getStoredUser() async {
+    return await _storage.getUserData();
   }
 }
 

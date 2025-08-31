@@ -5,6 +5,7 @@ import '../../../design_system/app_theme.dart';
 import '../../../notification/snackbar_notification.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/auth/presentation/providers/login_form_provider.dart';
+import '../../../utils/error_handler.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../atoms/primary_button.dart';
 import '../molecules/login_form_fields.dart';
@@ -63,7 +64,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
         AuthLogger.info('Successfully navigated to dashboard');
       }
     } catch (error) {
-      final errorMessage = error.toString().replaceFirst('Exception: ', '');
+      final errorMessage = ErrorHandler.getAuthErrorMessage(error);
       ref.read(loginFormProvider.notifier).submitError(errorMessage);
       SnackbarNotification.showError(errorMessage);
       

@@ -92,13 +92,22 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<User?> getCurrentUser() async {
+    // First try to get stored user data
+    final storedUser = await _authService.getStoredUser();
+    if (storedUser != null) {
+      _userController.add(storedUser);
+      return storedUser;
+    }
+
+    // If no stored user, try to fetch from server
     try {
       final user = await _authService.getCurrentUser();
       _userController.add(user);
       return user;
     } catch (e) {
+      // If server fetch fails, throw exception to allow AuthController to handle
       _userController.add(null);
-      return null;
+      rethrow; // Rethrow to let AuthController create minimal user
     }
   }
 

@@ -233,29 +233,79 @@ Componentes organizados hierarquicamente:
 ## Comandos Úteis
 
 ```bash
-# Desenvolvimento
-fvm flutter run
+# Desenvolvimento (resolvendo CORS)
+make run-cors
+
+# Desenvolvimento padrão
+make run-dev
+
+# Setup completo do projeto
+make setup
 
 # Build Web
-fvm flutter build web
+make build-web
 
-# Build iOS
-fvm flutter build ios
-
-# Build Android
-fvm flutter build apk
-
-# Build macOS
-fvm flutter build macos
+# Build para todas as plataformas
+make build-all
 
 # Testes
-fvm flutter test
+make test
 
 # Análise de código
-fvm flutter analyze
+make analyze
 
 # Formatação
-fvm flutter format .
+make format
+
+# Pipeline de CI
+make ci
+
+# Informações do projeto
+make info
+
+# Ajuda com todos os comandos
+make help
+```
+
+## Desenvolvimento Local - Resolução de CORS
+
+### Problema
+A aplicação Flutter Web roda em localhost:3001 mas a API GraphQL está em localhost:3000, causando erros de CORS:
+```
+ClientException: Failed to fetch, uri=http://localhost:3000/graphql
+```
+
+### Solução
+Use o comando do Makefile que desabilita CORS no Chrome:
+
+```bash
+make run-cors
+```
+
+Este comando:
+- Mata instâncias antigas do Chrome com CORS desabilitado
+- Executa a aplicação na porta 3001
+- Abre Chrome com CORS desabilitado (`--disable-web-security`)
+- Usa perfil temporário (`--user-data-dir=/tmp/chrome_dev_profile`)
+- ⚠️ **APENAS para desenvolvimento local!**
+
+### Workflows de Desenvolvimento
+
+```bash
+# Setup inicial do projeto
+make setup
+
+# Iniciar desenvolvimento com verificação da API
+make dev-start
+
+# Executar apenas com CORS desabilitado
+make run-cors
+
+# Pipeline completo de testes
+make dev-test
+
+# Workflow completo de desenvolvimento
+make dev-full
 ```
 
 ## Configuração de Ambiente
@@ -263,9 +313,9 @@ fvm flutter format .
 ```dart
 // lib/core/constants/api_constants.dart
 class ApiConstants {
-  static const String baseUrl = 'http://localhost:8080';
+  static const String baseUrl = 'http://localhost:3000';
   static const String graphqlEndpoint = '/graphql';
-  static const String wsEndpoint = 'ws://localhost:8080/ws';
+  static const String wsEndpoint = 'ws://localhost:3000/ws';
 }
 ```
 

@@ -1,16 +1,17 @@
 // GraphQL mutations for authentication operations
 
 const String loginMutation = '''
-  mutation Login(\$email: String!, \$password: String!) {
-    login(email: \$email, password: \$password) {
+  mutation Login(\$input: LoginInput!) {
+    login(input: \$input) {
       token
       refreshToken
       expiresAt
       user {
         id
+        username
         email
-        name
-        avatar
+        role
+        active
       }
     }
   }
@@ -38,15 +39,10 @@ const String getCurrentUserQuery = '''
   query GetCurrentUser {
     currentUser {
       id
+      username
       email
-      name
-      avatar
-      role {
-        id
-        name
-        code
-        permissions
-      }
+      role
+      active
     }
   }
 ''';
