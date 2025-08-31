@@ -83,6 +83,9 @@ dependencies:
   # --- Drag and Drop ---
   reorderable_grid_view: ^2.2.8
   
+  # --- File Picker ---
+  file_picker: ^8.1.4
+  
   # --- Connectivity ---
   connectivity_plus: ^6.1.0
 

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../domain/entities/navigation_item.dart';
@@ -27,17 +26,8 @@ class NavigationNotifier extends StateNotifier<List<NavigationItem>> {
   }
 
   static List<NavigationItem> _getDefaultNavigationItems() {
-    return [
-      const NavigationItem(
-        id: 'dashboard',
-        label: 'Dashboard',
-        icon: Icons.dashboard_outlined,
-        selectedIcon: Icons.dashboard,
-        route: '/dashboard',
-        order: 0,
-        description: 'Painel principal da aplicação',
-      ),
-    ];
+    // Retorna lista vazia para permitir que cliente configure seus próprios menus
+    return [];
   }
 
   /// Adiciona um novo item de navegação
@@ -184,4 +174,10 @@ final selectedNavigationIndexProvider = Provider.family<int, String>((ref, curre
   }
 
   return 0; // Default to first item if route not found
+});
+
+/// Provider para verificar se não há menus configurados
+final hasNoMenusConfiguredProvider = Provider<bool>((ref) {
+  final visibleItems = ref.watch(visibleNavigationItemsProvider);
+  return visibleItems.isEmpty;
 });

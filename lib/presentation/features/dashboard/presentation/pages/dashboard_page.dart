@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../navigation/providers/navigation_provider.dart';
 import '../../../../widgets/components/organisms/presentations/image_carousel_presentation.dart';
+import '../../../../widgets/components/organisms/first_menu_instruction.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Dashboard now uses the same presentation system as other pages
-    // Shows a carousel with project overview images
+    final hasNoMenus = ref.watch(hasNoMenusConfiguredProvider);
+    
+    // Se não há menus configurados, mostra tela de instruções
+    if (hasNoMenus) {
+      return const Scaffold(
+        body: FirstMenuInstruction(),
+      );
+    }
+    
+    // Dashboard normal com carousel quando há menus configurados
     return const ImageCarouselPresentation(
       title: 'Terra Allwert',
       route: '/dashboard',

@@ -126,24 +126,25 @@ class NavigationSidebar extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.menu,
+              Icons.add_box_outlined,
               size: LayoutConstants.iconXLarge,
-              color: AppTheme.onPrimary.withValues(alpha: 0.4),
+              color: AppTheme.onPrimary.withValues(alpha: 0.6),
             ),
             SizedBox(height: LayoutConstants.marginMd),
             Text(
-              'Nenhum item de navegação disponível',
+              'Nenhum menu configurado',
               style: TextStyle(
-                color: AppTheme.onPrimary.withValues(alpha: 0.7),
+                color: AppTheme.onPrimary.withValues(alpha: 0.9),
                 fontSize: LayoutConstants.fontSizeMedium,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: LayoutConstants.marginSm),
             Text(
-              'Verifique sua conexão ou recarregue a página',
+              'Configure seus menus de navegação\npara começar',
               style: TextStyle(
-                color: AppTheme.onPrimary.withValues(alpha: 0.5),
+                color: AppTheme.onPrimary.withValues(alpha: 0.7),
                 fontSize: LayoutConstants.fontSizeSmall,
               ),
               textAlign: TextAlign.center,

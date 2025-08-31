@@ -290,18 +290,9 @@ class MenuStorageService {
   }
 
   /// Itens de navegação padrão do sistema
+  /// Retorna lista vazia para permitir que cliente configure seus próprios menus
   List<NavigationItem> _getDefaultNavigationItems() {
-    return [
-      const NavigationItem(
-        id: 'home',
-        label: 'Início',
-        icon: Icons.home_outlined,
-        selectedIcon: Icons.home,
-        route: '/home',
-        order: 0,
-        description: 'Página inicial da aplicação',
-      ),
-    ];
+    return [];
   }
 
   /// Configuração padrão de menu
