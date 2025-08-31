@@ -1,5 +1,52 @@
 # Terra Allwert App
 
+## Sistema de Breakpoints Responsivos
+
+O projeto utiliza breakpoints padronizados mundialmente (baseados em Tailwind CSS e Bootstrap):
+
+| Breakpoint | Prefix | Minimum width | CSS equivalent                  | Uso típico           |
+|------------|--------|---------------|--------------------------------|----------------------|
+| Extra Small | xs    | 0px          | @media (width >= 0px)          | Mobile pequeno       |
+| Small      | sm     | 640px        | @media (width >= 40rem)        | Mobile grande        |
+| Medium     | md     | 768px        | @media (width >= 48rem)        | Tablet               |
+| Large      | lg     | 1024px       | @media (width >= 64rem)        | Desktop              |
+| Extra Large| xl     | 1280px       | @media (width >= 80rem)        | Desktop grande       |
+| 2XL        | xxl    | 1536px       | @media (width >= 96rem)        | Desktop muito grande |
+
+### Como usar os breakpoints:
+
+```dart
+// Usando a extension no contexto
+final isMobile = context.isMobile; // < 768px
+final isTablet = context.isTablet; // 768px - 1024px
+final isDesktop = context.isDesktop; // >= 1024px
+
+// Valores responsivos
+final padding = context.responsive<double>(
+  xs: 16,
+  sm: 20,
+  md: 24,
+  lg: 32,
+  xl: 40,
+  xxl: 48,
+);
+
+// ResponsiveBuilder widget
+ResponsiveBuilder(
+  xs: MobileWidget(),
+  md: TabletWidget(),
+  lg: DesktopWidget(),
+);
+```
+
+### Diretrizes de Design Responsivo:
+
+1. **Mobile First**: Sempre comece pelo design mobile (xs) e adicione melhorias progressivas
+2. **Conteúdo Fluido**: Use larguras máximas responsivas ao invés de valores fixos
+3. **Tipografia Escalável**: Ajuste tamanhos de fonte baseados no breakpoint
+4. **Espaçamento Adaptativo**: Aumente padding/margin em telas maiores
+5. **Layout Flexível**: Mude de coluna única (mobile) para múltiplas colunas (desktop)
+
 ## Objetivo do Projeto
 
 Aplicação multiplataforma (Web, iOS, Android, Desktop) para visualização e gerenciamento de torres residenciais e comerciais. Interface moderna e responsiva para consultores imobiliários apresentarem apartamentos aos clientes, com suporte offline.
