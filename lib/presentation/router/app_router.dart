@@ -7,7 +7,7 @@ import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/dynamic/pages/dynamic_page.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/navigation/providers/navigation_provider.dart';
-import '../widgets/components/templates/main_layout.dart';
+import '../widgets/templates/main_layout.dart';
 import '../../infra/logging/app_logger.dart';
 
 /// Custom page transitions for better UX

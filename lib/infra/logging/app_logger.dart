@@ -202,3 +202,23 @@ class StorageLogger {
     AppLogger.error(message, tag: _tag, error: error, stackTrace: stackTrace);
   }
 }
+
+class NetworkLogger {
+  static const String _tag = 'NETWORK';
+  
+  static void debug(String message, {Object? error, StackTrace? stackTrace}) {
+    AppLogger.debug(message, tag: _tag, error: error, stackTrace: stackTrace);
+  }
+  
+  static void info(String message, {Object? error, StackTrace? stackTrace}) {
+    AppLogger.info(message, tag: _tag, error: error, stackTrace: stackTrace);
+  }
+  
+  static void warning(String message, {Object? error, StackTrace? stackTrace}) {
+    AppLogger.warning(message, tag: _tag, error: error, stackTrace: stackTrace);
+  }
+  
+  static void error(String message, {Object? error, StackTrace? stackTrace}) {
+    AppLogger.error(message, tag: _tag, error: error, stackTrace: stackTrace);
+  }
+}

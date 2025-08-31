@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../navigation/providers/navigation_provider.dart';
-import '../../../../widgets/components/organisms/presentations/image_carousel_presentation.dart';
-import '../../../../widgets/components/organisms/first_menu_instruction.dart';
+import '../../../../widgets/organisms/presentations/image_carousel_presentation.dart';
+import '../../../../widgets/organisms/first_menu_instruction.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});

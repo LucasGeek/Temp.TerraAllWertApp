@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../domain/enums/menu_presentation_type.dart';
 import '../../../design_system/app_theme.dart';
 import '../../navigation/providers/navigation_provider.dart';
-import '../../../widgets/components/organisms/presentations/image_carousel_presentation.dart';
-import '../../../widgets/components/organisms/presentations/pin_map_presentation.dart';
-import '../../../widgets/components/organisms/presentations/floor_plan_presentation.dart';
+import '../../../widgets/organisms/presentations/image_carousel_presentation.dart';
+import '../../../widgets/organisms/presentations/pin_map_presentation.dart';
+import '../../../widgets/organisms/presentations/floor_plan_presentation.dart';
 
 /// Página dinâmica para rotas criadas pelo usuário
 /// Apresenta diferentes tipos de conteúdo baseado no tipo de menu

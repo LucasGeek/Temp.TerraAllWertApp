@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../widgets/components/atoms/terra_logo.dart';
-import '../../../../widgets/components/templates/responsive_auth_layout.dart';
-import '../../../../widgets/components/organisms/login_form.dart';
+import '../../../../widgets/atoms/terra_logo.dart';
+import '../../../../widgets/templates/responsive_auth_layout.dart';
+import '../../../../widgets/organisms/login_form.dart';
 import '../../../../responsive/breakpoints.dart';
 
 /// Page: Tela de login com layout responsivo seguindo Material Design 2
