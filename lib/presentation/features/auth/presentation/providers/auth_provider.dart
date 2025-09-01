@@ -7,6 +7,7 @@ import '../../../../../domain/usecases/logout_usecase.dart';
 import '../../../../../data/repositories/auth_repository_impl.dart';
 import '../../../../utils/error_handler.dart';
 import '../../../../providers/connectivity_provider.dart';
+import '../../../../providers/post_login_sync_provider.dart';
 
 // Use Cases
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
@@ -85,14 +86,17 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
   final AuthRepository _repository;
   final LoginUseCase _loginUseCase;
   final LogoutUseCase _logoutUseCase;
+  final Ref _ref;
 
   AuthController({
     required AuthRepository repository,
     required LoginUseCase loginUseCase,
     required LogoutUseCase logoutUseCase,
+    required Ref ref,
   })  : _repository = repository,
         _loginUseCase = loginUseCase,
         _logoutUseCase = logoutUseCase,
+        _ref = ref,
         super(const AsyncValue.loading()) {
     _init();
   }
@@ -186,6 +190,10 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
           print('[AUTH] Login succeeded and user data retrieved');
         }
         state = AsyncValue.data(user);
+        
+        // Executar sincronização pós-login em background
+        _executePostLoginSync(user);
+        
       } else {
         // If user data is null, create minimal user for successful login
         if (kDebugMode) {
@@ -206,6 +214,9 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
         }
         
         state = AsyncValue.data(minimalUser);
+        
+        // Executar sincronização pós-login também para usuário minimal
+        _executePostLoginSync(minimalUser);
       }
     } catch (error, _) {
       // Criar uma exceção mais específica baseada no erro original
@@ -240,6 +251,33 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
       state = AsyncValue.error(error, stackTrace);
     }
   }
+
+  /// Executa a sincronização pós-login em background
+  void _executePostLoginSync(User user) {
+    // Executar em background sem bloquear o login
+    Future.microtask(() {
+      try {
+        if (kDebugMode) {
+          print('[AUTH] Starting post-login sync for user: ${user.email}');
+        }
+        
+        // Disparar sincronização através do provider
+        final syncNotifier = _ref.read(postLoginSyncNotifierProvider.notifier);
+        syncNotifier.executeSync(user).catchError((e) {
+          if (kDebugMode) {
+            print('[AUTH] Post-login sync failed: $e');
+          }
+          // Não falhar o login se a sincronização falhar
+        });
+        
+      } catch (e) {
+        if (kDebugMode) {
+          print('[AUTH] Failed to start post-login sync: $e');
+        }
+        // Não falhar o login se não conseguir iniciar a sincronização
+      }
+    });
+  }
 }
 
 final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<User?>>((ref) {
@@ -251,5 +289,6 @@ final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<
     repository: repository,
     loginUseCase: loginUseCase,
     logoutUseCase: logoutUseCase,
+    ref: ref,
   );
 });

@@ -88,7 +88,9 @@ class PinCacheAdapter {
             contentType: _getContentType(file.name),
             routeId: routeId,
             pinId: pinId,
-          );
+          ).catchError((e) {
+            AppLogger.error('Background upload failed for ${file.name}: $e', tag: 'PinCache');
+          });
           
           cachedPaths.add(cachedInfo.localPath);
           
@@ -146,7 +148,9 @@ class PinCacheAdapter {
           contentType: _getContentType(file.name),
           routeId: routeId,
           pinId: pinId,
-        );
+        ).catchError((e) {
+          AppLogger.error('Background upload failed for ${file.name}: $e', tag: 'PinCache');
+        });
         
         cachedPaths.add(cachedInfo.localPath);
         
@@ -211,7 +215,9 @@ class PinCacheAdapter {
         contentType: _getContentType(videoFile.name),
         routeId: routeId,
         pinId: pinId,
-      );
+      ).catchError((e) {
+        AppLogger.error('Background upload failed for ${videoFile?.name ?? "unknown"}: $e', tag: 'PinCache');
+      });
       
       AppLogger.info('Video cached successfully: ${cachedInfo.localPath}', tag: 'PinCache');
       return cachedInfo.localPath;
@@ -223,31 +229,51 @@ class PinCacheAdapter {
   }
 
   /// Inicia upload em background
-  void _startBackgroundUpload({
+  Future<void> _startBackgroundUpload({
     required String fileId,
     required String contentType,
     required String routeId,
     String? pinId,
-  }) {
-    // TODO: Implementar upload em background quando API estiver pronta
-    AppLogger.debug('TODO: Starting background upload for file: $fileId', tag: 'PinCache');
-    
-    // Código para quando a API estiver implementada:
-    /*
-    _uploadService.uploadFileComplete(
-      fileBytes: cachedBytes,
-      originalPath: originalPath,
-      fileType: type,
-      contentType: contentType,
-      routeId: routeId,
-      pinId: pinId,
-      onProgress: (progress) {
-        AppLogger.debug('Upload progress for $fileId: ${progress.progress}', tag: 'PinCache');
-      },
-    ).catchError((e) {
+  }) async {
+    try {
+      AppLogger.info('Starting background upload for file: $fileId', tag: 'PinCache');
+      
+      // Obter bytes do cache
+      final cachedBytes = await _cacheService.getCachedFile(fileId);
+      if (cachedBytes == null) {
+        AppLogger.error('File not found in cache: $fileId', tag: 'PinCache');
+        return;
+      }
+      
+      // Obter informações do arquivo do cache
+      final fileInfo = _cacheService.getFileInfo(fileId);
+      final originalPath = fileInfo?.originalPath ?? 'unknown_file';
+      
+      // Determinar tipo de arquivo
+      final fileType = contentType.startsWith('image/') ? 'image' : 
+                      contentType.startsWith('video/') ? 'video' : 'file';
+      
+      // Executar upload para MinIO
+      await _uploadService.uploadFileComplete(
+        fileBytes: cachedBytes,
+        originalPath: originalPath,
+        fileType: fileType,
+        contentType: contentType,
+        routeId: routeId,
+        pinId: pinId,
+        onProgress: (progress) {
+          AppLogger.debug('Upload progress for $fileId: ${(progress.progress * 100).toStringAsFixed(1)}%', tag: 'PinCache');
+        },
+      );
+      
+      AppLogger.info('Background upload completed successfully for file: $fileId', tag: 'PinCache');
+      
+    } catch (e) {
       AppLogger.error('Background upload failed for $fileId: $e', tag: 'PinCache');
-    });
-    */
+      
+      // Log do erro para retry futuro
+      AppLogger.warning('File marked for future retry: $fileId - Error: ${e.toString()}', tag: 'PinCache');
+    }
   }
 
   /// Obtém arquivo do cache local

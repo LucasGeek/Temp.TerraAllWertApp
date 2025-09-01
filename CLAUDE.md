@@ -272,7 +272,7 @@ make help
 ### Problema
 A aplicação Flutter Web roda em localhost:3001 mas a API GraphQL está em localhost:3000, causando erros de CORS:
 ```
-ClientException: Failed to fetch, uri=http://localhost:3000/graphql
+ClientException: Failed to fetch, uri=http://127.0.0.1:3000/graphql
 ```
 
 ### Solução
@@ -313,7 +313,7 @@ make dev-full
 ```dart
 // lib/core/constants/api_constants.dart
 class ApiConstants {
-  static const String baseUrl = 'http://localhost:3000';
+  static const String baseUrl = 'http://127.0.0.1:3000';
   static const String graphqlEndpoint = '/graphql';
   static const String wsEndpoint = 'ws://localhost:3000/ws';
 }

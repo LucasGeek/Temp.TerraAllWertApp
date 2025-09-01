@@ -50,7 +50,7 @@ dependencies:
   # --- HTTP & GraphQL ---
   dio: ^5.8.0+1 # Necessário: HTTP client para downloads e API calls
   dio_cache_interceptor: ^4.0.3 # Necessário: cache de requisições HTTP
-  graphql_flutter: ^5.1.2 # Necessário: cliente GraphQL implementado
+  graphql: ^5.2.1 # Necessário: cliente GraphQL implementado
 
   # --- Database & Storage --- (Database removida: usando apenas cache local)
   # drift: ^2.20.1                  # Database ORM - não está sendo usado

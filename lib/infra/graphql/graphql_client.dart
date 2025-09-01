@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:graphql/client.dart';
 import '../config/env_config.dart';
 import '../../infra/logging/app_logger.dart';
+import '../storage/secure_storage_service.dart';
 
 class GraphQLClientService {
-  late final GraphQLClient _client;
+  GraphQLClient? _client;
   final String _endpoint;
   
   GraphQLClientService({
@@ -46,9 +47,6 @@ class GraphQLClientService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'TerraAllwert-App/1.0',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
       );
 
@@ -65,7 +63,7 @@ class GraphQLClientService {
 
       _client = GraphQLClient(
         link: link,
-        cache: GraphQLCache(store: InMemoryStore()),
+        cache: GraphQLCache(),
       );
 
       AppLogger.info('GraphQL client initialized successfully', tag: 'GRAPHQL');
@@ -75,13 +73,18 @@ class GraphQLClientService {
     }
   }
 
-  GraphQLClient get client => _client;
+  GraphQLClient get client {
+    if (_client == null) {
+      throw StateError('GraphQL client not initialized');
+    }
+    return _client!;
+  }
 
   Future<QueryResult> query(QueryOptions options) async {
     try {
       AppLogger.debug('Executing GraphQL query', tag: 'GRAPHQL');
 
-      final result = await _client.query(options).timeout(
+      final result = await client.query(options).timeout(
         const Duration(seconds: 30),
         onTimeout: () {
           AppLogger.error('GraphQL query timeout after 30 seconds', tag: 'GRAPHQL');
@@ -114,7 +117,7 @@ class GraphQLClientService {
     try {
       AppLogger.debug('Executing GraphQL mutation', tag: 'GRAPHQL');
 
-      final result = await _client.mutate(options).timeout(
+      final result = await client.mutate(options).timeout(
         const Duration(seconds: 30),
         onTimeout: () {
           AppLogger.error('GraphQL mutation timeout after 30 seconds', tag: 'GRAPHQL');
@@ -146,7 +149,7 @@ class GraphQLClientService {
   ObservableQuery watchQuery(WatchQueryOptions options) {
     try {
       AppLogger.debug('Creating GraphQL watchQuery', tag: 'GRAPHQL');
-      return _client.watchQuery(options);
+      return client.watchQuery(options);
     } catch (e, stackTrace) {
       AppLogger.error('Failed to create watchQuery', tag: 'GRAPHQL', error: e, stackTrace: stackTrace);
       rethrow;
@@ -156,7 +159,7 @@ class GraphQLClientService {
   Future<void> clearCache() async {
     try {
       AppLogger.debug('Clearing GraphQL cache', tag: 'GRAPHQL');
-      _client.cache.store.reset();
+      client.cache.store.reset();
       AppLogger.debug('GraphQL cache cleared successfully', tag: 'GRAPHQL');
     } catch (e, stackTrace) {
       AppLogger.error('Failed to clear GraphQL cache', tag: 'GRAPHQL', error: e, stackTrace: stackTrace);
@@ -168,6 +171,18 @@ class GraphQLClientService {
   void updateToken(String? newToken) {
     try {
       AppLogger.info('Updating GraphQL client token', tag: 'GRAPHQL');
+      
+      // Dispose old client if exists
+      if (_client != null) {
+        // Clear cache before recreating
+        try {
+          _client!.cache.store.reset();
+        } catch (e) {
+          AppLogger.warning('Failed to clear cache during token update', tag: 'GRAPHQL', error: e);
+        }
+        _client = null;
+      }
+      
       _initializeClient(newToken);
     } catch (e, stackTrace) {
       AppLogger.error('Failed to update GraphQL client token', tag: 'GRAPHQL', error: e, stackTrace: stackTrace);
@@ -303,14 +318,29 @@ class GraphQLClientService {
 
 // This will be moved to a dedicated storage service file
 
-// Providers
-final graphQLClientProvider = Provider<GraphQLClientService>((ref) {
+// Provider base para cliente GraphQL (sem token)
+final baseGraphQLClientProvider = Provider<GraphQLClientService>((ref) {
   final config = ref.watch(envConfigProvider);
+  
   return GraphQLClientService(
     endpoint: config.graphqlEndpoint,
   );
 });
 
-final graphQLClientStateProvider = StateProvider<GraphQLClientService?>((ref) {
-  return null;
+// Provider principal - mantém compatibilidade
+final graphQLClientProvider = Provider<GraphQLClientService>((ref) {
+  return ref.watch(baseGraphQLClientProvider);
+});
+
+// Provider para cliente autenticado com token
+final authenticatedGraphQLClientProvider = FutureProvider<GraphQLClientService>((ref) async {
+  final config = ref.watch(envConfigProvider);
+  final storage = ref.watch(secureStorageServiceProvider);
+  
+  final token = await storage.getAccessToken();
+  
+  return GraphQLClientService(
+    endpoint: config.graphqlEndpoint,
+    token: token,
+  );
 });

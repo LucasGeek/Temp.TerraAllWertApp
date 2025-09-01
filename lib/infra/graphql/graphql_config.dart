@@ -1,4 +1,4 @@
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:graphql/client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/env_config.dart';
 

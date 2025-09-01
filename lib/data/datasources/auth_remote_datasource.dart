@@ -1,4 +1,4 @@
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:graphql/client.dart';
 import '../../../../../infra/graphql/mutations/auth_mutations.dart';
 import '../models/auth_response.dart';
 import '../models/user_dto.dart';
@@ -87,10 +87,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw Exception(result.exception.toString());
     }
 
-    if (result.data?['me'] == null) {
+    if (result.data?['currentUser'] == null) {
       return null;
     }
 
-    return UserDto.fromJson(result.data!['me']);
+    return UserDto.fromJson(result.data!['currentUser']);
   }
 }

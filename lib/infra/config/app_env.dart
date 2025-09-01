@@ -4,7 +4,7 @@ part 'app_env.g.dart';
 
 @Envied(path: '.env')
 abstract class AppEnv {
-  @EnviedField(varName: 'GRAPHQL_ENDPOINT', defaultValue: 'http://localhost:3000/graphql')
+  @EnviedField(varName: 'GRAPHQL_ENDPOINT', defaultValue: 'http://127.0.0.1:3000/graphql')
   static const String graphqlEndpoint = _AppEnv.graphqlEndpoint;
 
   @EnviedField(varName: 'GRAPHQL_WS_ENDPOINT', defaultValue: 'ws://localhost:3000/ws')

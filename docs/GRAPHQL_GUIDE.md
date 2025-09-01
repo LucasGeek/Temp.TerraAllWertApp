@@ -22,12 +22,12 @@ A Terra Allwert API oferece uma interface GraphQL completa para gerenciar torres
 
 ### Endpoint
 ```
-POST http://localhost:3000/graphql
+POST http://127.0.0.1:3000/graphql
 ```
 
 ### GraphQL Playground
 ```
-http://localhost:3000/graphql
+http://127.0.0.1:3000/graphql
 ```
 
 ---
@@ -36,7 +36,7 @@ http://localhost:3000/graphql
 
 ### 1. Verificar se a API está rodando
 ```bash
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://127.0.0.1:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"{ __schema { queryType { name } } }"}'
 ```
@@ -86,7 +86,7 @@ mutation Login($input: LoginInput!) {
 
 **cURL Example:**
 ```bash
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://127.0.0.1:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{
     "query": "mutation Login($input: LoginInput!) { login(input: $input) { token refreshToken user { email name role } } }",
@@ -554,7 +554,7 @@ mutation ChangePassword($input: ChangePasswordInput!) {
 
 ```javascript
 class TerraAllwertAPI {
-  constructor(baseUrl = 'http://localhost:3000/graphql') {
+  constructor(baseUrl = 'http://127.0.0.1:3000/graphql') {
     this.baseUrl = baseUrl;
     this.token = null;
     this.refreshToken = null;
@@ -713,7 +713,7 @@ example();
 ### 2. Busca Avançada de Apartamentos
 
 ```bash
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://127.0.0.1:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{
     "query": "query SearchApartments($input: ApartmentSearchInput!) { searchApartments(input: $input) { id number area bedrooms suites price status solarPosition floor { number tower { name } } } }",
@@ -736,7 +736,7 @@ curl -X POST http://localhost:3000/graphql \
 
 ```bash
 # 1. Gerar URL de upload
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://127.0.0.1:3000/graphql \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -754,7 +754,7 @@ curl -X PUT "$UPLOAD_URL" \
   --data-binary @fachada-principal.jpg
 
 # 3. Registrar na galeria
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://127.0.0.1:3000/graphql \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -775,7 +775,7 @@ curl -X POST http://localhost:3000/graphql \
 ## 🛠️ Ferramentas Recomendadas
 
 ### 1. GraphQL Playground
-- **URL**: `http://localhost:3000/graphql`
+- **URL**: `http://127.0.0.1:3000/graphql`
 - Interface web para explorar a API
 - Auto-complete e validação
 - Documentação interativa
@@ -788,7 +788,7 @@ curl -X POST http://localhost:3000/graphql \
 ### 3. cURL
 ```bash
 # Template básico
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://127.0.0.1:3000/graphql \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"query": "QUERY_HERE", "variables": {}}'
@@ -802,7 +802,7 @@ import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
 import { setContext } from '@apollo/client/link/context';
 
 const httpLink = createHttpLink({
-  uri: 'http://localhost:3000/graphql',
+  uri: 'http://127.0.0.1:3000/graphql',
 });
 
 const authLink = setContext((_, { headers }) => {
@@ -825,7 +825,7 @@ const client = new ApolloClient({
 ```javascript
 import { GraphQLClient } from 'graphql-request';
 
-const client = new GraphQLClient('http://localhost:3000/graphql', {
+const client = new GraphQLClient('http://127.0.0.1:3000/graphql', {
   headers: {
     authorization: `Bearer ${token}`,
   },

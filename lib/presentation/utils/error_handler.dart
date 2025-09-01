@@ -1,4 +1,4 @@
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:graphql/client.dart';
 
 /// Utilitário para tratar erros e convertê-los em mensagens amigáveis
 class ErrorHandler {

@@ -334,7 +334,7 @@ class MenuStorageService {
       // Se não é MaterialIcons padrão, usar ícone genérico
       return const IconData(0xe3b7, fontFamily: 'MaterialIcons'); // navigation icon
     }
-    return IconData(codePoint, fontFamily: 'MaterialIcons');
+    return const IconData(0xe3b7, fontFamily: 'MaterialIcons'); // Sempre retornar const
   }
 }
 

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../design_system/app_theme.dart';
 import '../../design_system/layout_constants.dart';
-import '../../notification/snackbar_notification.dart';
 import '../../responsive/breakpoints.dart';
 import 'logout_confirmation_sheet.dart';
 import 'menu_configuration_dialog.dart';
+import 'settings_modal.dart';
 
 /// Footer de navegação com ações do usuário
 /// Contém logout, settings e editar menu
@@ -72,7 +72,7 @@ class NavigationFooter extends StatelessWidget {
 
   void _handleSettings(BuildContext context) {
     _closeDrawerIfNeeded(context);
-    SnackbarNotification.showInfo('Configurações em desenvolvimento');
+    SettingsModal.show(context);
   }
 
   void _handleEditMenu(BuildContext context) {

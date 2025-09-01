@@ -189,7 +189,7 @@ simulator: ## Start iOS simulator (macOS only)
 # Terra Allwert specific commands
 api-check: ## Check if API is running
 	@echo "$(YELLOW)🔍 Checking API connection...$(NC)"
-	@if curl -s http://localhost:3000/graphql > /dev/null; then \
+	@if curl -s http://127.0.0.1:3000/graphql > /dev/null; then \
 		echo "$(GREEN)✅ API is running on localhost:3000$(NC)"; \
 	else \
 		echo "$(RED)❌ API is not running on localhost:3000$(NC)"; \
@@ -200,7 +200,7 @@ api-check: ## Check if API is running
 schema: ## Generate GraphQL schema
 	@echo "$(YELLOW)🔄 Generating GraphQL schema...$(NC)"
 	@if [ ! -d "lib/infra/graphql/generated" ]; then mkdir -p lib/infra/graphql/generated; fi
-	@curl -s http://localhost:3000/graphql \
+	@curl -s http://127.0.0.1:3000/graphql \
 		-H 'Content-Type: application/json' \
 		-d '{"query":"query IntrospectionQuery { __schema { queryType { name } mutationType { name } subscriptionType { name } types { ...FullType } directives { name description locations args { ...InputValue } } } } fragment FullType on __Type { kind name description fields(includeDeprecated: true) { name description args { ...InputValue } type { ...TypeRef } isDeprecated deprecationReason } inputFields { ...InputValue } interfaces { ...TypeRef } enumValues(includeDeprecated: true) { name description isDeprecated deprecationReason } possibleTypes { ...TypeRef } } fragment InputValue on __InputValue { name description type { ...TypeRef } defaultValue } fragment TypeRef on __Type { kind name ofType { kind name ofType { kind name ofType { kind name ofType { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } } }"}' \
 		| jq '.data' > lib/infra/graphql/generated/schema.json || echo "$(RED)❌ Failed to fetch schema$(NC)"
@@ -286,4 +286,4 @@ info: ## Show project information
 	@echo "Dart Version: $(shell $(DART) --version)"
 	@echo "FVM Version: $(shell fvm --version 2>/dev/null || echo 'Not installed')"
 	@echo "Project Directory: $(shell pwd)"
-	@echo "API Endpoint: http://localhost:3000/graphql"
+	@echo "API Endpoint: http://127.0.0.1:3000/graphql"

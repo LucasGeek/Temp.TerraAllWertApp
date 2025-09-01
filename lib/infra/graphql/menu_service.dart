@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:graphql/client.dart';
 
 import '../../domain/entities/navigation_item.dart';
 import '../../domain/enums/menu_presentation_type.dart';
@@ -23,7 +23,9 @@ class MenuGraphQLService {
       final result = await _client.mutate(
         MutationOptions(
           document: gql(createMenuMutation),
-          variables: _navigationItemToGraphQLInput(item),
+          variables: {
+            'input': _navigationItemToGraphQLInput(item),
+          },
           errorPolicy: ErrorPolicy.all,
         ),
       );
@@ -33,7 +35,8 @@ class MenuGraphQLService {
         return null;
       }
 
-      final data = result.data?['createMenu'];
+      final menuResponse = result.data?['createMenu'];
+      final data = menuResponse?['menu'];
       if (data != null) {
         AppLogger.info('Menu created successfully via GraphQL: ${data['id']}', tag: 'MenuGraphQL');
         return _graphQLDataToNavigationItem(data);
@@ -55,8 +58,10 @@ class MenuGraphQLService {
         MutationOptions(
           document: gql(updateMenuMutation),
           variables: {
-            'id': item.id,
-            'input': _navigationItemToGraphQLInput(item),
+            'input': {
+              'menuId': item.id,
+              ..._navigationItemToGraphQLInput(item),
+            },
           },
           errorPolicy: ErrorPolicy.all,
         ),
@@ -67,7 +72,8 @@ class MenuGraphQLService {
         return null;
       }
 
-      final data = result.data?['updateMenu'];
+      final menuResponse = result.data?['updateMenu'];
+      final data = menuResponse?['menu'];
       if (data != null) {
         AppLogger.info('Menu updated successfully via GraphQL', tag: 'MenuGraphQL');
         return _graphQLDataToNavigationItem(data);
@@ -88,7 +94,7 @@ class MenuGraphQLService {
       final result = await _client.mutate(
         MutationOptions(
           document: gql(deleteMenuMutation),
-          variables: {'id': menuId},
+          variables: {'menuId': menuId},
           errorPolicy: ErrorPolicy.all,
         ),
       );
@@ -129,7 +135,7 @@ class MenuGraphQLService {
         return [];
       }
 
-      final data = result.data?['menus'] as List<dynamic>?;
+      final data = result.data?['getMenus'] as List<dynamic>?;
       if (data != null) {
         final menus = data
             .map((item) => _graphQLDataToNavigationItem(item))
@@ -187,53 +193,125 @@ class MenuGraphQLService {
 
   /// Converte NavigationItem para input GraphQL
   Map<String, dynamic> _navigationItemToGraphQLInput(NavigationItem item) {
-    return {
-      'label': item.label,
+    // Mapear NavigationItem para CreateMenuInput do schema
+    // Schema: title!, type!, route!, icon, parentId, order!, permissions, metadata
+    final Map<String, dynamic> input = {
+      'title': item.label,
+      'type': _menuTypeToString(item.menuType),
       'route': item.route,
-      'iconCodePoint': item.icon.codePoint,
-      'iconFontFamily': item.icon.fontFamily,
-      'selectedIconCodePoint': item.selectedIcon.codePoint,
-      'selectedIconFontFamily': item.selectedIcon.fontFamily,
       'order': item.order,
-      'isVisible': item.isVisible,
-      'isEnabled': item.isEnabled,
-      'description': item.description,
-      'parentId': item.parentId,
-      'menuType': item.menuType.name,
-      'permissions': item.permissions,
     };
+    
+    // Campos opcionais - só adicionar se não nulos
+    if (item.description != null || item.isVisible != true || item.isEnabled != true) {
+      input['metadata'] = <String, dynamic>{
+        if (item.description != null) 'description': item.description,
+        'isVisible': item.isVisible,
+        'isEnabled': item.isEnabled,
+      };
+    }
+    
+    if (_iconToString(item.icon).isNotEmpty) {
+      input['icon'] = _iconToString(item.icon);
+    }
+    
+    if (item.parentId != null) {
+      input['parentId'] = item.parentId;
+    }
+    
+    if (item.permissions != null && item.permissions!.isNotEmpty) {
+      input['permissions'] = item.permissions;
+    } else {
+      input['permissions'] = <String>[];
+    }
+    
+    return input;
+  }
+  
+  /// Converte MenuType para string do schema
+  String _menuTypeToString(MenuPresentationType type) {
+    // Schema define: MAIN, SUB, ACTION, DIVIDER
+    switch (type) {
+      case MenuPresentationType.standard:
+        return 'MAIN';
+      default:
+        return 'MAIN';
+    }
+  }
+  
+  /// Converte IconData para string
+  String _iconToString(IconData icon) {
+    if (icon == Icons.home) return 'home';
+    if (icon == Icons.settings) return 'settings';
+    if (icon == Icons.dashboard) return 'dashboard';
+    if (icon == Icons.menu) return 'menu';
+    return 'circle';
   }
 
   /// Converte data GraphQL para NavigationItem
   NavigationItem _graphQLDataToNavigationItem(Map<String, dynamic> data) {
+    // Mapear de Menu schema para NavigationItem
+    // Schema define: id, title, type, route, icon, order, isActive, permissions
     return NavigationItem(
       id: data['id'] as String,
-      label: data['label'] as String,
-      icon: IconData(
-        data['iconCodePoint'] as int,
-        fontFamily: data['iconFontFamily'] as String?,
-      ),
-      selectedIcon: IconData(
-        data['selectedIconCodePoint'] as int,
-        fontFamily: data['selectedIconFontFamily'] as String?,
-      ),
+      label: data['title'] as String? ?? data['label'] as String? ?? 'Menu Item',
+      icon: _parseIconFromString(data['icon'] as String?),
+      selectedIcon: _parseIconFromString(data['icon'] as String?),
       route: data['route'] as String,
       order: data['order'] as int,
-      isVisible: data['isVisible'] as bool? ?? true,
-      isEnabled: data['isEnabled'] as bool? ?? true,
+      isVisible: data['isActive'] as bool? ?? true,
+      isEnabled: data['isActive'] as bool? ?? true,
       description: data['description'] as String?,
       parentId: data['parentId'] as String?,
-      menuType: MenuPresentationType.values.firstWhere(
-        (type) => type.name == data['menuType'],
-        orElse: () => MenuPresentationType.standard,
-      ),
+      menuType: _parseMenuType(data['type'] as String?),
       permissions: (data['permissions'] as List<dynamic>?)?.cast<String>(),
     );
+  }
+  
+  /// Parse icon string para IconData
+  IconData _parseIconFromString(String? iconStr) {
+    // Se não tiver ícone, usar default
+    if (iconStr == null || iconStr.isEmpty) {
+      return Icons.home;
+    }
+    
+    // Tentar mapear string para ícone conhecido
+    switch (iconStr.toLowerCase()) {
+      case 'home':
+        return Icons.home;
+      case 'settings':
+        return Icons.settings;
+      case 'dashboard':
+        return Icons.dashboard;
+      case 'menu':
+        return Icons.menu;
+      default:
+        return Icons.circle;
+    }
+  }
+  
+  /// Parse menu type string para enum
+  MenuPresentationType _parseMenuType(String? typeStr) {
+    if (typeStr == null) return MenuPresentationType.standard;
+    
+    switch (typeStr.toUpperCase()) {
+      case 'MAIN':
+        return MenuPresentationType.standard;
+      case 'SUB':
+        return MenuPresentationType.standard;
+      case 'ACTION':
+        return MenuPresentationType.standard;
+      case 'DIVIDER':
+        return MenuPresentationType.standard;
+      default:
+        return MenuPresentationType.standard;
+    }
   }
 }
 
 /// Provider para o serviço GraphQL de menus
 final menuGraphQLServiceProvider = Provider<MenuGraphQLService>((ref) {
-  final clientService = ref.watch(graphQLClientProvider);
+  // Usar cliente autenticado para mutations que precisam de token
+  final clientService = ref.watch(graphQLClientProvider);  
   return MenuGraphQLService(clientService.client);
 });

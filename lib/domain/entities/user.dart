@@ -18,7 +18,7 @@ abstract class User with _$User {
 
   const User._();
 
-  bool get isAdmin => role.code == 'ADMIN';
+  bool get isAdmin => role.code.toUpperCase() == 'ADMIN';
   bool get canCreate => isAdmin;
   bool get canUpdate => isAdmin;
   bool get canDelete => isAdmin;

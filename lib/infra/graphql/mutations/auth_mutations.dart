@@ -29,9 +29,7 @@ const String refreshTokenMutation = '''
 
 const String logoutMutation = '''
   mutation Logout {
-    logout {
-      success
-    }
+    logout
   }
 ''';
 
@@ -43,6 +41,8 @@ const String getCurrentUserQuery = '''
       email
       role
       active
+      createdAt
+      updatedAt
     }
   }
 ''';

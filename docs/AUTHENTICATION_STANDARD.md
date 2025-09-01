@@ -199,12 +199,12 @@ go build -o ../bin/api .
 
 #### **3. Teste Manual via GraphQL Playground**
 ```
-http://localhost:3000/graphql
+http://127.0.0.1:3000/graphql
 ```
 
 #### **4. Teste de Login**
 ```bash
-curl -X POST http://localhost:3000/graphql \
+curl -X POST http://127.0.0.1:3000/graphql \
   -H "Content-Type: application/json" \
   -d '{
     "query": "mutation Login($input: LoginInput!) { login(input: $input) { token user { email role } } }",

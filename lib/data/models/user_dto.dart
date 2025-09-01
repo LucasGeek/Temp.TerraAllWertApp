@@ -16,7 +16,43 @@ abstract class UserDto with _$UserDto {
     @Default(false) bool isActive,
   }) = _UserDto;
 
-  factory UserDto.fromJson(Map<String, dynamic> json) => _$UserDtoFromJson(json);
+  factory UserDto.fromJson(Map<String, dynamic> json) {
+    // Handle role conversion from enum string to object
+    UserRoleDto role;
+    final roleValue = json['role'];
+    
+    if (roleValue is String) {
+      // API returns role as enum string (ADMIN/VIEWER)
+      role = UserRoleDto(
+        id: roleValue.toLowerCase(),
+        name: roleValue == 'ADMIN' ? 'Administrador' : 'Visualizador',
+        code: roleValue,
+        permissions: roleValue == 'ADMIN' ? ['create', 'read', 'update', 'delete'] : ['read'],
+      );
+    } else if (roleValue is Map<String, dynamic>) {
+      // Role as object (legacy support)
+      role = UserRoleDto.fromJson(roleValue);
+    } else {
+      // Fallback
+      role = const UserRoleDto(
+        id: 'viewer',
+        name: 'Visualizador',
+        code: 'VIEWER',
+        permissions: ['read'],
+      );
+    }
+
+    return UserDto(
+      id: json['id'] as String,
+      email: json['email'] as String,
+      name: json['username'] as String? ?? json['name'] as String, // API uses 'username'
+      avatar: json['avatar'] as String?,
+      role: role,
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      isActive: json['active'] as bool? ?? false, // API uses 'active'
+    );
+  }
 }
 
 @freezed

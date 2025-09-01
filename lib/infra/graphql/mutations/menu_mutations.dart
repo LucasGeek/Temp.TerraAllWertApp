@@ -3,53 +3,46 @@
 const String createMenuMutation = '''
   mutation CreateMenu(\$input: CreateMenuInput!) {
     createMenu(input: \$input) {
-      id
-      label
-      route
-      iconCodePoint
-      iconFontFamily
-      selectedIconCodePoint
-      selectedIconFontFamily
-      order
-      isVisible
-      isEnabled
-      description
-      parentId
-      menuType
-      permissions
-      createdAt
-      updatedAt
+      menu {
+        id
+        title
+        type
+        route
+        icon
+        order
+        isActive
+        permissions
+        children {
+          id
+          title
+          route
+        }
+      }
     }
   }
 ''';
 
 const String updateMenuMutation = '''
-  mutation UpdateMenu(\$id: String!, \$input: UpdateMenuInput!) {
-    updateMenu(id: \$id, input: \$input) {
-      id
-      label
-      route
-      iconCodePoint
-      iconFontFamily
-      selectedIconCodePoint
-      selectedIconFontFamily
-      order
-      isVisible
-      isEnabled
-      description
-      parentId
-      menuType
-      permissions
-      updatedAt
+  mutation UpdateMenu(\$input: UpdateMenuInput!) {
+    updateMenu(input: \$input) {
+      menu {
+        id
+        title
+        type
+        route
+        icon
+        order
+        isActive
+        permissions
+      }
     }
   }
 ''';
 
 const String deleteMenuMutation = '''
-  mutation DeleteMenu(\$id: String!) {
-    deleteMenu(id: \$id) {
+  mutation DeleteMenu(\$menuId: String!) {
+    deleteMenu(menuId: \$menuId) {
       success
-      message
     }
   }
 ''';

@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:graphql/client.dart';
 
 import '../../domain/entities/auth_token.dart';
 import '../../domain/entities/user.dart';
@@ -14,7 +14,25 @@ class GraphQLAuthService {
 
   GraphQLAuthService({required GraphQLClientService client, required SecureStorageService storage})
     : _client = client,
-      _storage = storage;
+      _storage = storage {
+    _initializeClientWithStoredToken();
+  }
+
+  /// Initialize GraphQL client with stored token if available
+  void _initializeClientWithStoredToken() async {
+    try {
+      final isAuthenticated = await _storage.isAuthenticated();
+      if (isAuthenticated) {
+        final token = await _storage.getAccessToken();
+        if (token != null) {
+          _client.updateToken(token);
+          AuthLogger.debug('GraphQL client initialized with stored token');
+        }
+      }
+    } catch (e) {
+      AuthLogger.warning('Failed to initialize GraphQL client with stored token', error: e);
+    }
+  }
 
   Future<AuthToken> login({required String email, required String password}) async {
     AuthLogger.loginAttempt(email);
@@ -83,11 +101,32 @@ class GraphQLAuthService {
         expiresAt: token.expiresAt,
       );
 
-      // Get and store user data
-      final user = await getCurrentUser();
-      if (user != null) {
+      // Update GraphQL client with new token
+      _client.updateToken(token.accessToken);
+      AuthLogger.debug('GraphQL client updated with authentication token');
+
+      // CORREÇÃO: Criar usuário diretamente dos dados do login
+      final userData = data['user'];
+      if (userData != null) {
+        final user = User(
+          id: userData['id'],
+          email: userData['email'],
+          name: userData['username'] ?? userData['email'],
+          avatar: null,
+          isActive: userData['active'] ?? true,
+          role: UserRole(
+            id: '1', 
+            name: _capitalizeRole(userData['role'] ?? 'User'),
+            code: (userData['role'] ?? 'USER').toString().toUpperCase(),
+          ),
+        );
+
+        // Store user data immediately from login response
         await _storage.setUserData(user);
         AuthLogger.loginSuccess(email, user.id);
+        AuthLogger.debug('User data stored from login response: ${user.role.code}');
+      } else {
+        AuthLogger.warning('No user data in login response');
       }
 
       return token;
@@ -129,7 +168,11 @@ class GraphQLAuthService {
       tokenType: 'Bearer',
     );
 
-    await _storage.setTokens(accessToken: token.accessToken, refreshToken: token.refreshToken);
+    await _storage.setTokens(accessToken: token.accessToken, refreshToken: token.refreshToken, expiresAt: token.expiresAt);
+
+    // Update GraphQL client with refreshed token
+    _client.updateToken(token.accessToken);
+    AuthLogger.debug('GraphQL client updated with refreshed token');
 
     return token;
   }
@@ -158,7 +201,11 @@ class GraphQLAuthService {
       tokenType: 'Bearer',
     );
 
-    await _storage.setTokens(accessToken: token.accessToken, refreshToken: token.refreshToken);
+    await _storage.setTokens(accessToken: token.accessToken, refreshToken: token.refreshToken, expiresAt: token.expiresAt);
+
+    // Update GraphQL client with new token
+    _client.updateToken(token.accessToken);
+    AuthLogger.debug('GraphQL client updated with signup token');
 
     return token;
   }
@@ -179,6 +226,10 @@ class GraphQLAuthService {
       // Clear local storage
       await _storage.clearTokens();
       await _client.clearCache();
+
+      // Clear token from GraphQL client
+      _client.updateToken(null);
+      AuthLogger.debug('GraphQL client token cleared');
 
       AuthLogger.logoutSuccess();
     } catch (e, stackTrace) {
@@ -246,11 +297,26 @@ class GraphQLAuthService {
   Future<User?> getStoredUser() async {
     return await _storage.getUserData();
   }
+
+  /// Helper method to capitalize role names
+  String _capitalizeRole(String role) {
+    if (role.isEmpty) return 'User';
+    return role.toLowerCase() == 'admin' ? 'Admin' : 
+           role[0].toUpperCase() + role.substring(1).toLowerCase();
+  }
 }
 
-// Provider
+// Provider para auth service (login/signup usam cliente base)
 final graphQLAuthServiceProvider = Provider<GraphQLAuthService>((ref) {
   final client = ref.watch(graphQLClientProvider);
+  final storage = ref.watch(secureStorageServiceProvider);
+
+  return GraphQLAuthService(client: client, storage: storage);
+});
+
+// Provider para operações autenticadas (getCurrentUser, logout, etc)
+final authenticatedGraphQLAuthServiceProvider = FutureProvider<GraphQLAuthService>((ref) async {
+  final client = await ref.watch(authenticatedGraphQLClientProvider.future);
   final storage = ref.watch(secureStorageServiceProvider);
 
   return GraphQLAuthService(client: client, storage: storage);

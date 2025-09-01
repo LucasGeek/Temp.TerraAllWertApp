@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:graphql/client.dart';
 
 import 'package:terra_allwert_app/domain/entities/auth_token.dart';
 import 'package:terra_allwert_app/domain/entities/user.dart';
@@ -125,7 +125,7 @@ void main() {
     test('should clear tokens on logout', () async {
       // Arrange
       final mockLogoutResponse = QueryResult(
-        data: {'logout': {'success': true}},
+        data: {'logout': true},
         source: QueryResultSource.network,
         options: QueryOptions(document: gql('')),
       );

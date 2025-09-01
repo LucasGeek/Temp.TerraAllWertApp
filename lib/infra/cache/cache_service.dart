@@ -63,6 +63,14 @@ class CacheService {
     } catch (e) {
       AppLogger.error('Failed to initialize cache service: $e', tag: 'Cache');
       // Para web ou caso de erro, usar fallback em memória
+      
+      // Inicializar diretórios como nulos para web/fallback
+      _cacheDir = Directory('/tmp/cache_fallback');
+      _metadataDir = Directory('/tmp/cache_fallback/metadata');
+      _imagesDir = Directory('/tmp/cache_fallback/images');
+      _videosDir = Directory('/tmp/cache_fallback/videos');
+      _documentsDir = Directory('/tmp/cache_fallback/documents');
+      
       _cacheIndex = {};
       _metadata = CacheMetadata(
         version: '1.0.0',
@@ -77,11 +85,22 @@ class CacheService {
 
   /// Cria a estrutura de diretórios necessária
   Future<void> _createDirectories() async {
-    await _cacheDir.create(recursive: true);
-    await _metadataDir.create(recursive: true);
-    await _imagesDir.create(recursive: true);
-    await _videosDir.create(recursive: true);
-    await _documentsDir.create(recursive: true);
+    if (kIsWeb) {
+      // No web, não criar diretórios físicos
+      AppLogger.debug('Web platform: skipping directory creation', tag: 'Cache');
+      return;
+    }
+    
+    try {
+      await _cacheDir.create(recursive: true);
+      await _metadataDir.create(recursive: true);
+      await _imagesDir.create(recursive: true);
+      await _videosDir.create(recursive: true);
+      await _documentsDir.create(recursive: true);
+    } catch (e) {
+      AppLogger.warning('Failed to create cache directories: $e', tag: 'Cache');
+      // Continue with in-memory fallback
+    }
   }
 
   /// Carrega o índice do cache
@@ -194,11 +213,27 @@ class CacheService {
     try {
       final extension = path.extension(originalPath);
       final fileName = '$fileId$extension';
-      final targetDir = _getDirectoryForType(type);
-      final targetFile = File(path.join(targetDir.path, fileName));
       
-      // Salvar arquivo
-      await targetFile.writeAsBytes(bytes);
+      String localPath;
+      
+      if (kIsWeb) {
+        // No web, apenas manter referência virtual
+        localPath = 'web_cache://$fileId$extension';
+        AppLogger.debug('Web cache: virtual path created for $fileId', tag: 'Cache');
+      } else {
+        // Mobile/Desktop: salvar arquivo físico
+        final targetDir = _getDirectoryForType(type);
+        final targetFile = File(path.join(targetDir.path, fileName));
+        
+        try {
+          // Salvar arquivo
+          await targetFile.writeAsBytes(bytes);
+          localPath = targetFile.path;
+        } catch (e) {
+          AppLogger.warning('Failed to write file to disk: $e, using in-memory fallback', tag: 'Cache');
+          localPath = 'memory_cache://$fileId$extension';
+        }
+      }
       
       // Calcular checksum
       final checksum = _calculateChecksum(bytes);
@@ -207,7 +242,7 @@ class CacheService {
       final fileInfo = CachedFileInfo(
         id: fileId,
         originalPath: originalPath,
-        localPath: targetFile.path,
+        localPath: localPath,
         type: type,
         cachedAt: DateTime.now(),
         lastModified: DateTime.now(),
@@ -390,5 +425,10 @@ class CacheService {
     );
     
     await _saveMetadata();
+  }
+
+  /// Obtém informações de um arquivo no cache
+  CachedFileInfo? getFileInfo(String fileId) {
+    return _cacheIndex[fileId];
   }
 }

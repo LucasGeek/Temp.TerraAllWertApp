@@ -2,7 +2,7 @@
 
 const String getMenusQuery = '''
   query GetMenus(\$userId: String) {
-    menus(userId: \$userId) {
+    getMenus(userId: \$userId) {
       id
       label
       route
