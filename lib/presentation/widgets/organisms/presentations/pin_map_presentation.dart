@@ -1371,29 +1371,172 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   /// Upload de vídeo para o mapa
   Future<void> _uploadVideo() async {
+    _showVideoConfigDialog();
+  }
+  
+  /// Modal para configuração de vídeo com título e opção de remover
+  void _showVideoConfigDialog() {
+    final hasExistingVideo = _mapData?.videoUrl != null || _mapData?.videoPath != null;
+    final titleController = TextEditingController(text: _mapData?.videoTitle ?? '');
+    final urlController = TextEditingController(text: _mapData?.videoUrl ?? '');
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(hasExistingVideo ? 'Configurar Vídeo' : 'Adicionar Vídeo'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Campo de título
+              TextField(
+                controller: titleController,
+                decoration: InputDecoration(
+                  labelText: 'Título do vídeo',
+                  hintText: 'Ex: Tour virtual do apartamento',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 16),
+              
+              // Campo de URL
+              TextField(
+                controller: urlController,
+                decoration: InputDecoration(
+                  labelText: 'URL do vídeo',
+                  hintText: 'Cole a URL do vídeo aqui',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              
+              if (hasExistingVideo) ...[
+                SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('Já existe um vídeo configurado')),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          if (hasExistingVideo)
+            TextButton.icon(
+              onPressed: () => _removeVideo(context),
+              icon: Icon(Icons.delete, color: Colors.red),
+              label: Text('Remover Vídeo', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancelar'),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _pickVideoFromGallery(context, titleController.text),
+                icon: Icon(Icons.upload_file),
+                label: Text('Galeria'),
+              ),
+              SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () => _saveVideoFromUrl(context, titleController.text, urlController.text),
+                icon: Icon(Icons.link),
+                label: Text('Salvar URL'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Remove o vídeo configurado
+  void _removeVideo(BuildContext dialogContext) async {
+    if (_mapData != null) {
+      _mapData = _mapData!.copyWith(
+        videoPath: null,
+        videoUrl: null,
+        videoTitle: null,
+        updatedAt: DateTime.now(),
+      );
+      
+      await _saveMapData();
+      if (mounted) {
+        setState(() {});
+        Navigator.of(dialogContext).pop();
+        _showSuccessSnackBar('Vídeo removido com sucesso!');
+      }
+    }
+  }
+  
+  /// Seleciona vídeo da galeria
+  void _pickVideoFromGallery(BuildContext dialogContext, String title) async {
     try {
       final video = await _imagePicker.pickVideo(
         source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 5), // Limit video length
+        maxDuration: const Duration(minutes: 5),
       );
-
-      if (video != null && _mapData != null) {
-        // Atualizar os dados do mapa com o vídeo
+      
+      if (video != null && _mapData != null && mounted) {
         _mapData = _mapData!.copyWith(
-          videoPath: video.path, // Use local path
-          videoUrl: null, // Clear URL if using local path
+          videoPath: video.path,
+          videoUrl: null,
+          videoTitle: title.trim().isEmpty ? 'Vídeo do mapa' : title.trim(),
           updatedAt: DateTime.now(),
         );
-
-        // Salvar os dados atualizados
+        
         await _saveMapData();
-
-        setState(() {}); // Refresh UI
-
-        _showSuccessSnackBar('Vídeo adicionado com sucesso!');
+        if (mounted) {
+          setState(() {});
+          Navigator.of(dialogContext).pop();
+          _showSuccessSnackBar('Vídeo adicionado com sucesso!');
+        }
       }
     } catch (e) {
-      _showErrorSnackBar('Erro ao adicionar vídeo: $e');
+      if (mounted) {
+        _showErrorSnackBar('Erro ao adicionar vídeo: $e');
+      }
+    }
+  }
+  
+  /// Salva vídeo através de URL
+  void _saveVideoFromUrl(BuildContext dialogContext, String title, String url) async {
+    if (url.trim().isEmpty) {
+      if (mounted) {
+        _showErrorSnackBar('Por favor, insira uma URL válida');
+      }
+      return;
+    }
+    
+    if (_mapData != null && mounted) {
+      _mapData = _mapData!.copyWith(
+        videoUrl: url.trim(),
+        videoPath: null,
+        videoTitle: title.trim().isEmpty ? 'Vídeo do mapa' : title.trim(),
+        updatedAt: DateTime.now(),
+      );
+      
+      await _saveMapData();
+      if (mounted) {
+        setState(() {});
+        Navigator.of(dialogContext).pop();
+        _showSuccessSnackBar('Vídeo configurado com sucesso!');
+      }
     }
   }
 
@@ -1583,7 +1726,11 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
       setState(() => _isInitialized = true);
       _controller!.play();
     } catch (e) {
-      // Handle error
+      AppLogger.error('Erro ao inicializar vídeo: $e', tag: 'VideoPlayer');
+      // Handle error with better feedback
+      if (mounted) {
+        setState(() => _isInitialized = false);
+      }
     }
   }
 
@@ -1604,7 +1751,24 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                 aspectRatio: _controller!.value.aspectRatio,
                 child: VideoPlayer(_controller!),
               )
-            : const CircularProgressIndicator(),
+            : _controller == null && !_isInitialized
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      SizedBox(height: 16),
+                      Text(
+                        'Erro ao carregar vídeo',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Verifique a URL ou tente novamente',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                    ],
+                  )
+                : const CircularProgressIndicator(),
       ),
       floatingActionButton: _isInitialized && _controller != null
           ? FloatingActionButton(

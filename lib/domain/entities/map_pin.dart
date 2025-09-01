@@ -33,6 +33,7 @@ abstract class InteractiveMapData with _$InteractiveMapData {
     String? backgroundImagePath, // Path local da imagem de fundo
     String? videoUrl,
     String? videoPath, // Path local do vídeo
+    String? videoTitle, // Título do vídeo
     @Default([]) List<MapPin> pins,
     DateTime? createdAt,
     DateTime? updatedAt,
