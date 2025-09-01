@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -12,6 +13,10 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../domain/entities/carousel_data.dart';
 import '../../../../domain/enums/map_type.dart';
+import '../../../../infra/cache/image_carousel_cache_adapter.dart';
+import '../../../../infra/cache/cache_service.dart';
+import '../../../../infra/upload/minio_upload_service.dart';
+import '../../../../infra/graphql/graphql_client.dart';
 import '../../../../infra/logging/app_logger.dart';
 import '../../../../infra/storage/carousel_data_storage.dart';
 import '../../../design_system/app_theme.dart';
@@ -56,6 +61,11 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   final ImagePicker _imagePicker = ImagePicker();
   final Uuid _uuid = const Uuid();
 
+  // Cache services - serão inicializados no initState
+  CacheService? _cacheService;
+  MinIOUploadService? _uploadService;
+  ImageCarouselCacheAdapter? _carouselCacheAdapter;
+
   PageController? _pageController;
   TransformationController? _transformationController;
   VideoPlayerController? _videoController;
@@ -76,7 +86,45 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     super.initState();
     _pageController = PageController();
     _transformationController = TransformationController();
+    
+    // Inicializar serviços de cache
+    _initializeCacheServices();
+    
     _loadCarouselData();
+  }
+
+  /// Inicializa os serviços de cache offline-first para carrossel
+  Future<void> _initializeCacheServices() async {
+    try {
+      // Inicializar cache service
+      final cacheService = CacheService();
+      await cacheService.initialize();
+      _cacheService = cacheService;
+      
+      // Obter GraphQL client do provider
+      final graphqlClient = ref.read(graphQLClientProvider);
+      
+      // Inicializar upload service
+      final uploadService = MinIOUploadService(
+        graphqlClient: graphqlClient,
+        cacheService: cacheService,
+      );
+      _uploadService = uploadService;
+      
+      // Inicializar adapter específico para carrossel
+      _carouselCacheAdapter = ImageCarouselCacheAdapter(
+        cacheService: cacheService,
+        uploadService: uploadService,
+      );
+      
+      AppLogger.info('ImageCarousel cache services initialized successfully', tag: 'ImageCarousel');
+    } catch (e) {
+      AppLogger.error('Failed to initialize ImageCarousel cache services: $e', tag: 'ImageCarousel');
+      // Continue sem cache se falhar - fallback para ImagePicker
+      _cacheService = null;
+      _uploadService = null;
+      _carouselCacheAdapter = null;
+    }
   }
 
   @override
@@ -1233,14 +1281,41 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Seleciona vídeo da galeria
   void _pickVideoFromGallery(BuildContext dialogContext, String title) async {
     try {
-      final video = await _imagePicker.pickVideo(
-        source: ImageSource.gallery,
-        maxDuration: const Duration(minutes: 5),
-      );
+      String? videoPath;
+      
+      // Tentar usar cache adapter primeiro
+      if (_carouselCacheAdapter != null && _carouselData != null) {
+        AppLogger.debug('Using ImageCarousel cache adapter for video selection', tag: 'ImageCarousel');
+        
+        final cachedPath = await _carouselCacheAdapter!.selectAndCacheCarouselVideo(
+          routeId: widget.route,
+          carouselId: _carouselData!.id,
+        );
+        
+        if (cachedPath != null) {
+          // Converter path para URL utilizável
+          videoPath = _carouselCacheAdapter!.convertCachedPathToUrl(cachedPath);
+          AppLogger.info('Video cached successfully', tag: 'ImageCarousel');
+        }
+      }
+      
+      // Fallback para ImagePicker tradicional se cache falhar
+      if (videoPath == null) {
+        AppLogger.debug('Falling back to traditional ImagePicker for video', tag: 'ImageCarousel');
+        
+        final video = await _imagePicker.pickVideo(
+          source: ImageSource.gallery,
+          maxDuration: const Duration(minutes: 5),
+        );
+        
+        if (video != null) {
+          videoPath = video.path;
+        }
+      }
 
-      if (video != null && _carouselData != null && mounted) {
+      if (videoPath != null && _carouselData != null && mounted) {
         _carouselData = _carouselData!.copyWith(
-          videoPath: video.path,
+          videoPath: videoPath,
           videoUrl: null,
           videoTitle: title.trim().isEmpty ? 'Vídeo do carrossel' : title.trim(),
           updatedAt: DateTime.now(),
@@ -1254,6 +1329,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         }
       }
     } catch (e) {
+      AppLogger.error('Error selecting video: $e', tag: 'ImageCarousel');
       if (mounted) {
         SnackbarNotification.showError('Erro ao adicionar vídeo: $e');
       }
@@ -1302,77 +1378,98 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     }
   }
 
-  /// Adiciona imagens ao carrossel (usando lógica do PinMapPresentation)
+  /// Adiciona imagens ao carrossel usando cache offline-first
   Future<void> _addImages() async {
     try {
-      AppLogger.debug('Iniciando seleção de imagens', tag: 'ImageCarousel');
-      final images = await _imagePicker.pickMultiImage();
-      AppLogger.debug('${images.length} imagens selecionadas', tag: 'ImageCarousel');
-      if (images.isNotEmpty && _carouselData != null) {
-        final imagePaths = <String>[];
+      AppLogger.debug('Iniciando seleção de imagens para carrossel', tag: 'ImageCarousel');
+      List<String> imagePaths = [];
 
-        // Verificar cada imagem individualmente
-        for (final image in images) {
-          AppLogger.debug('Processando imagem: ${image.path}', tag: 'ImageCarousel');
+      // Tentar usar cache adapter primeiro
+      if (_carouselCacheAdapter != null && _carouselData != null) {
+        AppLogger.debug('Using ImageCarousel cache adapter for image selection', tag: 'ImageCarousel');
+        
+        final cachedPaths = await _carouselCacheAdapter!.selectAndCacheCarouselImages(
+          routeId: widget.route,
+          carouselId: _carouselData!.id,
+          allowMultiple: true,
+        );
+        
+        if (cachedPaths.isNotEmpty) {
+          // Converter paths para URLs utilizáveis
+          final urls = _carouselCacheAdapter!.convertCachedPathsToUrls(cachedPaths);
+          imagePaths.addAll(urls);
+          
+          AppLogger.info('Images cached successfully: ${imagePaths.length} files', tag: 'ImageCarousel');
+        }
+      }
+      
+      // Fallback para ImagePicker tradicional se cache falhar ou não retornar imagens
+      if (imagePaths.isEmpty) {
+        AppLogger.debug('Falling back to traditional ImagePicker for carousel', tag: 'ImageCarousel');
+        
+        final images = await _imagePicker.pickMultiImage();
+        AppLogger.debug('${images.length} imagens selecionadas via ImagePicker', tag: 'ImageCarousel');
+        
+        if (images.isNotEmpty) {
+          // Verificar cada imagem individualmente
+          for (final image in images) {
+            AppLogger.debug('Processando imagem: ${image.path}', tag: 'ImageCarousel');
 
-          if (kIsWeb) {
-            // Para Web, tentar obter bytes da imagem
-            try {
-              final bytes = await image.readAsBytes();
-              _imagesBytesMap[image.path] = bytes;
-              imagePaths.add(image.path);
-              AppLogger.debug(
-                'Imagem Web processada e armazenada em memória: ${image.path}',
-                tag: 'ImageCarousel',
-              );
-            } catch (e) {
-              AppLogger.error('Erro ao processar imagem Web: $e', tag: 'ImageCarousel');
-            }
-          } else {
-            // Para plataformas nativas
-            final file = File(image.path);
-            final exists = await file.exists();
-            AppLogger.debug('Arquivo existe: $exists para ${image.path}', tag: 'ImageCarousel');
-
-            if (exists) {
-              imagePaths.add(image.path);
+            if (kIsWeb) {
+              // Para Web, tentar obter bytes da imagem
+              try {
+                final bytes = await image.readAsBytes();
+                _imagesBytesMap[image.path] = bytes;
+                imagePaths.add(image.path);
+                AppLogger.debug(
+                  'Imagem Web processada e armazenada em memória: ${image.path}',
+                  tag: 'ImageCarousel',
+                );
+              } catch (e) {
+                AppLogger.error('Erro ao processar imagem Web: $e', tag: 'ImageCarousel');
+              }
             } else {
-              AppLogger.warning('Arquivo não existe: ${image.path}', tag: 'ImageCarousel');
+              // Para plataformas nativas
+              final file = File(image.path);
+              final exists = await file.exists();
+              AppLogger.debug('Arquivo existe: $exists para ${image.path}', tag: 'ImageCarousel');
+
+              if (exists) {
+                imagePaths.add(image.path);
+              } else {
+                AppLogger.warning('Arquivo não existe: ${image.path}', tag: 'ImageCarousel');
+              }
             }
           }
         }
+      }
 
-        if (imagePaths.isNotEmpty) {
-          // Atualizar dados do carrossel
-          _carouselData = _carouselData!.copyWith(
-            imagePaths: [..._carouselData!.imagePaths, ...imagePaths],
-            updatedAt: DateTime.now(),
-          );
+      if (imagePaths.isNotEmpty && _carouselData != null) {
+        // Atualizar dados do carrossel
+        _carouselData = _carouselData!.copyWith(
+          imagePaths: [..._carouselData!.imagePaths, ...imagePaths],
+          updatedAt: DateTime.now(),
+        );
 
-          AppLogger.debug(
-            '_carouselData atualizado. Total de imagePaths: ${_carouselData!.imagePaths.length}',
-            tag: 'ImageCarousel',
-          );
-          AppLogger.debug(
-            '_allImages após atualização: ${_allImages.length}',
-            tag: 'ImageCarousel',
-          );
+        AppLogger.debug(
+          '_carouselData atualizado. Total de imagePaths: ${_carouselData!.imagePaths.length}',
+          tag: 'ImageCarousel',
+        );
+        AppLogger.debug(
+          '_allImages após atualização: ${_allImages.length}',
+          tag: 'ImageCarousel',
+        );
 
-          // Salvar os dados atualizados
-          await _saveCarouselData();
+        // Salvar os dados atualizados
+        await _saveCarouselData();
 
-          if (mounted) {
-            setState(() {});
-            SnackbarNotification.showSuccess('${imagePaths.length} imagem(ns) adicionada(s)!');
-          }
-        } else {
-          AppLogger.warning('Nenhuma imagem válida foi processada', tag: 'ImageCarousel');
-          SnackbarNotification.showError('Nenhuma imagem válida foi selecionada');
+        if (mounted) {
+          setState(() {});
+          SnackbarNotification.showSuccess('${imagePaths.length} imagem(ns) adicionada(s)!');
         }
       } else {
-        AppLogger.warning('Imagens vazias ou _carouselData nulo', tag: 'ImageCarousel');
-        if (images.isEmpty) AppLogger.debug('images está vazio', tag: 'ImageCarousel');
-        if (_carouselData == null) AppLogger.debug('_carouselData é null', tag: 'ImageCarousel');
+        AppLogger.warning('Nenhuma imagem válida foi processada', tag: 'ImageCarousel');
+        SnackbarNotification.showError('Nenhuma imagem válida foi selecionada');
       }
     } catch (e) {
       AppLogger.error('Erro ao selecionar imagens: $e', tag: 'ImageCarousel');

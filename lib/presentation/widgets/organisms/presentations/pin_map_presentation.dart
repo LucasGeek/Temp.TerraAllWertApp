@@ -8,6 +8,10 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../domain/entities/map_pin.dart';
 import '../../../../domain/enums/pin_content_type.dart';
+import '../../../../infra/cache/pin_cache_adapter.dart';
+import '../../../../infra/cache/cache_service.dart';
+import '../../../../infra/upload/minio_upload_service.dart';
+import '../../../../infra/graphql/graphql_client.dart';
 import '../../../../infra/logging/app_logger.dart';
 import '../../../../infra/platform/platform_service.dart';
 import '../../../../infra/storage/map_data_storage.dart';
@@ -42,6 +46,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   final TransformationController _transformationController = TransformationController();
   final ImagePicker _imagePicker = ImagePicker();
   final Uuid _uuid = const Uuid();
+  
+  // Cache services - serão inicializados no initState
+  CacheService? _cacheService;
+  MinIOUploadService? _uploadService;
+  PinCacheAdapter? _pinCacheAdapter;
 
   // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
   InteractiveMapData? _mapData;
@@ -55,6 +64,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   void initState() {
     super.initState();
 
+    // Inicializar serviços de cache
+    _initializeCacheServices();
+
     // Carregar dados usando o provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(pinMapNotifierProvider(widget.route).notifier).loadMapData();
@@ -62,6 +74,40 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
     // Listener para detectar zoom
     _transformationController.addListener(_onTransformationChanged);
+  }
+
+  /// Inicializa os serviços de cache offline-first
+  Future<void> _initializeCacheServices() async {
+    try {
+      // Inicializar cache service
+      final cacheService = CacheService();
+      await cacheService.initialize();
+      _cacheService = cacheService;
+      
+      // Obter GraphQL client do provider
+      final graphqlClient = ref.read(graphQLClientProvider);
+      
+      // Inicializar upload service
+      final uploadService = MinIOUploadService(
+        graphqlClient: graphqlClient,
+        cacheService: cacheService,
+      );
+      _uploadService = uploadService;
+      
+      // Inicializar adapter
+      _pinCacheAdapter = PinCacheAdapter(
+        cacheService: cacheService,
+        uploadService: uploadService,
+      );
+      
+      AppLogger.info('Cache services initialized successfully', tag: 'PinMap');
+    } catch (e) {
+      AppLogger.error('Failed to initialize cache services: $e', tag: 'PinMap');
+      // Continue sem cache se falhar - fallback para ImagePicker
+      _cacheService = null;
+      _uploadService = null;
+      _pinCacheAdapter = null;
+    }
   }
 
   void _onTransformationChanged() {
@@ -1440,9 +1486,29 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   // === UTILITÁRIOS ===
 
-  /// Seleciona imagens
+  /// Seleciona imagens usando cache offline-first
   Future<List<String>> _pickImages(PinContentType contentType) async {
     try {
+      // Tentar usar cache adapter primeiro
+      if (_pinCacheAdapter != null) {
+        AppLogger.debug('Using cache adapter for image selection', tag: 'PinMap');
+        
+        final allowMultiple = contentType != PinContentType.singleImage;
+        final cachedPaths = await _pinCacheAdapter!.selectAndCacheImages(
+          routeId: widget.route,
+          allowMultiple: allowMultiple,
+        );
+        
+        if (cachedPaths.isNotEmpty) {
+          // Converter paths locais para URLs utilizáveis
+          final urls = _pinCacheAdapter!.convertCachedPathsToUrls(cachedPaths);
+          AppLogger.info('Images cached successfully: ${urls.length} files', tag: 'PinMap');
+          return urls;
+        }
+      }
+      
+      // Fallback para ImagePicker tradicional se cache falhar
+      AppLogger.debug('Falling back to traditional ImagePicker', tag: 'PinMap');
       if (contentType == PinContentType.singleImage) {
         final image = await _imagePicker.pickImage(source: ImageSource.gallery);
         return image != null ? [image.path] : [];
@@ -1451,59 +1517,121 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         return images.map((image) => image.path).toList();
       }
     } catch (e) {
+      AppLogger.error('Error selecting images: $e', tag: 'PinMap');
       SnackbarNotification.showError('Erro ao selecionar imagens: $e');
       return [];
     }
   }
 
-  /// Altera a imagem de fundo do mapa
+  /// Altera a imagem de fundo do mapa usando cache offline-first
   Future<void> _changeBackgroundImage() async {
     try {
-      final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85, // Compress for performance
-        maxWidth: 1920, // Limit size for performance
-        maxHeight: 1080,
-      );
-
-      if (image != null && _mapData != null) {
-        AppLogger.debug('Imagem selecionada: ${image.path}', tag: 'PinMap');
-
-        // Verificar se o arquivo existe (apenas para platforms que suportam File)
-        if (!PlatformService.isWeb) {
-          final file = File(image.path);
-          final exists = await file.exists();
-          AppLogger.debug('Arquivo existe: $exists', tag: 'PinMap');
-
-          if (!exists) {
-            AppLogger.warning('Arquivo não existe no path: ${image.path}', tag: 'PinMap');
-            SnackbarNotification.showError('Arquivo de imagem não encontrado');
-            return;
-          }
-        } else {
-          AppLogger.debug('Plataforma Web - usando blob URL: ${image.path}', tag: 'PinMap');
+      String? imageUrl;
+      
+      // Tentar usar cache adapter primeiro
+      if (_pinCacheAdapter != null) {
+        AppLogger.debug('Using cache adapter for background image selection', tag: 'PinMap');
+        
+        final cachedPaths = await _pinCacheAdapter!.selectAndCacheImages(
+          routeId: widget.route,
+          allowMultiple: false, // Apenas uma imagem para fundo
+        );
+        
+        if (cachedPaths.isNotEmpty) {
+          final urls = _pinCacheAdapter!.convertCachedPathsToUrls(cachedPaths);
+          imageUrl = urls.first;
+          AppLogger.info('Background image cached successfully', tag: 'PinMap');
         }
+      }
+      
+      // Fallback para ImagePicker tradicional se cache falhar
+      if (imageUrl == null) {
+        AppLogger.debug('Falling back to traditional ImagePicker for background', tag: 'PinMap');
+        final image = await _imagePicker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 85, // Compress for performance
+          maxWidth: 1920, // Limit size for performance
+          maxHeight: 1080,
+        );
+        
+        if (image != null) {
+          imageUrl = image.path;
+          AppLogger.debug('Imagem selecionada: $imageUrl', tag: 'PinMap');
 
+          // Verificar se o arquivo existe (apenas para platforms que suportam File)
+          if (!PlatformService.isWeb) {
+            final file = File(imageUrl);
+            final exists = await file.exists();
+            AppLogger.debug('Arquivo existe: $exists', tag: 'PinMap');
+
+            if (!exists) {
+              AppLogger.warning('Arquivo não existe no path: $imageUrl', tag: 'PinMap');
+              SnackbarNotification.showError('Arquivo de imagem não encontrado');
+              return;
+            }
+          } else {
+            AppLogger.debug('Plataforma Web - usando blob URL: $imageUrl', tag: 'PinMap');
+          }
+        }
+      }
+
+      if (imageUrl != null && _mapData != null) {
         // Atualizar usando o provider ao invés de setState local
         await ref
             .read(pinMapNotifierProvider(widget.route).notifier)
             .updateMapData(
-              backgroundImageUrl: image.path, // Use local path ou blob URL
+              backgroundImageUrl: imageUrl, // Use cached URL ou local path
             );
 
-        AppLogger.debug('Imagem de fundo atualizada via provider: ${image.path}', tag: 'PinMap');
+        AppLogger.debug('Imagem de fundo atualizada via provider: $imageUrl', tag: 'PinMap');
 
         if (mounted) {
           SnackbarNotification.showSuccess('Imagem de fundo alterada com sucesso!');
         }
       } else {
         AppLogger.warning('Imagem nula ou _mapData nulo', tag: 'PinMap');
-        if (image == null) AppLogger.debug('image é null', tag: 'PinMap');
+        if (imageUrl == null) AppLogger.debug('imageUrl é null', tag: 'PinMap');
         if (_mapData == null) AppLogger.debug('_mapData é null', tag: 'PinMap');
       }
     } catch (e) {
       AppLogger.error('Erro ao alterar imagem de fundo: $e', tag: 'PinMap');
       SnackbarNotification.showError('Erro ao alterar imagem de fundo: $e');
+    }
+  }
+
+  /// Seleciona vídeo usando cache offline-first
+  Future<String?> _pickVideo() async {
+    try {
+      // Tentar usar cache adapter primeiro
+      if (_pinCacheAdapter != null) {
+        AppLogger.debug('Using cache adapter for video selection', tag: 'PinMap');
+        
+        final cachedPath = await _pinCacheAdapter!.selectAndCacheVideo(
+          routeId: widget.route,
+        );
+        
+        if (cachedPath != null) {
+          // Converter path local para URL utilizável
+          final url = _pinCacheAdapter!.convertCachedPathsToUrls([cachedPath]).first;
+          AppLogger.info('Video cached successfully', tag: 'PinMap');
+          return url;
+        }
+      }
+      
+      // Fallback para ImagePicker tradicional se cache falhar
+      AppLogger.debug('Falling back to traditional ImagePicker for video', tag: 'PinMap');
+      final video = await _imagePicker.pickVideo(source: ImageSource.gallery);
+      
+      if (video != null) {
+        AppLogger.debug('Vídeo selecionado: ${video.path}', tag: 'PinMap');
+        return video.path;
+      }
+      
+      return null;
+    } catch (e) {
+      AppLogger.error('Error selecting video: $e', tag: 'PinMap');
+      SnackbarNotification.showError('Erro ao selecionar vídeo: $e');
+      return null;
     }
   }
 

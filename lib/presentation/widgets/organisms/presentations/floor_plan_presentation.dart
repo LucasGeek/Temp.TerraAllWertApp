@@ -12,6 +12,11 @@ import '../../../../domain/entities/floor_plan_data.dart';
 import '../../../../domain/enums/apartment_status.dart';
 import '../../../../domain/enums/marker_type.dart';
 import '../../../../domain/enums/sun_position.dart';
+import '../../../../infra/cache/floor_plan_cache_adapter.dart';
+import '../../../../infra/cache/cache_service.dart';
+import '../../../../infra/upload/minio_upload_service.dart';
+import '../../../../infra/graphql/graphql_client.dart';
+import '../../../../infra/logging/app_logger.dart';
 import '../../../../infra/storage/floor_plan_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
@@ -44,6 +49,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   final TransformationController _transformationController = TransformationController();
   final FloorPlanStorage _floorPlanStorage = FloorPlanStorage();
 
+  // Cache services - serão inicializados no initState
+  CacheService? _cacheService;
+  MinIOUploadService? _uploadService;
+  FloorPlanCacheAdapter? _floorPlanCacheAdapter;
+
   // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
   FloorPlanData? _floorPlanData;
   Floor? _currentFloor;
@@ -54,10 +64,48 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   @override
   void initState() {
     super.initState();
+    
+    // Inicializar serviços de cache
+    _initializeCacheServices();
+    
     // Carregar dados usando o provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(floorPlanNotifierProvider(widget.route).notifier).loadFloorPlanData();
     });
+  }
+
+  /// Inicializa os serviços de cache offline-first para plantas
+  Future<void> _initializeCacheServices() async {
+    try {
+      // Inicializar cache service
+      final cacheService = CacheService();
+      await cacheService.initialize();
+      _cacheService = cacheService;
+      
+      // Obter GraphQL client do provider
+      final graphqlClient = ref.read(graphQLClientProvider);
+      
+      // Inicializar upload service
+      final uploadService = MinIOUploadService(
+        graphqlClient: graphqlClient,
+        cacheService: cacheService,
+      );
+      _uploadService = uploadService;
+      
+      // Inicializar adapter específico para plantas
+      _floorPlanCacheAdapter = FloorPlanCacheAdapter(
+        cacheService: cacheService,
+        uploadService: uploadService,
+      );
+      
+      AppLogger.info('FloorPlan cache services initialized successfully', tag: 'FloorPlan');
+    } catch (e) {
+      AppLogger.error('Failed to initialize FloorPlan cache services: $e', tag: 'FloorPlan');
+      // Continue sem cache se falhar - fallback para ImagePicker
+      _cacheService = null;
+      _uploadService = null;
+      _floorPlanCacheAdapter = null;
+    }
   }
 
   @override
@@ -622,9 +670,41 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     );
   }
 
-  /// Seleciona imagem da galeria
+  /// Seleciona imagem da galeria usando cache offline-first
   Future<void> _pickFloorPlanImage() async {
     try {
+      String? cachedPath;
+      
+      // Tentar usar cache adapter primeiro
+      if (_floorPlanCacheAdapter != null && _currentFloor != null) {
+        AppLogger.debug('Using FloorPlan cache adapter for image selection', tag: 'FloorPlan');
+        
+        cachedPath = await _floorPlanCacheAdapter!.selectAndCacheFloorPlan(
+          routeId: widget.route,
+          floorId: _currentFloor!.id,
+        );
+        
+        if (cachedPath != null) {
+          // Obter bytes do cache para o provider
+          final cachedBytes = await _floorPlanCacheAdapter!.getCachedFloorPlan(cachedPath);
+          
+          if (cachedBytes != null) {
+            // Atualizar através do provider
+            ref.read(floorPlanNotifierProvider(widget.route).notifier).updateFloorImageBytes(
+              _currentFloor!.id, 
+              cachedBytes
+            );
+            
+            await _saveFloorPlanData();
+            AppLogger.info('Floor plan image cached and updated successfully', tag: 'FloorPlan');
+            return;
+          }
+        }
+      }
+      
+      // Fallback para métodos tradicionais se cache falhar
+      AppLogger.debug('Falling back to traditional image picker for floor plan', tag: 'FloorPlan');
+      
       if (kIsWeb) {
         // No Web, usa FilePicker para obter bytes
         final result = await FilePicker.platform.pickFiles(
@@ -655,9 +735,6 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         // Em plataformas nativas, usa ImagePicker
         final image = await _imagePicker.pickImage(source: ImageSource.gallery);
         if (image != null) {
-          // Adicionar pavimento com nova imagem via provider
-          // Como não temos método específico para atualizar imagem, vamos usar addFloor
-          // Mas primeiro vamos usar uma abordagem diferente - carregar bytes mesmo em nativo
           final imageBytes = await image.readAsBytes();
           ref.read(floorPlanNotifierProvider(widget.route).notifier).updateFloorImageBytes(
             _currentFloor!.id, 
@@ -668,6 +745,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         }
       }
     } catch (e) {
+      AppLogger.error('Error selecting floor plan image: $e', tag: 'FloorPlan');
       SnackbarNotification.showError('Erro ao selecionar imagem: $e');
     }
   }
@@ -838,12 +916,42 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     return parsedArea != null && parsedArea > 0;
   }
 
-  /// Seleciona imagem para apartamento
+  /// Seleciona imagem para apartamento usando cache offline-first
   Future<void> _selectApartmentImage(
     StateSetter setState, 
     Function(String?, Uint8List?, String?) onImageSelected,
   ) async {
     try {
+      String? cachedPath;
+      
+      // Tentar usar cache adapter primeiro para imagens de referência
+      if (_floorPlanCacheAdapter != null && _currentFloor != null) {
+        AppLogger.debug('Using FloorPlan cache adapter for apartment image selection', tag: 'FloorPlan');
+        
+        final cachedPaths = await _floorPlanCacheAdapter!.selectAndCacheReferenceImages(
+          routeId: widget.route,
+          floorId: _currentFloor!.id,
+          allowMultiple: false, // Apenas uma imagem por apartamento
+        );
+        
+        if (cachedPaths.isNotEmpty) {
+          cachedPath = cachedPaths.first;
+          // Obter bytes do cache
+          final cachedBytes = await _floorPlanCacheAdapter!.getCachedReferenceImage(cachedPath);
+          
+          if (cachedBytes != null) {
+            setState(() {
+              onImageSelected(cachedPath, cachedBytes, cachedPath?.split('/').last ?? 'cached_image');
+            });
+            AppLogger.info('Apartment image cached and selected successfully', tag: 'FloorPlan');
+            return;
+          }
+        }
+      }
+      
+      // Fallback para métodos tradicionais se cache falhar
+      AppLogger.debug('Falling back to traditional image picker for apartment', tag: 'FloorPlan');
+      
       if (kIsWeb) {
         // Web: usar FilePicker para obter bytes
         final result = await FilePicker.platform.pickFiles(
@@ -871,6 +979,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         }
       }
     } catch (e) {
+      AppLogger.error('Error selecting apartment image: $e', tag: 'FloorPlan');
       SnackbarNotification.showError('Erro ao selecionar imagem: $e');
     }
   }
