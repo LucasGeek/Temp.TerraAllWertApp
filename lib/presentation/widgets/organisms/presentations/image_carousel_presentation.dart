@@ -196,7 +196,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
 
             // Indicadores do carrossel (se múltiplas imagens)
-            if (_showControls && _carouselData!.imageUrls.length > 1)
+            if (_showControls && _allImages.length > 1)
               Positioned(
                 bottom: MediaQuery.of(context).padding.bottom + LayoutConstants.paddingXl,
                 left: 0,
@@ -213,9 +213,15 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     );
   }
 
+  /// Combina URLs online e paths locais das imagens
+  List<String> get _allImages => [
+    ..._carouselData!.imageUrls,
+    ..._carouselData!.imagePaths,
+  ];
+
   /// Constrói o conteúdo principal do carrossel
   Widget _buildMainContent() {
-    final images = _carouselData!.imageUrls;
+    final images = _allImages;
     
     if (images.isEmpty) {
       return _buildEmptyState();
@@ -644,7 +650,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(
-        _carouselData!.imageUrls.length,
+        _allImages.length,
         (index) => Container(
           width: 8,
           height: 8,
@@ -954,11 +960,13 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         
         setState(() {
           _carouselData = _carouselData!.copyWith(
-            imageUrls: [..._carouselData!.imageUrls, ...imagePaths],
+            imagePaths: [..._carouselData!.imagePaths, ...imagePaths],
+            updatedAt: DateTime.now(),
           );
         });
         
         await _saveCarouselData();
+        _showSuccessSnackBar('${images.length} imagem(ns) adicionada(s) com sucesso!');
       }
     } catch (e) {
       _showErrorSnackBar('Erro ao selecionar imagens: $e');
@@ -967,7 +975,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Reordena imagens
   void _reorderImages() {
-    if (_carouselData!.imageUrls.length <= 1) {
+    if (_allImages.length <= 1) {
       _showErrorSnackBar('Precisa de pelo menos 2 imagens para reordenar');
       return;
     }
@@ -975,11 +983,25 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => _ReorderImagesScreen(
-          images: _carouselData!.imageUrls,
+          images: _allImages,
           onReorder: (reorderedImages) async {
+            // Separar URLs e paths após reordenação
+            final urls = <String>[];
+            final paths = <String>[];
+            
+            for (final image in reorderedImages) {
+              if (image.startsWith('http')) {
+                urls.add(image);
+              } else {
+                paths.add(image);
+              }
+            }
+            
             setState(() {
               _carouselData = _carouselData!.copyWith(
-                imageUrls: reorderedImages,
+                imageUrls: urls,
+                imagePaths: paths,
+                updatedAt: DateTime.now(),
               );
             });
             await _saveCarouselData();
