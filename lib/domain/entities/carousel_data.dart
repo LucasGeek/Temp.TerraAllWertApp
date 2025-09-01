@@ -48,6 +48,7 @@ abstract class CarouselData with _$CarouselData {
     @Default([]) List<String> imagePaths, // Paths locais para modo offline
     String? videoUrl,
     String? videoPath, // Path local do vídeo
+    String? videoTitle, // Título do vídeo
     TextBox? textBox, // Apenas 1 caixa de texto
     MapConfig? mapConfig, // Apenas 1 mapa
     DateTime? createdAt,

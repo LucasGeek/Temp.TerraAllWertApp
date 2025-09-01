@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' hide MapType;
-import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../domain/entities/carousel_data.dart';
@@ -48,14 +47,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   CarouselData? _carouselData;
   int _currentIndex = 0;
   bool _isLoading = false;
-  bool _showControls = true;
+  bool _showControls = true; // Sempre visível agora
   
-  // Mock data para demonstração
-  final List<String> _mockImages = [
-    'https://via.placeholder.com/800x600/2E7D32/FFFFFF?text=Apartamento+1',
-    'https://via.placeholder.com/800x600/FFA726/FFFFFF?text=Apartamento+2',
-    'https://via.placeholder.com/800x600/1976D2/FFFFFF?text=Apartamento+3',
-  ];
+  // Mock removido - foco em estado vazio incentivando adição
 
   @override
   void initState() {
@@ -64,8 +58,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     _transformationController = TransformationController();
     _loadCarouselData();
     
-    // Esconde controles após 3 segundos de inatividade
-    _startControlsTimer();
+    // Controles sempre visíveis - removido timer
   }
 
   @override
@@ -85,8 +78,8 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       final carouselData = await _carouselStorage.loadCarouselData(widget.route);
       
       if (carouselData == null) {
-        // Cria dados iniciais se não existir
-        final initialImages = widget.images ?? _mockImages;
+        // Cria dados iniciais vazios se não existir - promove adição manual
+        final initialImages = widget.images ?? <String>[];
         _carouselData = CarouselData(
           id: _uuid.v4(),
           routeId: widget.route,
@@ -102,8 +95,8 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         _initializeVideoController();
       }
     } catch (e) {
-      // Em caso de erro, ainda cria dados iniciais para menus novos
-      final initialImages = widget.images ?? _mockImages;
+      // Em caso de erro, cria dados vazios para incentivar adição manual
+      final initialImages = widget.images ?? <String>[];
       _carouselData = CarouselData(
         id: _uuid.v4(),
         routeId: widget.route,
@@ -165,6 +158,13 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
     if (_carouselData == null) {
       return _buildErrorState();
+    }
+
+    // Estado vazio - incentiva adição de imagem
+    if (_carouselData!.imageUrls.isEmpty && 
+        _carouselData!.videoUrl == null && 
+        _carouselData!.videoPath == null) {
+      return _buildEmptyState();
     }
 
     return Scaffold(
@@ -403,9 +403,14 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           
           SizedBox(height: LayoutConstants.marginMd),
           
-          // Subtítulo explicativo
+          // Subtítulo explicativo incentivando ação
           Text(
-            'Este é um novo menu e ainda não possui imagens.\nVocê pode adicionar imagens, vídeos, mapas e muito mais.',
+            '👆 Clique aqui e adicione suas primeiras imagens!\n\n'
+            'Você pode adicionar:\n'
+            '📷 Imagens da galeria\n'
+            '🎥 Vídeos com título personalizado\n'
+            '🗺️ Mapas interativos\n'
+            '🎨 E muito mais!',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppTheme.textSecondary,
@@ -738,40 +743,173 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Adiciona ou visualiza vídeo
   void _addOrViewVideo() async {
-    if (_carouselData!.videoUrl != null || _carouselData!.videoPath != null) {
-      _showVideo();
-    } else {
-      await _showAddVideoDialog();
+    _showVideoConfigDialog();
+  }
+  
+  /// Modal para configuração de vídeo com título e opção de remover (mesma lógica do PinMapPresentation)
+  void _showVideoConfigDialog() {
+    final hasExistingVideo = _carouselData?.videoUrl != null || _carouselData?.videoPath != null;
+    final titleController = TextEditingController(text: _carouselData?.videoTitle ?? '');
+    final urlController = TextEditingController(text: _carouselData?.videoUrl ?? '');
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(hasExistingVideo ? 'Configurar Vídeo' : 'Adicionar Vídeo'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Campo de título
+              TextField(
+                controller: titleController,
+                decoration: InputDecoration(
+                  labelText: 'Título do vídeo',
+                  hintText: 'Ex: Tour virtual do apartamento',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 16),
+              
+              // Campo de URL
+              TextField(
+                controller: urlController,
+                decoration: InputDecoration(
+                  labelText: 'URL do vídeo',
+                  hintText: 'Cole a URL do vídeo aqui',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              
+              if (hasExistingVideo) ...[
+                SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('Já existe um vídeo configurado')),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          if (hasExistingVideo)
+            TextButton.icon(
+              onPressed: () => _removeVideo(context),
+              icon: Icon(Icons.delete, color: Colors.red),
+              label: Text('Remover Vídeo', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancelar'),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _pickVideoFromGallery(context, titleController.text),
+                icon: Icon(Icons.upload_file),
+                label: Text('Galeria'),
+              ),
+              SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () => _saveVideoFromUrl(context, titleController.text, urlController.text),
+                icon: Icon(Icons.link),
+                label: Text('Salvar URL'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Remove o vídeo configurado
+  void _removeVideo(BuildContext dialogContext) async {
+    if (_carouselData != null) {
+      _carouselData = _carouselData!.copyWith(
+        videoPath: null,
+        videoUrl: null,
+        videoTitle: null,
+        updatedAt: DateTime.now(),
+      );
+      
+      await _saveCarouselData();
+      if (mounted) {
+        setState(() {});
+        Navigator.of(dialogContext).pop();
+        _showSuccessSnackBar('Vídeo removido com sucesso!');
+      }
     }
   }
-
-  /// Mostra dialog para adicionar vídeo
-  Future<void> _showAddVideoDialog() async {
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Adicionar Vídeo'),
-          content: const Text(
-            'Selecione um vídeo da galeria.\n\n'
-            'Lembre-se: apenas 1 vídeo por vez é permitido.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await _pickVideo();
-              },
-              child: const Text('Selecionar Vídeo'),
-            ),
-          ],
+  
+  /// Seleciona vídeo da galeria
+  void _pickVideoFromGallery(BuildContext dialogContext, String title) async {
+    try {
+      final video = await _imagePicker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 5),
+      );
+      
+      if (video != null && _carouselData != null && mounted) {
+        _carouselData = _carouselData!.copyWith(
+          videoPath: video.path,
+          videoUrl: null,
+          videoTitle: title.trim().isEmpty ? 'Vídeo do carrossel' : title.trim(),
+          updatedAt: DateTime.now(),
         );
-      },
-    );
+        
+        await _saveCarouselData();
+        if (mounted) {
+          setState(() {});
+          Navigator.of(dialogContext).pop();
+          _showSuccessSnackBar('Vídeo adicionado com sucesso!');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Erro ao adicionar vídeo: $e');
+      }
+    }
+  }
+  
+  /// Salva vídeo através de URL
+  void _saveVideoFromUrl(BuildContext dialogContext, String title, String url) async {
+    if (url.trim().isEmpty) {
+      if (mounted) {
+        _showErrorSnackBar('Por favor, insira uma URL válida');
+      }
+      return;
+    }
+    
+    if (_carouselData != null && mounted) {
+      _carouselData = _carouselData!.copyWith(
+        videoUrl: url.trim(),
+        videoPath: null,
+        videoTitle: title.trim().isEmpty ? 'Vídeo do carrossel' : title.trim(),
+        updatedAt: DateTime.now(),
+      );
+      
+      await _saveCarouselData();
+      if (mounted) {
+        setState(() {});
+        Navigator.of(dialogContext).pop();
+        _showSuccessSnackBar('Vídeo configurado com sucesso!');
+      }
+    }
   }
 
   /// Seleciona vídeo da galeria
@@ -1023,7 +1161,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     final lngController = TextEditingController(
       text: existingMap?.longitude.toString() ?? '-46.633308',
     );
-    MapType mapType = existingMap?.mapType ?? MapType.normal;
+    MapType mapType = existingMap?.mapType ?? MapType.openStreet;
 
     showDialog<void>(
       context: context,
@@ -1390,23 +1528,30 @@ class _ReorderImagesScreenState extends State<_ReorderImagesScreen> {
           ),
         ],
       ),
-      body: ReorderableGridView.count(
-        crossAxisCount: 2,
+      body: ReorderableListView.builder(
         padding: EdgeInsets.all(LayoutConstants.paddingMd),
-        children: _images.asMap().entries.map((entry) {
-          final index = entry.key;
-          final imageUrl = entry.value;
+        itemCount: _images.length,
+        itemBuilder: (context, index) {
+          final imageUrl = _images[index];
           
           return Card(
             key: ValueKey(imageUrl),
-            child: Stack(
-              children: [
-                Positioned.fill(
+            margin: EdgeInsets.only(bottom: LayoutConstants.marginSm),
+            child: ListTile(
+              contentPadding: EdgeInsets.all(LayoutConstants.paddingSm),
+              leading: Container(
+                width: 80,
+                height: 60,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                  border: Border.all(color: AppTheme.outline),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
                   child: OfflineImage(
                     networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
                     localPath: !imageUrl.startsWith('http') ? imageUrl : null,
                     fit: BoxFit.cover,
-                    borderRadius: BorderRadius.circular(8),
                     placeholder: Container(
                       color: AppTheme.surfaceVariant,
                       child: Center(
@@ -1418,52 +1563,64 @@ class _ReorderImagesScreenState extends State<_ReorderImagesScreen> {
                     ),
                     errorWidget: Container(
                       color: AppTheme.surfaceVariant,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.broken_image_outlined,
-                            color: AppTheme.textSecondary,
-                            size: 32,
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Erro',
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: AppTheme.textSecondary,
+                        size: 24,
                       ),
                     ),
                   ),
                 ),
-                
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
+              ),
+              title: Text(
+                'Imagem ${index + 1}',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: LayoutConstants.fontSizeMedium,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                imageUrl.length > 50 ? '${imageUrl.substring(0, 50)}...' : imageUrl,
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: LayoutConstants.fontSizeSmall,
+                ),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Indicador de posição
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       '${index + 1}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(width: LayoutConstants.marginSm),
+                  // Handle de arrastar
+                  Icon(
+                    Icons.drag_handle,
+                    color: AppTheme.textSecondary,
+                  ),
+                ],
+              ),
             ),
           );
-        }).toList(),
+        },
         onReorder: (oldIndex, newIndex) {
           setState(() {
+            if (newIndex > oldIndex) newIndex--;
             final item = _images.removeAt(oldIndex);
             _images.insert(newIndex, item);
           });
