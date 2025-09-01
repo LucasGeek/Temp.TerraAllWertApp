@@ -700,11 +700,13 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     }
   }
 
-  /// Dialog para adicionar marcador
+  /// Dialog para adicionar marcador - VERSÃO CORRIGIDA
   Future<void> _showAddMarkerDialog(double x, double y) async {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
-    MarkerType markerType = MarkerType.newApartment;
+    
+    // SOLUÇÃO 1: Deixar sem valor inicial (null)
+    MarkerType? markerType; // Mudança aqui - nullable
     Apartment? selectedApartment;
 
     return showDialog<void>(
@@ -718,30 +720,37 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Dropdown sem valor inicial
                     DropdownButtonFormField<MarkerType>(
-                      value: markerType,
+                      value: markerType, // Pode ser null inicialmente
                       onChanged: (value) => setState(() {
                         markerType = value!;
                         selectedApartment = null;
                       }),
                       decoration: const InputDecoration(
-                        labelText: 'Tipo de Marcador',
+                        labelText: 'Tipo de Marcador*',
                         border: OutlineInputBorder(),
+                        hintText: 'Selecione o tipo de marcador', // Adicionar hint
                       ),
                       items: MarkerType.values.map((type) {
-                        return DropdownMenuItem(value: type, child: Text(type.displayName));
+                        return DropdownMenuItem(
+                          value: type, 
+                          child: Text(type.displayName)
+                        );
                       }).toList(),
                     ),
 
                     SizedBox(height: LayoutConstants.marginMd),
 
+                    // Condicional para apartamento existente
                     if (markerType == MarkerType.existingApartment) ...[
                       DropdownButtonFormField<Apartment>(
                         value: selectedApartment,
                         onChanged: (apartment) => setState(() => selectedApartment = apartment),
                         decoration: const InputDecoration(
-                          labelText: 'Selecionar Apartamento',
+                          labelText: 'Selecionar Apartamento*',
                           border: OutlineInputBorder(),
+                          hintText: 'Escolha um apartamento',
                         ),
                         items: _floorPlanData!.apartments.map((apartment) {
                           return DropdownMenuItem(
@@ -750,7 +759,6 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                           );
                         }).toList(),
                       ),
-
                       SizedBox(height: LayoutConstants.marginMd),
                     ],
 
@@ -760,6 +768,8 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         labelText: 'Título*',
                         border: OutlineInputBorder(),
                       ),
+                      // IMPORTANTE: Atualizar estado quando título muda
+                      onChanged: (value) => setState(() {}),
                     ),
 
                     SizedBox(height: LayoutConstants.marginMd),
@@ -781,16 +791,15 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed:
-                      titleController.text.isNotEmpty &&
-                          (markerType == MarkerType.newApartment || selectedApartment != null)
+                  // LÓGICA DE VALIDAÇÃO CORRIGIDA
+                  onPressed: _isAddMarkerButtonEnabled(titleController.text, markerType, selectedApartment)
                       ? () {
                           _addMarker(
                             x,
                             y,
                             titleController.text,
                             descriptionController.text,
-                            markerType,
+                            markerType!, // Safe porque validamos antes
                             selectedApartment?.id,
                           );
                           Navigator.of(context).pop();
@@ -804,6 +813,22 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         );
       },
     );
+  }
+
+  /// Método auxiliar para validar se o botão deve estar habilitado
+  bool _isAddMarkerButtonEnabled(String title, MarkerType? markerType, Apartment? selectedApartment) {
+    // Verificar se título está preenchido
+    if (title.trim().isEmpty) return false;
+    
+    // Verificar se tipo de marcador foi selecionado
+    if (markerType == null) return false;
+    
+    // Se for apartamento existente, verificar se apartamento foi selecionado
+    if (markerType == MarkerType.existingApartment && selectedApartment == null) {
+      return false;
+    }
+    
+    return true;
   }
 
   /// Adiciona um novo marcador
