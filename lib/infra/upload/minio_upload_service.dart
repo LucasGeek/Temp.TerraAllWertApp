@@ -1,30 +1,23 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as path;
 
 import '../cache/cache_service.dart';
 import '../cache/models/cache_metadata.dart';
-import '../graphql/graphql_client.dart';
 import '../logging/app_logger.dart';
 
 /// Serviço de upload para MinIO com URLs assinadas
 class MinIOUploadService {
-  final GraphQLClientService _graphqlClient;
   final CacheService _cacheService;
-  final Dio _dio;
   
   // Stream controllers para progresso de upload
   final Map<String, StreamController<UploadProgress>> _progressControllers = {};
   
   MinIOUploadService({
-    required GraphQLClientService graphqlClient,
     required CacheService cacheService,
-  }) : _graphqlClient = graphqlClient,
-       _cacheService = cacheService,
-       _dio = Dio();
+  }) : _cacheService = cacheService;
 
   /// Obtém URL assinada para upload
   Future<SignedUrlResponse> getSignedUploadUrl({
@@ -56,16 +49,6 @@ class MinIOUploadService {
       
       AppLogger.debug('Requesting signed upload URL for file: $fileId', tag: 'MinIO');
       
-      final request = SignedUrlRequest(
-        fileId: fileId,
-        fileName: fileName,
-        fileType: fileType,
-        contentType: contentType,
-        fileSize: fileSize,
-        routeId: routeId,
-        pinId: pinId,
-      );
-
       // TODO: Substituir por chamada GraphQL real quando API estiver implementada
       // Por enquanto, simular resposta para desenvolvimento
       await Future.delayed(Duration(milliseconds: 500)); // Simular latência
@@ -118,19 +101,6 @@ class MinIOUploadService {
       if (onProgress != null) {
         progressController.stream.listen(onProgress);
       }
-      
-      // Preparar dados para upload
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(
-          fileBytes,
-          filename: path.basename(fileInfo.originalPath),
-        ),
-      });
-      
-      // Preparar headers
-      final headers = <String, String>{
-        ...signedUrl.headers,
-      };
       
       var uploadProgress = UploadProgress(
         fileId: fileId,

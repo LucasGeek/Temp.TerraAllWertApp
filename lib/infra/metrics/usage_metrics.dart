@@ -12,7 +12,6 @@ import '../logging/app_logger.dart';
 class UsageMetrics {
   static const String _keyMetricsData = 'usage_metrics_data';
   static const String _keySessionStart = 'current_session_start';
-  static const Duration _sessionTimeout = Duration(minutes: 30);
   
   final Connectivity _connectivity = Connectivity();
   final Completer<SharedPreferences> _prefsCompleter = Completer();

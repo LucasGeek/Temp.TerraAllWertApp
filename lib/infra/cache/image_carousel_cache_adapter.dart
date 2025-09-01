@@ -77,7 +77,7 @@ class ImageCarouselCacheAdapter {
     List<String> cachedPaths = [];
 
     for (final file in result.files) {
-      if (file.bytes != null && file.name != null) {
+      if (file.bytes != null) {
         try {
           // Gerar ID único para imagem do carrossel
           final fileId = '${DateTime.now().millisecondsSinceEpoch}_carousel_${carouselId ?? 'default'}_${file.name.hashCode}';
@@ -86,14 +86,14 @@ class ImageCarouselCacheAdapter {
           final cachedInfo = await _cacheService.cacheFile(
             fileId: fileId,
             bytes: file.bytes!,
-            originalPath: file.name!,
+            originalPath: file.name,
             type: 'carousel_image',
           );
           
           // Iniciar upload em background
           _startBackgroundUpload(
             fileId: fileId,
-            contentType: _getContentType(file.name!),
+            contentType: _getContentType(file.name),
             routeId: routeId,
             carouselId: carouselId,
             mediaType: 'image',
@@ -210,20 +210,20 @@ class ImageCarouselCacheAdapter {
     
     if (result?.files.isNotEmpty == true) {
       final file = result!.files.first;
-      if (file.bytes != null && file.name != null) {
+      if (file.bytes != null) {
         try {
           final fileId = '${DateTime.now().millisecondsSinceEpoch}_carousel_video_${carouselId ?? 'default'}_${file.name.hashCode}';
           
           final cachedInfo = await _cacheService.cacheFile(
             fileId: fileId,
             bytes: file.bytes!,
-            originalPath: file.name!,
+            originalPath: file.name,
             type: 'carousel_video',
           );
           
           _startBackgroundUpload(
             fileId: fileId,
-            contentType: _getContentType(file.name!),
+            contentType: _getContentType(file.name),
             routeId: routeId,
             carouselId: carouselId,
             mediaType: 'video',

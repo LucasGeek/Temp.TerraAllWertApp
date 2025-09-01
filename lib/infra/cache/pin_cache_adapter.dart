@@ -69,7 +69,7 @@ class PinCacheAdapter {
     List<String> cachedPaths = [];
 
     for (final file in result.files) {
-      if (file.bytes != null && file.name != null) {
+      if (file.bytes != null) {
         try {
           // Gerar ID único
           final fileId = '${DateTime.now().millisecondsSinceEpoch}_${file.name.hashCode}';
@@ -78,14 +78,14 @@ class PinCacheAdapter {
           final cachedInfo = await _cacheService.cacheFile(
             fileId: fileId,
             bytes: file.bytes!,
-            originalPath: file.name!,
+            originalPath: file.name,
             type: 'image',
           );
           
           // Iniciar upload em background
           _startBackgroundUpload(
             fileId: fileId,
-            contentType: _getContentType(file.name!),
+            contentType: _getContentType(file.name),
             routeId: routeId,
             pinId: pinId,
           );
@@ -178,7 +178,7 @@ class PinCacheAdapter {
         
         if (result?.files.isNotEmpty == true) {
           final file = result!.files.first;
-          if (file.bytes != null && file.name != null) {
+          if (file.bytes != null) {
             // Criar XFile mock para compatibilidade
             // TODO: Implementar lógica específica para web se necessário
             AppLogger.debug('Video selected on web: ${file.name}', tag: 'PinCache');
@@ -348,10 +348,11 @@ class PinCacheAdapter {
     return false;
   }
 
-  /// Converte paths locais para URLs da API ou ZIP offline
+  /// Converte paths locais para URLs da API ou ZIP offline com download automático
   Future<List<String>> convertCachedPathsToUrls({
     required List<String> localPaths,
     required String routeId,
+    Function(String fileId, dynamic progress)? onDownloadProgress,
   }) async {
     final urls = <String>[];
     
@@ -364,11 +365,14 @@ class PinCacheAdapter {
           continue;
         }
         
-        // Usar OfflineSyncService para obter URL correta baseada na plataforma
+        // Usar OfflineSyncService com download automático offline-first
         final url = await _syncService.getFileUrl(
           fileId: fileId,
           routeId: routeId,
           originalFileName: localPath.split('/').last,
+          onDownloadProgress: onDownloadProgress != null 
+              ? (progress) => onDownloadProgress(fileId, progress)
+              : null,
         );
         
         if (url != null) {
@@ -396,42 +400,49 @@ class PinCacheAdapter {
     return urls.isNotEmpty ? urls.first : null;
   }
 
-  /// Força sincronização de um arquivo específico
-  Future<String?> forceSyncFile(String localPath) async {
+  /// Força download de arquivo para uso offline
+  Future<String?> forceDownloadForOffline({
+    required String fileId,
+    required String routeId,
+    String? originalFileName,
+    Function(dynamic progress)? onProgress,
+  }) async {
     try {
-      final fileId = _extractFileIdFromPath(localPath);
-      if (fileId == null) {
-        return null;
-      }
-
-      final fileInfo = _cacheService.getCachedFileInfo(fileId);
-      if (fileInfo == null) {
-        return null;
-      }
-
-      // TODO: Implementar sync individual quando API estiver pronta
-      AppLogger.info('TODO: Force sync file: $fileId', tag: 'PinCache');
+      AppLogger.info('Force downloading file for offline: $fileId', tag: 'PinCache');
       
-      // Código para quando API estiver implementada:
-      /*
-      final bytes = await _cacheService.getCachedFile(fileId);
-      if (bytes == null) return null;
-      
-      final minioPath = await _uploadService.uploadFileComplete(
-        fileBytes: bytes,
-        originalPath: fileInfo.originalPath,
-        fileType: fileInfo.type,
-        contentType: _getContentType(fileInfo.originalPath),
-        routeId: routeId, // Precisaria ser passado como parâmetro
+      final result = await _syncService.downloadFileForOffline(
+        fileId: fileId,
+        routeId: routeId,
+        originalFileName: originalFileName,
+        onProgress: onProgress,
       );
       
-      return minioPath;
-      */
+      if (result.success && result.filePath != null) {
+        AppLogger.info('File downloaded for offline: ${result.filePath}', tag: 'PinCache');
+        return 'file://${result.filePath}';
+      }
       
+      AppLogger.warning('Failed to download file for offline: ${result.error}', tag: 'PinCache');
       return null;
+      
     } catch (e) {
-      AppLogger.error('Failed to force sync file $localPath: $e', tag: 'PinCache');
+      AppLogger.error('Failed to force download file $fileId: $e', tag: 'PinCache');
       return null;
     }
+  }
+
+  /// Obtém stream de progresso de download
+  Stream<dynamic>? getDownloadProgressStream(String fileId) {
+    return _syncService.getDownloadProgressStream(fileId);
+  }
+
+  /// Cancela download em progresso
+  Future<bool> cancelDownload(String fileId) async {
+    return await _syncService.cancelDownload(fileId);
+  }
+
+  /// Verifica se arquivo está sendo baixado
+  bool isDownloading(String fileId) {
+    return _syncService.isDownloading(fileId);
   }
 }

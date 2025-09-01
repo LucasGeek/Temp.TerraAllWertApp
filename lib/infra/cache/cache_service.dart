@@ -16,7 +16,6 @@ class CacheService {
   static const String _videosSubDir = 'videos';
   static const String _documentsSubDir = 'documents';
   
-  static const String _syncTimestampsFile = 'sync_timestamps.json';
   static const String _versionControlFile = 'version_control.json';
   static const String _cacheIndexFile = 'cache_index.json';
 

@@ -68,7 +68,7 @@ class FloorPlanCacheAdapter {
     }
 
     final file = result.files.first;
-    if (file.bytes != null && file.name != null) {
+    if (file.bytes != null) {
       try {
         // Gerar ID único para planta
         final fileId = '${DateTime.now().millisecondsSinceEpoch}_floor_${floorId}_${file.name.hashCode}';
@@ -77,14 +77,14 @@ class FloorPlanCacheAdapter {
         final cachedInfo = await _cacheService.cacheFile(
           fileId: fileId,
           bytes: file.bytes!,
-          originalPath: file.name!,
+          originalPath: file.name,
           type: 'floorplan',
         );
         
         // Iniciar upload em background
         _startBackgroundUpload(
           fileId: fileId,
-          contentType: _getContentType(file.name!),
+          contentType: _getContentType(file.name),
           routeId: routeId,
           floorId: floorId,
         );
@@ -199,20 +199,20 @@ class FloorPlanCacheAdapter {
     List<String> cachedPaths = [];
 
     for (final file in result.files) {
-      if (file.bytes != null && file.name != null) {
+      if (file.bytes != null) {
         try {
           final fileId = '${DateTime.now().millisecondsSinceEpoch}_ref_${floorId}_${file.name.hashCode}';
           
           final cachedInfo = await _cacheService.cacheFile(
             fileId: fileId,
             bytes: file.bytes!,
-            originalPath: file.name!,
+            originalPath: file.name,
             type: 'reference',
           );
           
           _startBackgroundUpload(
             fileId: fileId,
-            contentType: _getContentType(file.name!),
+            contentType: _getContentType(file.name),
             routeId: routeId,
             floorId: floorId,
           );

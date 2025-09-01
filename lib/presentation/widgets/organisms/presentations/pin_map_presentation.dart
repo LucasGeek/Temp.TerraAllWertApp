@@ -49,9 +49,6 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   final Uuid _uuid = const Uuid();
   
   // Cache services - serão inicializados no initState
-  CacheService? _cacheService;
-  MinIOUploadService? _uploadService;
-  OfflineSyncService? _syncService;
   PinCacheAdapter? _pinCacheAdapter;
 
   // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
@@ -84,24 +81,19 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       // Inicializar cache service
       final cacheService = CacheService();
       await cacheService.initialize();
-      _cacheService = cacheService;
       
       // Obter GraphQL client do provider
       final graphqlClient = ref.read(graphQLClientProvider);
       
       // Inicializar upload service
       final uploadService = MinIOUploadService(
-        graphqlClient: graphqlClient,
         cacheService: cacheService,
       );
-      _uploadService = uploadService;
       
       // Inicializar sync service
       final syncService = OfflineSyncService(
         graphqlClient: graphqlClient,
-        cacheService: cacheService,
       );
-      _syncService = syncService;
       
       // Inicializar adapter
       _pinCacheAdapter = PinCacheAdapter(
@@ -114,8 +106,6 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     } catch (e) {
       AppLogger.error('Failed to initialize cache services: $e', tag: 'PinMap');
       // Continue sem cache se falhar - fallback para ImagePicker
-      _cacheService = null;
-      _uploadService = null;
       _pinCacheAdapter = null;
     }
   }
@@ -1615,46 +1605,6 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     }
   }
 
-  /// Seleciona vídeo usando cache offline-first
-  Future<String?> _pickVideo() async {
-    try {
-      // Tentar usar cache adapter primeiro
-      if (_pinCacheAdapter != null) {
-        AppLogger.debug('Using cache adapter for video selection', tag: 'PinMap');
-        
-        final cachedPath = await _pinCacheAdapter!.selectAndCacheVideo(
-          routeId: widget.route,
-        );
-        
-        if (cachedPath != null) {
-          // Converter path local para URL utilizável
-          final urls = await _pinCacheAdapter!.convertCachedPathsToUrls(
-            localPaths: [cachedPath],
-            routeId: widget.route,
-          );
-          if (urls.isNotEmpty) {
-            AppLogger.info('Video cached successfully', tag: 'PinMap');
-            return urls.first;
-          }
-        }
-      }
-      
-      // Fallback para ImagePicker tradicional se cache falhar
-      AppLogger.debug('Falling back to traditional ImagePicker for video', tag: 'PinMap');
-      final video = await _imagePicker.pickVideo(source: ImageSource.gallery);
-      
-      if (video != null) {
-        AppLogger.debug('Vídeo selecionado: ${video.path}', tag: 'PinMap');
-        return video.path;
-      }
-      
-      return null;
-    } catch (e) {
-      AppLogger.error('Error selecting video: $e', tag: 'PinMap');
-      SnackbarNotification.showError('Erro ao selecionar vídeo: $e');
-      return null;
-    }
-  }
 
   /// Upload de vídeo para o mapa
   Future<void> _uploadVideo() async {

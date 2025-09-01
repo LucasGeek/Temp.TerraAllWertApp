@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -63,9 +62,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   final Uuid _uuid = const Uuid();
 
   // Cache services - serão inicializados no initState
-  CacheService? _cacheService;
-  MinIOUploadService? _uploadService;
-  OfflineSyncService? _syncService;
   ImageCarouselCacheAdapter? _carouselCacheAdapter;
 
   PageController? _pageController;
@@ -101,24 +97,19 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       // Inicializar cache service
       final cacheService = CacheService();
       await cacheService.initialize();
-      _cacheService = cacheService;
       
       // Obter GraphQL client do provider
       final graphqlClient = ref.read(graphQLClientProvider);
       
       // Inicializar upload service
       final uploadService = MinIOUploadService(
-        graphqlClient: graphqlClient,
         cacheService: cacheService,
       );
-      _uploadService = uploadService;
       
       // Inicializar sync service para URLs baseadas na plataforma
       final syncService = OfflineSyncService(
         graphqlClient: graphqlClient,
-        cacheService: cacheService,
       );
-      _syncService = syncService;
       
       // Inicializar adapter específico para carrossel
       _carouselCacheAdapter = ImageCarouselCacheAdapter(
@@ -131,8 +122,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     } catch (e) {
       AppLogger.error('Failed to initialize ImageCarousel cache services: $e', tag: 'ImageCarousel');
       // Continue sem cache se falhar - fallback para ImagePicker
-      _cacheService = null;
-      _uploadService = null;
       _carouselCacheAdapter = null;
     }
   }

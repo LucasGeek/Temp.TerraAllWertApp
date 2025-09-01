@@ -1,4 +1,4 @@
-/// Mutations GraphQL para upload de arquivos e URLs assinadas
+library;
 
 /// Mutation para obter URL assinada para upload
 const String getSignedUploadUrlMutation = r'''

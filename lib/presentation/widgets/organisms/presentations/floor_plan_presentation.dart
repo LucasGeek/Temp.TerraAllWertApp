@@ -51,9 +51,6 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   final FloorPlanStorage _floorPlanStorage = FloorPlanStorage();
 
   // Cache services - serão inicializados no initState
-  CacheService? _cacheService;
-  MinIOUploadService? _uploadService;
-  OfflineSyncService? _syncService;
   FloorPlanCacheAdapter? _floorPlanCacheAdapter;
 
   // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
@@ -82,24 +79,19 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       // Inicializar cache service
       final cacheService = CacheService();
       await cacheService.initialize();
-      _cacheService = cacheService;
       
       // Obter GraphQL client do provider
       final graphqlClient = ref.read(graphQLClientProvider);
       
       // Inicializar upload service
       final uploadService = MinIOUploadService(
-        graphqlClient: graphqlClient,
         cacheService: cacheService,
       );
-      _uploadService = uploadService;
       
       // Inicializar sync service para URLs baseadas na plataforma
       final syncService = OfflineSyncService(
         graphqlClient: graphqlClient,
-        cacheService: cacheService,
       );
-      _syncService = syncService;
       
       // Inicializar adapter específico para plantas
       _floorPlanCacheAdapter = FloorPlanCacheAdapter(
@@ -112,8 +104,6 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     } catch (e) {
       AppLogger.error('Failed to initialize FloorPlan cache services: $e', tag: 'FloorPlan');
       // Continue sem cache se falhar - fallback para ImagePicker
-      _cacheService = null;
-      _uploadService = null;
       _floorPlanCacheAdapter = null;
     }
   }
