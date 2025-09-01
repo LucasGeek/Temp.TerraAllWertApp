@@ -8,6 +8,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../domain/entities/carousel_data.dart';
 import '../../../../domain/enums/map_type.dart';
+import '../../../../infra/logging/app_logger.dart';
+import '../../../../infra/platform/platform_service.dart';
 import '../../../../infra/storage/carousel_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
@@ -908,18 +910,34 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     }
     
     if (_carouselData != null && mounted) {
-      _carouselData = _carouselData!.copyWith(
-        videoUrl: url.trim(),
-        videoPath: null,
-        videoTitle: title.trim().isEmpty ? 'Vídeo do carrossel' : title.trim(),
-        updatedAt: DateTime.now(),
-      );
-      
-      await _saveCarouselData();
-      if (mounted) {
-        setState(() {});
-        Navigator.of(dialogContext).pop();
-        _showSuccessSnackBar('Vídeo configurado com sucesso!');
+      try {
+        AppLogger.info('Salvando vídeo da URL: $url com título: $title');
+        
+        _carouselData = _carouselData!.copyWith(
+          videoUrl: url.trim(),
+          videoPath: null,
+          videoTitle: title.trim().isEmpty ? 'Vídeo do carrossel' : title.trim(),
+          updatedAt: DateTime.now(),
+        );
+        
+        await _saveCarouselData();
+        
+        AppLogger.info('Vídeo salvo com sucesso, forçando atualização da tela');
+        
+        // Delay e setState explícito para garantir atualização da tela
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (mounted) {
+          setState(() {
+            AppLogger.info('Estado atualizado após salvar vídeo');
+          });
+          Navigator.of(dialogContext).pop();
+          _showSuccessSnackBar('Vídeo configurado com sucesso!');
+        }
+      } catch (e) {
+        AppLogger.error('Erro ao salvar vídeo: $e');
+        if (mounted) {
+          _showErrorSnackBar('Erro ao salvar vídeo: $e');
+        }
       }
     }
   }
@@ -957,24 +975,64 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     );
   }
 
-  /// Adiciona imagens ao carrossel
+  /// Adiciona imagens ao carrossel (usando lógica do PinMapPresentation)
   Future<void> _addImages() async {
     try {
       final images = await _imagePicker.pickMultiImage();
-      if (images.isNotEmpty) {
-        final imagePaths = images.map((image) => image.path).toList();
+      if (images.isNotEmpty && _carouselData != null) {
+        final imagePaths = <String>[];
         
-        setState(() {
+        // Verificar cada imagem individualmente (como PinMapPresentation)
+        for (final image in images) {
+          AppLogger.debug('Imagem selecionada: ${image.path}', tag: 'ImageCarousel');
+          
+          // Verificar se o arquivo existe (apenas para platforms que suportam File)
+          if (!PlatformService.isWeb) {
+            final file = File(image.path);
+            final exists = await file.exists();
+            AppLogger.debug('Arquivo existe: $exists', tag: 'ImageCarousel');
+            
+            if (exists) {
+              imagePaths.add(image.path);
+            } else {
+              AppLogger.warning('Arquivo não existe no path: ${image.path}', tag: 'ImageCarousel');
+            }
+          } else {
+            AppLogger.debug('Plataforma Web - usando blob URL: ${image.path}', tag: 'ImageCarousel');
+            imagePaths.add(image.path);
+          }
+        }
+        
+        if (imagePaths.isNotEmpty) {
+          // Atualizar dados do carrossel
           _carouselData = _carouselData!.copyWith(
             imagePaths: [..._carouselData!.imagePaths, ...imagePaths],
             updatedAt: DateTime.now(),
           );
-        });
-        
-        await _saveCarouselData();
-        _showSuccessSnackBar('${images.length} imagem(ns) adicionada(s) com sucesso!');
+          
+          AppLogger.debug('_carouselData atualizado com ${imagePaths.length} imagens', tag: 'ImageCarousel');
+          
+          // Salvar os dados atualizados
+          await _saveCarouselData();
+          
+          // Aguardar um frame antes de chamar setState (como PinMapPresentation)
+          await Future.delayed(const Duration(milliseconds: 100));
+          
+          if (mounted) {
+            setState(() {}); // Refresh UI explicitamente
+            AppLogger.debug('setState chamado - forçando rebuild', tag: 'ImageCarousel');
+            _showSuccessSnackBar('${imagePaths.length} imagem(ns) adicionada(s) com sucesso!');
+          }
+        } else {
+          _showErrorSnackBar('Nenhuma imagem válida foi encontrada');
+        }
+      } else {
+        AppLogger.warning('Imagens vazias ou _carouselData nulo', tag: 'ImageCarousel');
+        if (images.isEmpty) AppLogger.debug('images está vazio', tag: 'ImageCarousel');
+        if (_carouselData == null) AppLogger.debug('_carouselData é null', tag: 'ImageCarousel');
       }
     } catch (e) {
+      AppLogger.error('Erro ao selecionar imagens: $e', tag: 'ImageCarousel');
       _showErrorSnackBar('Erro ao selecionar imagens: $e');
     }
   }
@@ -1288,10 +1346,33 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Salva configuração do mapa
   Future<void> _saveMap(MapConfig mapConfig) async {
-    setState(() {
-      _carouselData = _carouselData!.copyWith(mapConfig: mapConfig);
-    });
-    await _saveCarouselData();
+    try {
+      AppLogger.info('Salvando configuração do mapa: ${mapConfig.mapType.displayName} em ${mapConfig.latitude}, ${mapConfig.longitude}');
+      
+      setState(() {
+        _carouselData = _carouselData!.copyWith(mapConfig: mapConfig);
+      });
+      await _saveCarouselData();
+      
+      AppLogger.info('Mapa salvo com sucesso, forçando atualização da tela');
+      
+      // Delay e setState explícito para garantir atualização da tela
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (mounted) {
+        setState(() {
+          AppLogger.info('Estado atualizado após salvar mapa');
+        });
+      }
+      
+      if (mounted) {
+        _showSuccessSnackBar('Mapa adicionado com sucesso');
+      }
+    } catch (e) {
+      AppLogger.error('Erro ao salvar mapa: $e');
+      if (mounted) {
+        _showErrorSnackBar('Erro ao salvar mapa: $e');
+      }
+    }
   }
 
   /// Remove mapa

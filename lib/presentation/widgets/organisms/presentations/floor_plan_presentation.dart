@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,6 +46,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   Floor? _currentFloor;
   bool _isLoading = false;
   bool _isEditingMarkers = false;
+  Uint8List? _selectedImageBytes; // Para armazenar bytes da imagem no Web
 
   // Mock data para demonstração
   final String _mockFloorPlan =
@@ -127,6 +130,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -139,63 +143,59 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Header com dropdown e controles
           _buildHeader(),
 
-          // Planta principal
-          Flexible(
-            child: SizedBox(
-              width: double.infinity,
-              height: MediaQuery.of(context).size.height - 
-                     MediaQuery.of(context).padding.top - 120, // Espaço para header
-              child: Stack(
-                children: [
-                  // Imagem de fundo com marcadores
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTapDown: _isEditingMarkers ? _onFloorPlanTap : null,
-                      child: InteractiveViewer(
-                        transformationController: _transformationController,
-                        minScale: 1.0,
-                        maxScale: 3.0,
-                        constrained: false,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            // Usar dimensões seguras para evitar constraints infinitos
-                            final safeWidth = constraints.maxWidth.isFinite 
-                                ? constraints.maxWidth 
-                                : MediaQuery.of(context).size.width;
-                            final safeHeight = constraints.maxHeight.isFinite 
-                                ? constraints.maxHeight 
-                                : MediaQuery.of(context).size.height - 200; // Espaço para header
-                                
-                            return SizedBox(
-                              width: safeWidth,
-                              height: safeHeight,
+          // Planta principal - usar Expanded em vez de Flexible
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: Stack(
+                    children: [
+                      // Imagem de fundo com marcadores
+                      Positioned.fill(
+                        child: GestureDetector(
+                          onTapDown: _isEditingMarkers ? _onFloorPlanTap : null,
+                          child: InteractiveViewer(
+                            transformationController: _transformationController,
+                            minScale: 1.0,
+                            maxScale: 3.0,
+                            constrained: true, // Manter como true
+                            child: SizedBox(
+                              width: constraints.maxWidth,
+                              height: constraints.maxHeight,
                               child: Stack(
+                                fit: StackFit.expand, // Força o Stack a ocupar todo espaço
                                 children: [
                                   // Imagem de fundo
-                                  Positioned.fill(child: _buildFloorPlanImage()),
+                                  _buildFloorPlanImage(),
 
                                   // Marcadores
                                   ..._currentFloor!.markers.map(
-                                    (marker) => _buildMarker(marker, BoxConstraints.tight(Size(safeWidth, safeHeight))),
+                                    (marker) => _buildMarker(
+                                      marker,
+                                      BoxConstraints.tight(
+                                        Size(constraints.maxWidth, constraints.maxHeight),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
 
-                  // Controles flutuantes sobre a imagem
-                  _buildFloatingControls(),
-                ],
-              ),
+                      // Controles flutuantes sobre a imagem
+                      _buildFloatingControls(),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -237,7 +237,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                 child: DropdownButton<Floor>(
                   value: _currentFloor,
                   isExpanded: true,
-                  onChanged: (floor) => setState(() => _currentFloor = floor),
+                  onChanged: (floor) => setState(() {
+                    _currentFloor = floor;
+                    _selectedImageBytes = null; // Limpa a imagem em memória ao mudar de pavimento
+                  }),
                   items: _floorPlanData!.floors.map((floor) {
                     return DropdownMenuItem(
                       value: floor,
@@ -281,21 +284,41 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
   /// Constrói a imagem da planta do pavimento
   Widget _buildFloorPlanImage() {
+    // Remove width e height específicos - deixa o Container pai controlar
+    if (_selectedImageBytes != null) {
+      return Image.memory(
+        _selectedImageBytes!,
+        fit: BoxFit.cover, // ou BoxFit.contain dependendo do comportamento desejado
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
+
+    final imagePath = _currentFloor!.floorPlanImagePath;
     final imageUrl = _currentFloor!.floorPlanImageUrl ?? _mockFloorPlan;
+
+    if (!kIsWeb && imagePath != null && imagePath.isNotEmpty) {
+      return Image.file(
+        File(imagePath),
+        fit: BoxFit.cover, // ou BoxFit.contain
+        errorBuilder: (context, error, stackTrace) => _buildImageError(),
+      );
+    }
 
     return imageUrl.startsWith('http')
         ? Image.network(
             imageUrl,
-            fit: BoxFit.contain,
+            fit: BoxFit.cover, // ou BoxFit.contain
             errorBuilder: (context, error, stackTrace) => _buildImageError(),
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
               return _buildImageLoading(loadingProgress);
             },
           )
+        : kIsWeb
+        ? _buildImageError()
         : Image.file(
             File(imageUrl),
-            fit: BoxFit.contain,
+            fit: BoxFit.cover, // ou BoxFit.contain
             errorBuilder: (context, error, stackTrace) => _buildImageError(),
           );
   }
@@ -595,21 +618,57 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   /// Seleciona imagem da galeria
   Future<void> _pickFloorPlanImage() async {
     try {
-      final image = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        final updatedFloors = _floorPlanData!.floors.map((floor) {
-          if (floor.id == _currentFloor!.id) {
-            return floor.copyWith(floorPlanImagePath: image.path, updatedAt: DateTime.now());
+      if (kIsWeb) {
+        // No Web, usa FilePicker para obter bytes
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+        );
+
+        if (result != null && result.files.isNotEmpty) {
+          final file = result.files.first;
+          if (file.bytes != null) {
+            setState(() {
+              _selectedImageBytes = file.bytes;
+            });
+
+            // Salva uma referência ou indicador de que há uma imagem customizada
+            final updatedFloors = _floorPlanData!.floors.map((floor) {
+              if (floor.id == _currentFloor!.id) {
+                return floor.copyWith(
+                  floorPlanImagePath: 'custom_image', // Indicador de imagem customizada
+                  updatedAt: DateTime.now(),
+                );
+              }
+              return floor;
+            }).toList();
+
+            setState(() {
+              _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
+              _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
+            });
+
+            await _saveFloorPlanData();
           }
-          return floor;
-        }).toList();
+        }
+      } else {
+        // Em plataformas nativas, usa ImagePicker
+        final image = await _imagePicker.pickImage(source: ImageSource.gallery);
+        if (image != null) {
+          final updatedFloors = _floorPlanData!.floors.map((floor) {
+            if (floor.id == _currentFloor!.id) {
+              return floor.copyWith(floorPlanImagePath: image.path, updatedAt: DateTime.now());
+            }
+            return floor;
+          }).toList();
 
-        setState(() {
-          _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
-          _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-        });
+          setState(() {
+            _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
+            _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
+          });
 
-        await _saveFloorPlanData();
+          await _saveFloorPlanData();
+        }
       }
     } catch (e) {
       _showErrorSnackBar('Erro ao selecionar imagem: $e');
