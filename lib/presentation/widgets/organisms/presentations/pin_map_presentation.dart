@@ -164,13 +164,15 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         children: [
           // Mapa principal com pins
           Positioned.fill(
-            child: GestureDetector(
-              onTapDown: _isEditMode ? _onMapTap : null,
-              child: InteractiveViewer(
+            child: MouseRegion(
+              cursor: _isEditMode ? SystemMouseCursors.copy : SystemMouseCursors.basic,
+              child: GestureDetector(
+                onTapDown: _isEditMode ? _onMapTap : null,
+                child: InteractiveViewer(
                 transformationController: _transformationController,
                 minScale: 1.0,
-                maxScale: 3.0,
-                constrained: false,
+                maxScale: 1.0, // Desabilita zoom - tamanho fixo
+                constrained: true, // Usa constraints do pai
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     // Usar dimensões seguras para evitar constraints infinitos
@@ -198,6 +200,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   },
                 ),
               ),
+            ),
             ),
           ),
 
@@ -475,7 +478,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
+                color: _selectedPin?.id == pin.id ? AppTheme.secondaryColor : AppTheme.primaryColor,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.white, width: 3),
                 boxShadow: [
@@ -498,11 +501,49 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
               width: 6,
               height: 12,
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
+                color: _selectedPin?.id == pin.id ? AppTheme.secondaryColor : AppTheme.primaryColor,
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(3),
                   bottomRight: Radius.circular(3),
                 ),
+              ),
+            ),
+            
+            // Título do pin sempre visível
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxWidth: 120),
+              padding: EdgeInsets.symmetric(
+                horizontal: LayoutConstants.paddingSm,
+                vertical: LayoutConstants.paddingXs,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                border: Border.all(
+                  color: _selectedPin?.id == pin.id 
+                      ? AppTheme.secondaryColor.withValues(alpha: 0.3)
+                      : AppTheme.primaryColor.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                pin.title,
+                style: TextStyle(
+                  fontSize: LayoutConstants.fontSizeSmall,
+                  fontWeight: FontWeight.w600,
+                  color: _selectedPin?.id == pin.id ? AppTheme.secondaryColor : AppTheme.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
