@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -50,6 +52,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   int _currentIndex = 0;
   bool _isLoading = false;
   bool _showControls = true; // Sempre visível agora
+  
+  // Mapa para armazenar bytes de imagem por path (para Web)
+  final Map<String, Uint8List> _imagesBytesMap = {};
   
   // Mock removido - foco em estado vazio incentivando adição
 
@@ -222,14 +227,20 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   }
 
   /// Combina URLs online e paths locais das imagens
-  List<String> get _allImages => [
-    ..._carouselData!.imageUrls,
-    ..._carouselData!.imagePaths,
-  ];
+  List<String> get _allImages {
+    final images = [
+      ..._carouselData!.imageUrls,
+      ..._carouselData!.imagePaths,
+    ];
+    AppLogger.debug('_allImages: total=${images.length}, urls=${_carouselData!.imageUrls.length}, paths=${_carouselData!.imagePaths.length}', tag: 'ImageCarousel');
+    return images;
+  }
 
   /// Constrói o conteúdo principal do carrossel
   Widget _buildMainContent() {
     final images = _allImages;
+    
+    AppLogger.debug('_buildMainContent: images.length=${images.length}', tag: 'ImageCarousel');
     
     if (images.isEmpty) {
       return _buildEmptyState();
@@ -268,12 +279,73 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Widget de imagem com tratamento de erro e loading robusto
   Widget _buildImageWidget(String imageUrl) {
-    // Usa OfflineImage para tratamento robusto de erros e caching
+    AppLogger.debug('Renderizando imagem: $imageUrl', tag: 'ImageCarousel');
+    
     return LayoutBuilder(
       builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width;
+        final height = constraints.maxHeight.isFinite ? constraints.maxHeight : MediaQuery.of(context).size.height;
+        
+        // Para Web com bytes em memória
+        if (kIsWeb && _imagesBytesMap.containsKey(imageUrl)) {
+          AppLogger.debug('Usando Image.memory para: $imageUrl', tag: 'ImageCarousel');
+          return SizedBox(
+            width: width,
+            height: height,
+            child: Image.memory(
+              _imagesBytesMap[imageUrl]!,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                AppLogger.error('Erro ao carregar imagem da memória: $error', tag: 'ImageCarousel');
+                return _buildRobustErrorWidget();
+              },
+            ),
+          );
+        }
+        
+        // Para URLs de rede
+        if (imageUrl.startsWith('http') || imageUrl.startsWith('blob:')) {
+          AppLogger.debug('Usando Image.network para: $imageUrl', tag: 'ImageCarousel');
+          return SizedBox(
+            width: width,
+            height: height,
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                AppLogger.error('Erro ao carregar imagem de rede: $error', tag: 'ImageCarousel');
+                return _buildRobustErrorWidget();
+              },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return _buildRobustPlaceholder();
+              },
+            ),
+          );
+        }
+        
+        // Para arquivos locais (não-Web)
+        if (!kIsWeb) {
+          AppLogger.debug('Usando Image.file para: $imageUrl', tag: 'ImageCarousel');
+          return SizedBox(
+            width: width,
+            height: height,
+            child: Image.file(
+              File(imageUrl),
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                AppLogger.error('Erro ao carregar imagem local: $error', tag: 'ImageCarousel');
+                return _buildRobustErrorWidget();
+              },
+            ),
+          );
+        }
+        
+        // Fallback - tenta OfflineImage
+        AppLogger.debug('Usando OfflineImage como fallback para: $imageUrl', tag: 'ImageCarousel');
         return SizedBox(
-          width: constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width,
-          height: constraints.maxHeight.isFinite ? constraints.maxHeight : MediaQuery.of(context).size.height,
+          width: width,
+          height: height,
           child: OfflineImage(
             networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
             localPath: !imageUrl.startsWith('http') ? imageUrl : null,
@@ -978,28 +1050,37 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Adiciona imagens ao carrossel (usando lógica do PinMapPresentation)
   Future<void> _addImages() async {
     try {
+      AppLogger.debug('Iniciando seleção de imagens', tag: 'ImageCarousel');
       final images = await _imagePicker.pickMultiImage();
+      AppLogger.debug('${images.length} imagens selecionadas', tag: 'ImageCarousel');
       if (images.isNotEmpty && _carouselData != null) {
         final imagePaths = <String>[];
         
-        // Verificar cada imagem individualmente (como PinMapPresentation)
+        // Verificar cada imagem individualmente
         for (final image in images) {
-          AppLogger.debug('Imagem selecionada: ${image.path}', tag: 'ImageCarousel');
+          AppLogger.debug('Processando imagem: ${image.path}', tag: 'ImageCarousel');
           
-          // Verificar se o arquivo existe (apenas para platforms que suportam File)
-          if (!PlatformService.isWeb) {
+          if (kIsWeb) {
+            // Para Web, tentar obter bytes da imagem
+            try {
+              final bytes = await image.readAsBytes();
+              _imagesBytesMap[image.path] = bytes;
+              imagePaths.add(image.path);
+              AppLogger.debug('Imagem Web processada e armazenada em memória: ${image.path}', tag: 'ImageCarousel');
+            } catch (e) {
+              AppLogger.error('Erro ao processar imagem Web: $e', tag: 'ImageCarousel');
+            }
+          } else {
+            // Para plataformas nativas
             final file = File(image.path);
             final exists = await file.exists();
-            AppLogger.debug('Arquivo existe: $exists', tag: 'ImageCarousel');
+            AppLogger.debug('Arquivo existe: $exists para ${image.path}', tag: 'ImageCarousel');
             
             if (exists) {
               imagePaths.add(image.path);
             } else {
-              AppLogger.warning('Arquivo não existe no path: ${image.path}', tag: 'ImageCarousel');
+              AppLogger.warning('Arquivo não existe: ${image.path}', tag: 'ImageCarousel');
             }
-          } else {
-            AppLogger.debug('Plataforma Web - usando blob URL: ${image.path}', tag: 'ImageCarousel');
-            imagePaths.add(image.path);
           }
         }
         
@@ -1010,21 +1091,19 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             updatedAt: DateTime.now(),
           );
           
-          AppLogger.debug('_carouselData atualizado com ${imagePaths.length} imagens', tag: 'ImageCarousel');
+          AppLogger.debug('_carouselData atualizado. Total de imagePaths: ${_carouselData!.imagePaths.length}', tag: 'ImageCarousel');
+          AppLogger.debug('_allImages após atualização: ${_allImages.length}', tag: 'ImageCarousel');
           
           // Salvar os dados atualizados
           await _saveCarouselData();
           
-          // Aguardar um frame antes de chamar setState (como PinMapPresentation)
-          await Future.delayed(const Duration(milliseconds: 100));
-          
           if (mounted) {
-            setState(() {}); // Refresh UI explicitamente
-            AppLogger.debug('setState chamado - forçando rebuild', tag: 'ImageCarousel');
-            _showSuccessSnackBar('${imagePaths.length} imagem(ns) adicionada(s) com sucesso!');
+            setState(() {});
+            _showSuccessSnackBar('${imagePaths.length} imagem(ns) adicionada(s)!');
           }
         } else {
-          _showErrorSnackBar('Nenhuma imagem válida foi encontrada');
+          AppLogger.warning('Nenhuma imagem válida foi processada', tag: 'ImageCarousel');
+          _showErrorSnackBar('Nenhuma imagem válida foi selecionada');
         }
       } else {
         AppLogger.warning('Imagens vazias ou _carouselData nulo', tag: 'ImageCarousel');
