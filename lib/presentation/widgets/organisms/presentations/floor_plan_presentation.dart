@@ -46,7 +46,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   Floor? _currentFloor;
   bool _isLoading = false;
   bool _isEditingMarkers = false;
-  Uint8List? _selectedImageBytes; // Para armazenar bytes da imagem no Web
+  
+  // Mapa para armazenar bytes de imagem por ID do pavimento (para Web)
+  final Map<String, Uint8List> _floorImageBytesMap = {};
 
   // Mock data para demonstração
   final String _mockFloorPlan =
@@ -129,7 +131,6 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     }
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -239,7 +240,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   isExpanded: true,
                   onChanged: (floor) => setState(() {
                     _currentFloor = floor;
-                    _selectedImageBytes = null; // Limpa a imagem em memória ao mudar de pavimento
+                    // Não limpa mais o mapa, apenas muda o pavimento atual
                   }),
                   items: _floorPlanData!.floors.map((floor) {
                     return DropdownMenuItem(
@@ -284,11 +285,12 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
   /// Constrói a imagem da planta do pavimento
   Widget _buildFloorPlanImage() {
-    // Remove width e height específicos - deixa o Container pai controlar
-    if (_selectedImageBytes != null) {
+    // Verifica se há bytes de imagem para o pavimento atual (Web)
+    final currentFloorId = _currentFloor!.id;
+    if (_floorImageBytesMap.containsKey(currentFloorId)) {
       return Image.memory(
-        _selectedImageBytes!,
-        fit: BoxFit.cover, // ou BoxFit.contain dependendo do comportamento desejado
+        _floorImageBytesMap[currentFloorId]!,
+        fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
     }
@@ -535,6 +537,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                     id: _uuid.v4(),
                     number: nameController.text,
                     floorPlanImageUrl: _mockFloorPlan,
+                    markers: [], // Inicializa com lista vazia de marcadores
                     createdAt: DateTime.now(),
                   );
 
@@ -566,16 +569,20 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Excluir Pavimento'),
-          content: Text('Tem certeza que deseja excluir o pavimento "${_currentFloor!.number}"?'),
+          content: Text('Tem certeza que deseja excluir o pavimento "${_currentFloor!.number}"?\n\nTodos os marcadores e a imagem deste pavimento serão perdidos.'),
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
+                final floorIdToDelete = _currentFloor!.id;
                 final floors = _floorPlanData!.floors
-                    .where((f) => f.id != _currentFloor!.id)
+                    .where((f) => f.id != floorIdToDelete)
                     .toList();
 
                 setState(() {
+                  // Remove a imagem do mapa se existir
+                  _floorImageBytesMap.remove(floorIdToDelete);
+                  
                   _floorPlanData = _floorPlanData!.copyWith(floors: floors);
                   _currentFloor = floors.first;
                 });
@@ -628,15 +635,16 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         if (result != null && result.files.isNotEmpty) {
           final file = result.files.first;
           if (file.bytes != null) {
+            // Armazena os bytes no mapa usando o ID do pavimento atual
             setState(() {
-              _selectedImageBytes = file.bytes;
+              _floorImageBytesMap[_currentFloor!.id] = file.bytes!;
             });
 
             // Salva uma referência ou indicador de que há uma imagem customizada
             final updatedFloors = _floorPlanData!.floors.map((floor) {
               if (floor.id == _currentFloor!.id) {
                 return floor.copyWith(
-                  floorPlanImagePath: 'custom_image', // Indicador de imagem customizada
+                  floorPlanImagePath: 'custom_image_${_currentFloor!.id}', // Indicador único por pavimento
                   updatedAt: DateTime.now(),
                 );
               }
