@@ -103,13 +103,13 @@ class MenuStorageService {
         return NavigationItem(
           id: itemData['id'] as String,
           label: itemData['label'] as String,
-          icon: IconData(
+          icon: _createIconData(
             itemData['iconCodePoint'] as int,
-            fontFamily: itemData['iconFontFamily'] as String?,
+            itemData['iconFontFamily'] as String?,
           ),
-          selectedIcon: IconData(
+          selectedIcon: _createIconData(
             itemData['selectedIconCodePoint'] as int,
-            fontFamily: itemData['selectedIconFontFamily'] as String?,
+            itemData['selectedIconFontFamily'] as String?,
           ),
           route: itemData['route'] as String,
           order: itemData['order'] as int,
@@ -325,6 +325,16 @@ class MenuStorageService {
       'version': '1.0.0',
       'lastUpdated': DateTime.now().toIso8601String(),
     };
+  }
+
+  /// Cria IconData const para evitar problemas de tree shaking no web
+  IconData _createIconData(int codePoint, String? fontFamily) {
+    // Para web, usar apenas Icons padrão evitando fontFamily personalizada
+    if (fontFamily != null && fontFamily != 'MaterialIcons') {
+      // Se não é MaterialIcons padrão, usar ícone genérico
+      return const IconData(0xe3b7, fontFamily: 'MaterialIcons'); // navigation icon
+    }
+    return IconData(codePoint, fontFamily: 'MaterialIcons');
   }
 }
 

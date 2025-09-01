@@ -16,6 +16,14 @@ abstract class User with _$User {
     @Default(false) bool isActive,
   }) = _User;
 
+  const User._();
+
+  bool get isAdmin => role.code == 'ADMIN';
+  bool get canCreate => isAdmin;
+  bool get canUpdate => isAdmin;
+  bool get canDelete => isAdmin;
+  bool get canView => true; // Todos podem visualizar
+
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
 }
 

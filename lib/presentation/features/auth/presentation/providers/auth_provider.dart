@@ -81,7 +81,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
               name: 'User',
               avatar: null,
               isActive: true,
-              role: UserRole(id: '1', name: 'User', code: 'USER'),
+              role: UserRole(id: '1', name: 'Admin', code: 'ADMIN'),
             );
             
             if (kDebugMode) {
@@ -104,7 +104,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
             name: 'User',
             avatar: null,
             isActive: true,
-            role: UserRole(id: '1', name: 'User', code: 'USER'),
+            role: UserRole(id: '1', name: 'Admin', code: 'ADMIN'),
           );
           
           if (kDebugMode) {

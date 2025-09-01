@@ -1,6 +1,6 @@
 name: terra_allwert_app
 description: "Terra Allwert - A Flutter application with feature-first architecture"
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -16,78 +16,75 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
-  # --- Firebase ---
-  firebase_core: ^3.13.1
-  firebase_analytics: ^11.4.6
-  firebase_crashlytics: ^4.3.6
-  firebase_performance: ^0.10.1
+  # --- Firebase --- (Removido: não está sendo utilizado no projeto)
+  # firebase_core: ^4.0.0            # Core do Firebase - necessário para analytics, crashlytics
+  # firebase_analytics: ^12.0.0      # Analytics para métricas de uso - adicionar quando necessário
+  # firebase_crashlytics: ^5.0.0     # Crash reporting - importante para produção
+  # firebase_performance: ^0.11.0    # Monitoring de performance - útil para otimizações
 
   # --- UI & Assets ---
-  flutter_svg: ^2.1.0
-  vector_graphics_compiler: ^1.1.17
-  skeletonizer: ^2.1.0+1
+  flutter_svg: ^2.1.0 # Necessário: SVG icons e assets
+  vector_graphics_compiler: ^1.1.17 # Necessário: compilation de SVGs
+  skeletonizer: ^2.1.0+1 # Necessário: loading skeletons implementados
 
-  # --- Ads ---
-  google_mobile_ads: ^6.0.0
-
-  # --- App Updates ---
-  force_update_helper: ^0.2.1
+  # --- App Updates --- (Removido: não implementado)
+  # force_update_helper: ^0.2.1     # Force update - útil para versões críticas
 
   # --- Logging ---
-  talker: ^4.9.0
+  talker: ^5.0.0 # Necessário: sistema de logging implementado
 
   # --- Configuration ---
-  envied: ^1.1.1
+  envied: ^1.1.1 # Necessário: environment configuration
 
   # --- URL Launcher ---
-  url_launcher: ^6.3.1
+  url_launcher: ^6.3.1 # Necessário: pode ser usado em links externos
 
   # --- Cache & Storage ---
-  get_storage: ^2.1.1
-  flutter_secure_storage: ^9.2.4
-  shared_preferences: ^2.3.4
+  get_storage: ^2.1.1 # Necessário: usado em cache_manager.dart
+  flutter_secure_storage: ^9.2.4 # Necessário: armazenamento seguro de tokens/credentials
+  shared_preferences: ^2.3.4 # Necessário: preferências do usuário
 
   # --- Navigation ---
-  go_router: ^15.1.3
+  go_router: ^16.2.1 # Necessário: sistema de roteamento
 
   # --- HTTP & GraphQL ---
-  dio: ^5.8.0+1
-  dio_cache_interceptor: ^4.0.3
-  graphql_flutter: ^5.1.2
-  
-  # --- Database & Storage ---
-  drift: ^2.20.1
-  sqlite3_flutter_libs: ^0.5.27
-  path_provider: ^2.1.5
-  path: ^1.9.1
-  
+  dio: ^5.8.0+1 # Necessário: HTTP client para downloads e API calls
+  dio_cache_interceptor: ^4.0.3 # Necessário: cache de requisições HTTP
+  graphql_flutter: ^5.1.2 # Necessário: cliente GraphQL implementado
+
+  # --- Database & Storage --- (Database removida: usando apenas cache local)
+  # drift: ^2.20.1                  # Database ORM - não está sendo usado
+  # sqlite3_flutter_libs: ^0.5.27   # SQLite - não está sendo usado
+  path_provider: ^2.1.5 # Necessário: paths do sistema de arquivos
+  path: ^1.9.1 # Necessário: manipulação de paths
+
   # --- MinIO & File Operations ---
   minio: ^3.0.11
-  mime: ^1.0.6
+  mime: ^2.0.0
   crypto: ^3.0.5
-  archive: ^3.6.1
-  
+  archive: ^4.0.7
+
   # --- Images & Cache ---
   cached_network_image: ^3.4.1
   image: ^4.2.0
   image_picker: ^1.1.2
-  
+
   # --- Video Player ---
   video_player: ^2.9.2
-  
+
   # --- UUID ---
   uuid: ^4.5.1
-  
+
   # --- Maps ---
-  flutter_map: ^7.0.2
+  flutter_map: ^8.2.1
   latlong2: ^0.9.1
-  
+
   # --- Drag and Drop ---
   reorderable_grid_view: ^2.2.8
-  
+
   # --- File Picker ---
-  file_picker: ^8.1.4
-  
+  file_picker: ^10.3.2
+
   # --- Connectivity ---
   connectivity_plus: ^6.1.0
 
@@ -105,21 +102,21 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  
+
   # --- Testing ---
   mocktail: ^1.0.4
   integration_test:
     sdk: flutter
 
   # --- Code Generation ---
-  build_runner: ^2.5.4
-  riverpod_generator: ^2.6.5
-  riverpod_lint: ^2.6.5
-  custom_lint: ^0.7.6
-  freezed: ^3.0.6
-  json_serializable: ^6.9.5
-  envied_generator: ^1.1.1
-  drift_dev: ^2.20.3
+  build_runner: ^2.5.4 # Necessário: build runner para code generation
+  riverpod_generator: ^2.6.5 # Necessário: geração de providers Riverpod
+  riverpod_lint: ^2.6.5 # Necessário: linting para Riverpod
+  custom_lint: ^0.7.6 # Necessário: linting customizado (compatível com riverpod_lint)
+  freezed: ^3.0.6 # Necessário: code generation para classes imutáveis
+  json_serializable: ^6.9.5 # Necessário: serialização JSON
+  envied_generator: ^1.1.1 # Necessário: geração de environment config
+  # drift_dev: ^2.20.3              # Database development - removido (não usado)
 
   # --- Linting ---
   flutter_lints: ^6.0.0
@@ -129,7 +126,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
