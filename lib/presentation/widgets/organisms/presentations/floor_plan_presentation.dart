@@ -15,6 +15,7 @@ import '../../../../domain/enums/sun_position.dart';
 import '../../../../infra/storage/floor_plan_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
+import 'providers/floor_plan_notifier.dart';
 
 /// Apresentação de plantas de pavimento com gerenciamento completo
 /// Suporta múltiplos pavimentos, marcadores e apartamentos
@@ -37,17 +38,16 @@ class FloorPlanPresentation extends ConsumerStatefulWidget {
 }
 
 class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
-  final FloorPlanStorage _floorPlanStorage = FloorPlanStorage();
   final ImagePicker _imagePicker = ImagePicker();
   final Uuid _uuid = const Uuid();
   final TransformationController _transformationController = TransformationController();
+  final FloorPlanStorage _floorPlanStorage = FloorPlanStorage();
 
+  // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
   FloorPlanData? _floorPlanData;
   Floor? _currentFloor;
   bool _isLoading = false;
   bool _isEditingMarkers = false;
-  
-  // Mapa para armazenar bytes de imagem por ID do pavimento (para Web)
   final Map<String, Uint8List> _floorImageBytesMap = {};
 
   // Mock data para demonstração
@@ -57,7 +57,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   @override
   void initState() {
     super.initState();
-    _loadFloorPlanData();
+    // Carregar dados usando o provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(floorPlanNotifierProvider(widget.route).notifier).loadFloorPlanData();
+    });
   }
 
   @override
@@ -137,13 +140,24 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    // Usar o provider para obter o estado atual
+    final floorPlanState = ref.watch(floorPlanStateProvider(widget.route));
+    
+    if (floorPlanState.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_floorPlanData == null || _currentFloor == null) {
+    if (floorPlanState.floorPlanData == null || floorPlanState.currentFloor == null) {
       return _buildErrorState();
     }
+
+    // Atualizar variáveis locais para compatibilidade com o resto do código existente
+    _floorPlanData = floorPlanState.floorPlanData;
+    _currentFloor = floorPlanState.currentFloor;
+    _isLoading = floorPlanState.isLoading;
+    _isEditingMarkers = floorPlanState.isEditingMarkers;
+    _floorImageBytesMap.clear();
+    _floorImageBytesMap.addAll(floorPlanState.floorImageBytesMap);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,

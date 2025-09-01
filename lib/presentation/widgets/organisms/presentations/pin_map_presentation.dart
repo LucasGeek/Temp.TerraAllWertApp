@@ -14,6 +14,7 @@ import '../../../../infra/storage/map_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../molecules/offline_image.dart';
+import 'providers/pin_map_notifier.dart';
 
 /// Apresentação de mapa interativo com pins editáveis
 /// Permite visualização, edição e gerenciamento de pins no mapa
@@ -41,6 +42,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   final ImagePicker _imagePicker = ImagePicker();
   final Uuid _uuid = const Uuid();
 
+  // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
   InteractiveMapData? _mapData;
   MapPin? _selectedPin;
   bool _isEditMode = false;
@@ -56,7 +58,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   @override
   void initState() {
     super.initState();
-    _loadMapData();
+    
+    // Carregar dados usando o provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(pinMapNotifierProvider(widget.route).notifier).loadMapData();
+    });
     
     // Listener para detectar zoom
     _transformationController.addListener(_onTransformationChanged);
@@ -68,9 +74,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     final isCurrentlyZoomed = currentScale > 1.0;
     
     if (isCurrentlyZoomed != _isZoomed) {
-      setState(() {
-        _isZoomed = isCurrentlyZoomed;
-      });
+      ref.read(pinMapNotifierProvider(widget.route).notifier).setZoomed(isCurrentlyZoomed);
     }
   }
 
@@ -137,7 +141,19 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    // Usar o provider para obter o estado atual
+    final pinMapState = ref.watch(pinMapStateProvider(widget.route));
+    
+    // Atualizar variáveis locais para compatibilidade com o resto do código existente
+    _mapData = pinMapState.mapData;
+    _selectedPin = pinMapState.selectedPin;
+    _isEditMode = pinMapState.isEditMode;
+    _isLoading = pinMapState.isLoading;
+    _hasError = pinMapState.hasError;
+    _isZoomed = pinMapState.isZoomed;
+    _videoController = pinMapState.videoController;
+    
+    if (pinMapState.isLoading) {
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         body: Center(
@@ -536,7 +552,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => setState(() => _selectedPin = null),
+                  onPressed: () => ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection(),
                   icon: Icon(Icons.close, color: AppTheme.textSecondary),
                 ),
               ],
@@ -827,13 +843,10 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   /// Alterna modo de edição
   void _toggleEditMode() {
-    setState(() {
-      _isEditMode = !_isEditMode;
-      _selectedPin = null;
-    });
+    ref.read(pinMapNotifierProvider(widget.route).notifier).toggleEditMode();
 
     if (!_isEditMode) {
-      _saveMapData();
+      ref.read(pinMapNotifierProvider(widget.route).notifier).saveMapData();
     }
 
     if (_isEditMode) {
@@ -1159,7 +1172,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                       imageUrls,
                     );
                     Navigator.of(context).pop();
-                    setState(() => _selectedPin = null);
+                    ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection();
                   },
                   child: const Text('Salvar'),
                 ),
