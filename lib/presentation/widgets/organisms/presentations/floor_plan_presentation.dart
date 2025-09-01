@@ -15,6 +15,7 @@ import '../../../../domain/enums/sun_position.dart';
 import '../../../../infra/storage/floor_plan_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
+import '../../../notification/snackbar_notification.dart';
 import 'providers/floor_plan_notifier.dart';
 
 /// Apresentação de plantas de pavimento com gerenciamento completo
@@ -65,73 +66,14 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     super.dispose();
   }
 
-  /// Carrega os dados da planta do storage local
+  /// Carrega os dados da planta usando o provider
   Future<void> _loadFloorPlanData() async {
-    // Carregamento agora é gerenciado pelo provider
-
-    try {
-      final floorPlanData = await _floorPlanStorage.loadFloorPlanData(widget.route);
-
-      if (floorPlanData == null) {
-        // Cria dados iniciais com um pavimento padrão
-        final defaultFloor = Floor(
-          id: _uuid.v4(),
-          number: widget.floorNumber ?? '1º Pavimento',
-          floorPlanImageUrl: null,
-          createdAt: DateTime.now(),
-        );
-
-        _floorPlanData = FloorPlanData(
-          id: _uuid.v4(),
-          routeId: widget.route,
-          floors: [defaultFloor],
-          createdAt: DateTime.now(),
-        );
-        _currentFloor = defaultFloor;
-      } else {
-        _floorPlanData = floorPlanData;
-        _currentFloor = floorPlanData.floors.isNotEmpty ? floorPlanData.floors.first : null;
-        
-        // Carregar bytes de imagem salvos (para Web)
-        final savedImageBytes = await _floorPlanStorage.loadAllImageBytes(widget.route);
-        _floorImageBytesMap.addAll(savedImageBytes);
-      }
-    } catch (e) {
-      // Em caso de erro, ainda cria dados iniciais para menus novos
-      final defaultFloor = Floor(
-        id: _uuid.v4(),
-        number: widget.floorNumber ?? '1º Pavimento',
-        floorPlanImageUrl: null,
-        createdAt: DateTime.now(),
-      );
-
-      _floorPlanData = FloorPlanData(
-        id: _uuid.v4(),
-        routeId: widget.route,
-        floors: [defaultFloor],
-        createdAt: DateTime.now(),
-      );
-      _currentFloor = defaultFloor;
-      _showErrorSnackBar('Aviso: Usando dados padrão - $e');
-    } finally {
-      // Loading state é gerenciado pelo provider
-    }
+    await ref.read(floorPlanNotifierProvider(widget.route).notifier).loadFloorPlanData();
   }
 
-  /// Salva os dados no storage local
+  /// Salva os dados usando o provider
   Future<void> _saveFloorPlanData() async {
-    if (_floorPlanData == null) return;
-
-    try {
-      final updatedData = _floorPlanData!.copyWith(updatedAt: DateTime.now());
-
-      await _floorPlanStorage.saveFloorPlanData(updatedData);
-      _floorPlanData = updatedData;
-
-      _showSuccessSnackBar('Dados salvos com sucesso!');
-    } catch (e) {
-      _showErrorSnackBar('Erro ao salvar dados: $e');
-    }
+    await ref.read(floorPlanNotifierProvider(widget.route).notifier).saveFloorPlanData();
   }
 
   @override
@@ -139,11 +81,19 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     // Usar o provider para obter o estado atual
     final floorPlanState = ref.watch(floorPlanStateProvider(widget.route));
     
+    // Mostrar erro se houver
+    if (floorPlanState.error != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        SnackbarNotification.showError(floorPlanState.error!);
+        ref.read(floorPlanNotifierProvider(widget.route).notifier).clearError();
+      });
+    }
+    
     if (floorPlanState.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (floorPlanState.floorPlanData == null || floorPlanState.currentFloor == null) {
+    if (floorPlanState.floorPlanData == null) {
       return _buildErrorState();
     }
 
@@ -252,10 +202,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                 child: DropdownButton<Floor>(
                   value: _currentFloor,
                   isExpanded: true,
-                  onChanged: (floor) => setState(() {
-                    _currentFloor = floor;
-                    // Não limpa mais o mapa, apenas muda o pavimento atual
-                  }),
+                  onChanged: (floor) {
+                    if (floor != null) {
+                      ref.read(floorPlanNotifierProvider(widget.route).notifier).setCurrentFloor(floor);
+                    }
+                  },
                   items: _floorPlanData!.floors.map((floor) {
                     return DropdownMenuItem(
                       value: floor,
@@ -549,25 +500,14 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.isNotEmpty) {
-                  final newFloor = Floor(
-                    id: _uuid.v4(),
-                    number: nameController.text,
-                    floorPlanImageUrl: null,
-                    markers: [], // Inicializa com lista vazia de marcadores
-                    createdAt: DateTime.now(),
-                  );
-
-                  setState(() {
-                    _floorPlanData = _floorPlanData!.copyWith(
-                      floors: [..._floorPlanData!.floors, newFloor],
-                    );
-                    _currentFloor = newFloor;
-                  });
-
-                  _saveFloorPlanData();
                   Navigator.of(context).pop();
+                  await ref.read(floorPlanNotifierProvider(widget.route).notifier).addFloor(
+                    nameController.text,
+                    null, // imagePath
+                    null, // imageBytes
+                  );
                 }
               },
               child: const Text('Adicionar'),
@@ -591,25 +531,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final floorIdToDelete = _currentFloor!.id;
-                final floors = _floorPlanData!.floors
-                    .where((f) => f.id != floorIdToDelete)
-                    .toList();
-
-                setState(() {
-                  // Remove a imagem do mapa se existir
-                  _floorImageBytesMap.remove(floorIdToDelete);
-                  
-                  // Remove bytes salvos no storage
-                  _floorPlanStorage.removeImageBytes(widget.route, floorIdToDelete);
-                  
-                  _floorPlanData = _floorPlanData!.copyWith(floors: floors);
-                  _currentFloor = floors.first;
-                });
-
-                _saveFloorPlanData();
                 Navigator.of(context).pop();
+                await ref.read(floorPlanNotifierProvider(widget.route).notifier).removeFloor(floorIdToDelete);
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text('Excluir', style: TextStyle(color: Colors.white)),
@@ -656,33 +581,18 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         if (result != null && result.files.isNotEmpty) {
           final file = result.files.first;
           if (file.bytes != null) {
-            // Armazena os bytes no mapa usando o ID do pavimento atual
-            setState(() {
-              _floorImageBytesMap[_currentFloor!.id] = file.bytes!;
-            });
-
+            // Atualizar através do provider
+            ref.read(floorPlanNotifierProvider(widget.route).notifier).updateFloorImageBytes(
+              _currentFloor!.id, 
+              file.bytes!
+            );
+            
             // Persistir bytes no storage (para Web)
             await _floorPlanStorage.saveImageBytes(
               widget.route, 
               _currentFloor!.id, 
               file.bytes!
             );
-
-            // Salva uma referência ou indicador de que há uma imagem customizada
-            final updatedFloors = _floorPlanData!.floors.map((floor) {
-              if (floor.id == _currentFloor!.id) {
-                return floor.copyWith(
-                  floorPlanImagePath: 'custom_image_${_currentFloor!.id}', // Indicador único por pavimento
-                  updatedAt: DateTime.now(),
-                );
-              }
-              return floor;
-            }).toList();
-
-            setState(() {
-              _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
-              _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-            });
 
             await _saveFloorPlanData();
           }
@@ -691,36 +601,31 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         // Em plataformas nativas, usa ImagePicker
         final image = await _imagePicker.pickImage(source: ImageSource.gallery);
         if (image != null) {
-          final updatedFloors = _floorPlanData!.floors.map((floor) {
-            if (floor.id == _currentFloor!.id) {
-              return floor.copyWith(floorPlanImagePath: image.path, updatedAt: DateTime.now());
-            }
-            return floor;
-          }).toList();
-
-          setState(() {
-            _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
-            _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-          });
+          // Adicionar pavimento com nova imagem via provider
+          // Como não temos método específico para atualizar imagem, vamos usar addFloor
+          // Mas primeiro vamos usar uma abordagem diferente - carregar bytes mesmo em nativo
+          final imageBytes = await image.readAsBytes();
+          ref.read(floorPlanNotifierProvider(widget.route).notifier).updateFloorImageBytes(
+            _currentFloor!.id, 
+            imageBytes
+          );
 
           await _saveFloorPlanData();
         }
       }
     } catch (e) {
-      _showErrorSnackBar('Erro ao selecionar imagem: $e');
+      SnackbarNotification.showError('Erro ao selecionar imagem: $e');
     }
   }
 
   /// Alterna modo de edição de marcadores
   void _toggleMarkerEditing() {
-    setState(() {
-      _isEditingMarkers = !_isEditingMarkers;
-    });
+    ref.read(floorPlanNotifierProvider(widget.route).notifier).toggleEditingMarkers();
 
     if (!_isEditingMarkers) {
       _saveFloorPlanData();
     } else {
-      _showInfoSnackBar('Toque em qualquer lugar da planta para adicionar um marcador');
+      SnackbarNotification.showInfo('Toque em qualquer lugar da planta para adicionar um marcador');
     }
   }
 
@@ -867,17 +772,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       createdAt: DateTime.now(),
     );
 
-    final updatedFloors = _floorPlanData!.floors.map((floor) {
-      if (floor.id == _currentFloor!.id) {
-        return floor.copyWith(markers: [...floor.markers, newMarker], updatedAt: DateTime.now());
-      }
-      return floor;
-    }).toList();
-
-    setState(() {
-      _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
-      _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-    });
+    ref.read(floorPlanNotifierProvider(widget.route).notifier).addMarker(newMarker);
   }
 
   /// Toque em um marcador
@@ -1024,30 +919,19 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
   /// Atualiza um marcador
   void _updateMarker(String markerId, String title, String description) {
-    final updatedFloors = _floorPlanData!.floors.map((floor) {
-      if (floor.id == _currentFloor!.id) {
-        final updatedMarkers = floor.markers.map((marker) {
-          if (marker.id == markerId) {
-            return marker.copyWith(
-              title: title,
-              description: description.isNotEmpty ? description : null,
-              updatedAt: DateTime.now(),
-            );
-          }
-          return marker;
-        }).toList();
+    // Busca o marcador atual
+    final currentMarker = _currentFloor!.markers.firstWhere((m) => m.id == markerId);
+    
+    // Cria o marcador atualizado
+    final updatedMarker = currentMarker.copyWith(
+      title: title,
+      description: description.isNotEmpty ? description : null,
+      updatedAt: DateTime.now(),
+    );
 
-        return floor.copyWith(markers: updatedMarkers, updatedAt: DateTime.now());
-      }
-      return floor;
-    }).toList();
-
-    setState(() {
-      _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
-      _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-    });
-
-    _saveFloorPlanData();
+    // Remove o antigo e adiciona o novo via provider
+    ref.read(floorPlanNotifierProvider(widget.route).notifier).removeMarker(markerId);
+    ref.read(floorPlanNotifierProvider(widget.route).notifier).addMarker(updatedMarker);
   }
 
   /// Cria novo apartamento a partir do marcador
@@ -1211,7 +1095,8 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       createdAt: DateTime.now(),
     );
 
-    // Atualiza o marcador para referenciar o apartamento
+    // Como o provider não tem método para apartamentos ainda, vamos manter temporariamente
+    // TODO: Implementar gerenciamento de apartamentos no provider
     final updatedFloors = _floorPlanData!.floors.map((floor) {
       if (floor.id == _currentFloor!.id) {
         final updatedMarkers = floor.markers.map((m) {
@@ -1230,16 +1115,16 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       return floor;
     }).toList();
 
-    setState(() {
-      _floorPlanData = _floorPlanData!.copyWith(
-        floors: updatedFloors,
-        apartments: [..._floorPlanData!.apartments, newApartment],
-      );
-      _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-    });
+    // Atualizar via provider não é possível ainda para apartamentos
+    // mas precisamos salvar os dados
+    _floorPlanData = _floorPlanData!.copyWith(
+      floors: updatedFloors,
+      apartments: [..._floorPlanData!.apartments, newApartment],
+    );
+    _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
 
     _saveFloorPlanData();
-    _showSuccessSnackBar('Apartamento criado com sucesso!');
+    SnackbarNotification.showSuccess('Apartamento criado com sucesso!');
   }
 
   /// Edita apartamento existente
@@ -1416,12 +1301,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       return apt;
     }).toList();
 
-    setState(() {
-      _floorPlanData = _floorPlanData!.copyWith(apartments: updatedApartments);
-    });
+    // Atualizar diretamente pois não temos provider para apartamentos ainda
+    _floorPlanData = _floorPlanData!.copyWith(apartments: updatedApartments);
 
     _saveFloorPlanData();
-    _showSuccessSnackBar('Apartamento atualizado com sucesso!');
+    SnackbarNotification.showSuccess('Apartamento atualizado com sucesso!');
   }
 
   /// Upload de planta baixa do apartamento
@@ -1445,16 +1329,14 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
             return apt;
           }).toList();
 
-          setState(() {
-            _floorPlanData = _floorPlanData!.copyWith(apartments: updatedApartments);
-          });
+          _floorPlanData = _floorPlanData!.copyWith(apartments: updatedApartments);
 
           await _saveFloorPlanData();
-          _showSuccessSnackBar('Planta baixa salva com sucesso!');
+          SnackbarNotification.showSuccess('Planta baixa salva com sucesso!');
         }
       }
     } catch (e) {
-      _showErrorSnackBar('Erro ao fazer upload: $e');
+      SnackbarNotification.showError('Erro ao fazer upload: $e');
     }
   }
 
@@ -1513,7 +1395,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   _updateMarkerPosition(marker.id, x, y);
                   Navigator.of(context).pop();
                 } else {
-                  _showErrorSnackBar('Coordenadas devem estar entre 0 e 1');
+                  SnackbarNotification.showError('Coordenadas devem estar entre 0 e 1');
                 }
               },
               child: const Text('Salvar'),
@@ -1526,27 +1408,21 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
   /// Atualiza posição do marcador
   void _updateMarkerPosition(String markerId, double x, double y) {
-    final updatedFloors = _floorPlanData!.floors.map((floor) {
-      if (floor.id == _currentFloor!.id) {
-        final updatedMarkers = floor.markers.map((marker) {
-          if (marker.id == markerId) {
-            return marker.copyWith(positionX: x, positionY: y, updatedAt: DateTime.now());
-          }
-          return marker;
-        }).toList();
+    // Busca o marcador atual
+    final currentMarker = _currentFloor!.markers.firstWhere((m) => m.id == markerId);
+    
+    // Cria o marcador com posição atualizada
+    final updatedMarker = currentMarker.copyWith(
+      positionX: x, 
+      positionY: y, 
+      updatedAt: DateTime.now()
+    );
 
-        return floor.copyWith(markers: updatedMarkers);
-      }
-      return floor;
-    }).toList();
+    // Remove o antigo e adiciona o novo via provider
+    ref.read(floorPlanNotifierProvider(widget.route).notifier).removeMarker(markerId);
+    ref.read(floorPlanNotifierProvider(widget.route).notifier).addMarker(updatedMarker);
 
-    setState(() {
-      _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
-      _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-    });
-
-    _saveFloorPlanData();
-    _showSuccessSnackBar('Posição atualizada com sucesso!');
+    SnackbarNotification.showSuccess('Posição atualizada com sucesso!');
   }
 
   /// Exclui um marcador
@@ -1560,23 +1436,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
-              onPressed: () {
-                final updatedFloors = _floorPlanData!.floors.map((floor) {
-                  if (floor.id == _currentFloor!.id) {
-                    return floor.copyWith(
-                      markers: floor.markers.where((m) => m.id != marker.id).toList(),
-                    );
-                  }
-                  return floor;
-                }).toList();
-
-                setState(() {
-                  _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
-                  _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-                });
-
-                _saveFloorPlanData();
+              onPressed: () async {
                 Navigator.of(context).pop();
+                await ref.read(floorPlanNotifierProvider(widget.route).notifier).removeMarker(marker.id);
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text('Excluir', style: TextStyle(color: Colors.white)),
@@ -1589,24 +1451,4 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
   // === UTILITÁRIOS ===
 
-  /// Mostra snackbar de erro
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
-  }
-
-  /// Mostra snackbar de sucesso
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green));
-  }
-
-  /// Mostra snackbar de info
-  void _showInfoSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppTheme.primaryColor));
-  }
 }

@@ -16,6 +16,7 @@ import '../../../../infra/logging/app_logger.dart';
 import '../../../../infra/storage/carousel_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
+import '../../../notification/snackbar_notification.dart';
 import '../../molecules/offline_image.dart';
 
 /// Tipos de item no carrossel
@@ -120,7 +121,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         imageUrls: initialImages,
         createdAt: DateTime.now(),
       );
-      _showErrorSnackBar('Aviso: Usando dados padrão - $e');
+      SnackbarNotification.showWarning('Aviso: Usando dados padrão - $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -136,9 +137,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       await _carouselStorage.saveCarouselData(updatedData);
       _carouselData = updatedData;
 
-      _showSuccessSnackBar('Dados salvos com sucesso!');
+      SnackbarNotification.showSuccess('Dados salvos com sucesso!');
     } catch (e) {
-      _showErrorSnackBar('Erro ao salvar dados: $e');
+      SnackbarNotification.showError('Erro ao salvar dados: $e');
     }
   }
 
@@ -162,7 +163,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       await _videoController!.initialize();
       setState(() {});
     } catch (e) {
-      _showErrorSnackBar('Erro ao inicializar vídeo: $e');
+      SnackbarNotification.showError('Erro ao inicializar vídeo: $e');
     }
   }
 
@@ -1224,7 +1225,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       if (mounted && context.mounted) {
         setState(() {});
         Navigator.of(dialogContext).pop();
-        _showSuccessSnackBar('Vídeo removido com sucesso!');
+        SnackbarNotification.showSuccess('Vídeo removido com sucesso!');
       }
     }
   }
@@ -1249,12 +1250,12 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         if (mounted && context.mounted) {
           setState(() {});
           Navigator.of(dialogContext).pop();
-          _showSuccessSnackBar('Vídeo adicionado com sucesso!');
+          SnackbarNotification.showSuccess('Vídeo adicionado com sucesso!');
         }
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('Erro ao adicionar vídeo: $e');
+        SnackbarNotification.showError('Erro ao adicionar vídeo: $e');
       }
     }
   }
@@ -1263,7 +1264,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   void _saveVideoFromUrl(BuildContext dialogContext, String title, String url) async {
     if (url.trim().isEmpty) {
       if (mounted) {
-        _showErrorSnackBar('Por favor, insira uma URL válida');
+        SnackbarNotification.showError('Por favor, insira uma URL válida');
       }
       return;
     }
@@ -1290,12 +1291,12 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             AppLogger.info('Estado atualizado após salvar vídeo');
           });
           Navigator.of(dialogContext).pop();
-          _showSuccessSnackBar('Vídeo configurado com sucesso!');
+          SnackbarNotification.showSuccess('Vídeo configurado com sucesso!');
         }
       } catch (e) {
         AppLogger.error('Erro ao salvar vídeo: $e');
         if (mounted) {
-          _showErrorSnackBar('Erro ao salvar vídeo: $e');
+          SnackbarNotification.showError('Erro ao salvar vídeo: $e');
         }
       }
     }
@@ -1362,11 +1363,11 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
           if (mounted) {
             setState(() {});
-            _showSuccessSnackBar('${imagePaths.length} imagem(ns) adicionada(s)!');
+            SnackbarNotification.showSuccess('${imagePaths.length} imagem(ns) adicionada(s)!');
           }
         } else {
           AppLogger.warning('Nenhuma imagem válida foi processada', tag: 'ImageCarousel');
-          _showErrorSnackBar('Nenhuma imagem válida foi selecionada');
+          SnackbarNotification.showError('Nenhuma imagem válida foi selecionada');
         }
       } else {
         AppLogger.warning('Imagens vazias ou _carouselData nulo', tag: 'ImageCarousel');
@@ -1375,14 +1376,14 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       }
     } catch (e) {
       AppLogger.error('Erro ao selecionar imagens: $e', tag: 'ImageCarousel');
-      _showErrorSnackBar('Erro ao selecionar imagens: $e');
+      SnackbarNotification.showError('Erro ao selecionar imagens: $e');
     }
   }
 
   /// Reordena imagens
   void _reorderImages() {
     if (_allImages.length <= 1) {
-      _showErrorSnackBar('Precisa de pelo menos 2 imagens para reordenar');
+      SnackbarNotification.showError('Precisa de pelo menos 2 imagens para reordenar');
       return;
     }
 
@@ -1673,7 +1674,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                     final lng = double.tryParse(lngController.text);
 
                     if (lat == null || lng == null) {
-                      _showErrorSnackBar('Coordenadas inválidas');
+                      SnackbarNotification.showError('Coordenadas inválidas');
                       return;
                     }
 
@@ -1722,12 +1723,12 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       }
 
       if (mounted) {
-        _showSuccessSnackBar('Mapa adicionado com sucesso');
+        SnackbarNotification.showSuccess('Mapa adicionado com sucesso');
       }
     } catch (e) {
       AppLogger.error('Erro ao salvar mapa: $e');
       if (mounted) {
-        _showErrorSnackBar('Erro ao salvar mapa: $e');
+        SnackbarNotification.showError('Erro ao salvar mapa: $e');
       }
     }
   }
@@ -1744,12 +1745,12 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   void _deleteCurrentImage() {
     final allItems = _allItems;
     if (allItems.isEmpty) {
-      _showErrorSnackBar('Nenhum item para remover');
+      SnackbarNotification.showError('Nenhum item para remover');
       return;
     }
     
     if (_currentIndex >= allItems.length) {
-      _showErrorSnackBar('Índice inválido');
+      SnackbarNotification.showError('Índice inválido');
       return;
     }
     
@@ -1787,7 +1788,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     
     final allItems = _allItems;
     if (allItems.isEmpty || _currentIndex >= allItems.length) {
-      _showErrorSnackBar('Nenhum item para remover');
+      SnackbarNotification.showError('Nenhum item para remover');
       return;
     }
 
@@ -1831,7 +1832,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       }
 
       if (!itemRemoved) {
-        _showErrorSnackBar('Não foi possível remover o item');
+        SnackbarNotification.showError('Não foi possível remover o item');
         return;
       }
 
@@ -1871,14 +1872,14 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       setState(() {}); // Forçar rebuild para atualizar indicadores
     } catch (e) {
       AppLogger.error('Erro ao remover item do carrossel: $e', tag: 'ImageCarousel');
-      _showErrorSnackBar('Erro ao remover item: $e');
+      SnackbarNotification.showError('Erro ao remover item: $e');
     }
   }
 
   /// Reproduz o vídeo configurado
   Future<void> _playVideo() async {
     if (_carouselData?.videoUrl == null && _carouselData?.videoPath == null) {
-      _showErrorSnackBar('Nenhum vídeo configurado');
+      SnackbarNotification.showError('Nenhum vídeo configurado');
       return;
     }
 
@@ -1900,7 +1901,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       }
     } catch (e) {
       AppLogger.error('Erro ao reproduzir vídeo: $e', tag: 'ImageCarousel');
-      _showErrorSnackBar('Erro ao reproduzir vídeo: $e');
+      SnackbarNotification.showError('Erro ao reproduzir vídeo: $e');
     }
   }
 
@@ -1969,19 +1970,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   // === UTILITÁRIOS ===
 
-  /// Mostra snackbar de erro
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
-  }
-
-  /// Mostra snackbar de sucesso
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green));
-  }
 }
 
 /// Tela para reprodução de vídeo

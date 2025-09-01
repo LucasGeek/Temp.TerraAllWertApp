@@ -13,6 +13,7 @@ import '../../../../infra/platform/platform_service.dart';
 import '../../../../infra/storage/map_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
+import '../../../notification/snackbar_notification.dart';
 import '../../molecules/offline_image.dart';
 import 'providers/pin_map_notifier.dart';
 
@@ -113,7 +114,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         pins: [],
         createdAt: DateTime.now(),
       );
-      _showErrorSnackBar('Aviso: Usando dados padrão - $e');
+      SnackbarNotification.showWarning('Aviso: Usando dados padrão - $e');
     } finally {
       // Loading state é gerenciado pelo provider
     }
@@ -129,9 +130,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       await _mapStorage.saveMapData(updatedMapData);
       _mapData = updatedMapData;
 
-      _showSuccessSnackBar('Dados salvos com sucesso!');
+      SnackbarNotification.showSuccess('Dados salvos com sucesso!');
     } catch (e) {
-      _showErrorSnackBar('Erro ao salvar dados: $e');
+      SnackbarNotification.showError('Erro ao salvar dados: $e');
     }
   }
 
@@ -264,8 +265,91 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     AppLogger.debug('BUILD hasImage: $hasImage', tag: 'PinMap');
     AppLogger.debug('BUILD _isEditMode: $_isEditMode', tag: 'PinMap');
 
-    // Se não tiver imagem e estiver em modo edição, mostra instruções
-    if (!hasImage && _isEditMode) {
+    // Se não tiver imagem, mostra estado apropriado
+    if (!hasImage) {
+      if (_isEditMode) {
+        // Em modo edição: mostra instruções para adicionar imagem
+        return Container(
+          color: AppTheme.primaryColor.withValues(alpha: 0.05),
+          child: Stack(
+            children: [
+              // Pattern de fundo para indicar área tocável
+              CustomPaint(size: Size.infinite, painter: _GridPainter()),
+              // Instruções centralizadas
+              Center(
+                child: Container(
+                  padding: EdgeInsets.all(LayoutConstants.paddingLg),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceColor.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.touch_app, size: 48, color: AppTheme.primaryColor),
+                      SizedBox(height: LayoutConstants.marginMd),
+                      Text(
+                        'Toque aqui para adicionar pins',
+                        style: TextStyle(
+                          fontSize: LayoutConstants.fontSizeLarge,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: LayoutConstants.marginSm),
+                      Text(
+                        'Ou clique no botão 🖼️ no AppBar\npara adicionar uma imagem de fundo',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: LayoutConstants.fontSizeMedium,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Não está em modo edição: mostra placeholder simples
+        return Container(
+          color: AppTheme.backgroundColor,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.image_not_supported_outlined,
+                  size: 64,
+                  color: AppTheme.textSecondary.withValues(alpha: 0.5),
+                ),
+                SizedBox(height: LayoutConstants.marginMd),
+                Text(
+                  'Nenhuma imagem configurada',
+                  style: TextStyle(
+                    fontSize: LayoutConstants.fontSizeLarge,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    // Se chegou aqui, hasImage é true
+    if (_isEditMode) {
       return Container(
         color: AppTheme.primaryColor.withValues(alpha: 0.05),
         child: Stack(
@@ -320,8 +404,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     }
 
     // Para web, blob URLs devem ser passados como networkUrl
-    final isHttpUrl = imageUrl?.startsWith('http') ?? false;
-    final isBlobUrl = imageUrl?.startsWith('blob:') ?? false;
+    // Neste ponto, imageUrl não pode ser null pois hasImage é true
+    final isHttpUrl = imageUrl.startsWith('http');
+    final isBlobUrl = imageUrl.startsWith('blob:');
     final shouldUseNetworkUrl = isHttpUrl || (PlatformService.isWeb && isBlobUrl);
 
     AppLogger.debug(
@@ -330,10 +415,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     );
 
     return OfflineImage(
-      key: ValueKey(imageUrl), // Force rebuild quando URL muda
+      key: ValueKey('${imageUrl}_${_mapData!.updatedAt?.millisecondsSinceEpoch}'), // Force rebuild quando dados mudam
       networkUrl: shouldUseNetworkUrl ? imageUrl : null,
       localPath: !shouldUseNetworkUrl ? imageUrl : null,
       fit: BoxFit.fill,
+      enableCaching: false, // Disable cache para permitir refresh de imagens
       placeholder: Container(
         color: AppTheme.surfaceColor,
         child: Center(
@@ -1303,7 +1389,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         return images.map((image) => image.path).toList();
       }
     } catch (e) {
-      _showErrorSnackBar('Erro ao selecionar imagens: $e');
+      SnackbarNotification.showError('Erro ao selecionar imagens: $e');
       return [];
     }
   }
@@ -1329,36 +1415,22 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
           if (!exists) {
             AppLogger.warning('Arquivo não existe no path: ${image.path}', tag: 'PinMap');
-            _showErrorSnackBar('Arquivo de imagem não encontrado');
+            SnackbarNotification.showError('Arquivo de imagem não encontrado');
             return;
           }
         } else {
           AppLogger.debug('Plataforma Web - usando blob URL: ${image.path}', tag: 'PinMap');
         }
 
-        // Atualizar a imagem de fundo nos dados do mapa
-        _mapData = _mapData!.copyWith(
+        // Atualizar usando o provider ao invés de setState local
+        await ref.read(pinMapNotifierProvider(widget.route).notifier).updateMapData(
           backgroundImageUrl: image.path, // Use local path ou blob URL
-          updatedAt: DateTime.now(),
         );
 
-        AppLogger.debug('_mapData atualizado: ${_mapData!.backgroundImageUrl}', tag: 'PinMap');
-        AppLogger.debug('backgroundImageUrl: ${_mapData!.backgroundImageUrl}', tag: 'PinMap');
-        AppLogger.debug(
-          'Tem imagem? ${_mapData!.backgroundImageUrl != null && _mapData!.backgroundImageUrl!.isNotEmpty}',
-          tag: 'PinMap',
-        );
-
-        // Salvar os dados atualizados
-        await _saveMapData();
-
-        // Aguardar um frame antes de chamar setState
-        await Future.delayed(const Duration(milliseconds: 100));
+        AppLogger.debug('Imagem de fundo atualizada via provider: ${image.path}', tag: 'PinMap');
 
         if (mounted) {
-          setState(() {}); // Refresh UI
-          AppLogger.debug('setState chamado - forçando rebuild', tag: 'PinMap');
-          _showSuccessSnackBar('Imagem de fundo alterada com sucesso!');
+          SnackbarNotification.showSuccess('Imagem de fundo alterada com sucesso!');
         }
       } else {
         AppLogger.warning('Imagem nula ou _mapData nulo', tag: 'PinMap');
@@ -1367,7 +1439,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       }
     } catch (e) {
       AppLogger.error('Erro ao alterar imagem de fundo: $e', tag: 'PinMap');
-      _showErrorSnackBar('Erro ao alterar imagem de fundo: $e');
+      SnackbarNotification.showError('Erro ao alterar imagem de fundo: $e');
     }
   }
 
@@ -1479,7 +1551,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       if (mounted) {
         setState(() {});
         Navigator.of(context).pop();
-        _showSuccessSnackBar('Vídeo removido com sucesso!');
+        SnackbarNotification.showSuccess('Vídeo removido com sucesso!');
       }
     }
   }
@@ -1504,12 +1576,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         if (mounted) {
           setState(() {});
           Navigator.of(context).pop();
-          _showSuccessSnackBar('Vídeo adicionado com sucesso!');
+          SnackbarNotification.showSuccess('Vídeo adicionado com sucesso!');
         }
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('Erro ao adicionar vídeo: $e');
+        SnackbarNotification.showError('Erro ao adicionar vídeo: $e');
       }
     }
   }
@@ -1518,7 +1590,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   void _saveVideoFromUrl(BuildContext dialogContext, String title, String url) async {
     if (url.trim().isEmpty) {
       if (mounted) {
-        _showErrorSnackBar('Por favor, insira uma URL válida');
+        SnackbarNotification.showError('Por favor, insira uma URL válida');
       }
       return;
     }
@@ -1535,24 +1607,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       if (mounted) {
         setState(() {});
         Navigator.of(context).pop();
-        _showSuccessSnackBar('Vídeo configurado com sucesso!');
+        SnackbarNotification.showSuccess('Vídeo configurado com sucesso!');
       }
     }
   }
 
-  /// Mostra snackbar de erro
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
-  }
-
-  /// Mostra snackbar de sucesso
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green));
-  }
 
   /// Mostra instruções sobre como usar mapas com pins
   Future<void> _showEmptyMapInstructions() async {

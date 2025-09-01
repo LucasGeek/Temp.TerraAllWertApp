@@ -26,26 +26,52 @@ class FloorPlanNotifier extends StateNotifier<FloorPlanState> {
       
       final data = await _floorPlanStorage.loadFloorPlanData(_route);
       
+      // Se não há dados salvos, cria estrutura básica
+      final floorPlanData = data ?? FloorPlanData(
+        id: _uuid.v4(),
+        routeId: _route,
+        createdAt: DateTime.now(),
+      );
+      
       state = state.copyWith(
-        floorPlanData: data,
+        floorPlanData: floorPlanData,
         isLoading: false,
       );
 
-      // Define o pavimento atual se houver pavimentos
-      if (state.floorPlanData!.floors.isNotEmpty) {
+      // Define o pavimento atual se houver dados e pavimentos
+      if (state.floorPlanData != null && state.floorPlanData!.floors.isNotEmpty) {
         state = state.copyWith(currentFloor: state.floorPlanData!.floors.first);
       }
       
       AppLogger.debug(
-        'Dados da planta carregados: ${state.floorPlanData!.floors.length} pavimentos',
+        'Dados da planta carregados: ${state.floorPlanData?.floors.length ?? 0} pavimentos',
         tag: 'FloorPlan',
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Erro ao carregar dados da planta: $e',
+      // Se há erro no carregamento (dados corrompidos, etc.), cria estrutura nova
+      AppLogger.warning('Erro ao carregar dados existentes, criando nova estrutura: $e', tag: 'FloorPlan');
+      
+      // Tenta limpar dados corrompidos e criar nova estrutura
+      try {
+        await _floorPlanStorage.deleteFloorPlanData(_route);
+      } catch (deleteError) {
+        AppLogger.warning('Não foi possível limpar dados corrompidos: $deleteError', tag: 'FloorPlan');
+      }
+      
+      // Cria estrutura básica nova
+      final floorPlanData = FloorPlanData(
+        id: _uuid.v4(),
+        routeId: _route,
+        createdAt: DateTime.now(),
       );
-      AppLogger.error('Erro ao carregar FloorPlanData: $e', tag: 'FloorPlan');
+      
+      state = state.copyWith(
+        floorPlanData: floorPlanData,
+        isLoading: false,
+        error: null, // Remove o erro já que resolvemos criando nova estrutura
+      );
+      
+      AppLogger.info('Nova estrutura de planta criada para rota: $_route', tag: 'FloorPlan');
     }
   }
 

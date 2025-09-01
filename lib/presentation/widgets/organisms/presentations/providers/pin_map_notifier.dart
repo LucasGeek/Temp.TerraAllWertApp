@@ -26,8 +26,17 @@ class PinMapNotifier extends StateNotifier<PinMapState> {
       
       final data = await _mapStorage.loadMapData(_route);
       
+      // Se não há dados salvos, cria estrutura básica
+      final mapData = data ?? InteractiveMapData(
+        id: _uuid.v4(),
+        routeId: _route,
+        backgroundImageUrl: null,
+        pins: [],
+        createdAt: DateTime.now(),
+      );
+      
       state = state.copyWith(
-        mapData: data,
+        mapData: mapData,
         isLoading: false,
       );
       
