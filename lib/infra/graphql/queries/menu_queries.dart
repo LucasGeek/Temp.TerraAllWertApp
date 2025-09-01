@@ -1,24 +1,28 @@
 // GraphQL queries for menu/navigation operations
 
 const String getMenusQuery = '''
-  query GetMenus(\$userId: String) {
-    getMenus(userId: \$userId) {
-      id
-      label
-      route
-      iconCodePoint
-      iconFontFamily
-      selectedIconCodePoint
-      selectedIconFontFamily
-      order
-      isVisible
-      isEnabled
-      description
-      parentId
-      menuType
-      permissions
-      createdAt
-      updatedAt
+  query GetMenus(\$routeId: String!) {
+    getMenus(routeId: \$routeId) {
+      menus {
+        id
+        title
+        type
+        route
+        icon
+        order
+        isActive
+        permissions
+        children {
+          id
+          title
+          type
+          route
+          icon
+          order
+          isActive
+          permissions
+        }
+      }
     }
   }
 ''';

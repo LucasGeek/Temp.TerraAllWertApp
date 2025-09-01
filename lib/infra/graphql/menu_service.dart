@@ -117,14 +117,14 @@ class MenuGraphQLService {
   }
 
   /// Busca menus via GraphQL
-  Future<List<NavigationItem>> getMenus({String? userId}) async {
+  Future<List<NavigationItem>> getMenus({String? userId, String? routeId}) async {
     try {
       AppLogger.debug('Fetching menus via GraphQL', tag: 'MenuGraphQL');
 
       final result = await _client.query(
         QueryOptions(
           document: gql(getMenusQuery),
-          variables: userId != null ? {'userId': userId} : {},
+          variables: {'routeId': routeId ?? 'main'},
           errorPolicy: ErrorPolicy.all,
           cacheRereadPolicy: CacheRereadPolicy.ignoreAll,
         ),
@@ -135,9 +135,10 @@ class MenuGraphQLService {
         return [];
       }
 
-      final data = result.data?['getMenus'] as List<dynamic>?;
-      if (data != null) {
-        final menus = data
+      final menusResponse = result.data?['getMenus'];
+      final menusList = menusResponse?['menus'] as List<dynamic>?;
+      if (menusList != null) {
+        final menus = menusList
             .map((item) => _graphQLDataToNavigationItem(item))
             .toList();
         
