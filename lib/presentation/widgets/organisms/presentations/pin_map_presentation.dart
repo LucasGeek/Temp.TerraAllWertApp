@@ -20,6 +20,7 @@ import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../notification/snackbar_notification.dart';
 import '../../molecules/offline_image.dart';
+import '../../molecules/permission_wrapper.dart';
 import 'providers/pin_map_notifier.dart';
 
 /// Apresentação de mapa interativo com pins editáveis
@@ -289,12 +290,14 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
             ),
           ),
 
-          // Controles superiores esquerdos (minimizados)
+          // Controles superiores esquerdos (minimizados) - apenas para admins
           if (_isEditMode)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + LayoutConstants.paddingMd,
-              left: LayoutConstants.paddingMd,
-              child: _buildTopLeftControls(),
+            AdminOnlyWidget(
+              child: Positioned(
+                top: MediaQuery.of(context).padding.top + LayoutConstants.paddingMd,
+                left: LayoutConstants.paddingMd,
+                child: _buildTopLeftControls(),
+              ),
             ),
 
           // Botões fixos
@@ -537,12 +540,14 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
           if (_mapData!.videoUrl != null || _mapData!.videoPath != null)
             SizedBox(height: LayoutConstants.marginMd),
 
-          // Botão Editar
-          FloatingActionButton(
-            heroTag: 'edit',
-            onPressed: _toggleEditMode,
-            backgroundColor: _isEditMode ? Colors.green : AppTheme.secondaryColor,
-            child: Icon(_isEditMode ? Icons.check : Icons.edit, color: Colors.white),
+          // Botão Editar - apenas para admins
+          AdminOnlyWidget(
+            child: FloatingActionButton(
+              heroTag: 'edit',
+              onPressed: _toggleEditMode,
+              backgroundColor: _isEditMode ? Colors.green : AppTheme.secondaryColor,
+              child: Icon(_isEditMode ? Icons.check : Icons.edit, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -736,24 +741,30 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
                 SizedBox(width: LayoutConstants.marginSm),
 
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _editPin(pin),
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Editar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.secondaryColor,
-                      foregroundColor: Colors.white,
+                // Botão editar - apenas para admins
+                UpdatePermission(
+                  child: Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _editPin(pin),
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Editar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.secondaryColor,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
                 ),
 
                 SizedBox(width: LayoutConstants.marginSm),
 
-                IconButton(
-                  onPressed: () => _deletePin(pin),
-                  icon: Icon(Icons.delete, color: Colors.red),
-                  tooltip: 'Excluir',
+                // Botão excluir - apenas para admins
+                DeletePermission(
+                  child: IconButton(
+                    onPressed: () => _deletePin(pin),
+                    icon: Icon(Icons.delete, color: Colors.red),
+                    tooltip: 'Excluir',
+                  ),
                 ),
               ],
             ),
@@ -827,17 +838,19 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
                   SizedBox(height: LayoutConstants.marginXl),
 
-                  // Botão de ação principal
-                  ElevatedButton.icon(
-                    onPressed: _toggleEditMode,
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Começar a Editar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: LayoutConstants.paddingXl,
-                        vertical: LayoutConstants.paddingMd,
+                  // Botão de ação principal - apenas para admins
+                  AdminOnlyWidget(
+                    child: ElevatedButton.icon(
+                      onPressed: _toggleEditMode,
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Começar a Editar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: LayoutConstants.paddingXl,
+                          vertical: LayoutConstants.paddingMd,
+                        ),
                       ),
                     ),
                   ),

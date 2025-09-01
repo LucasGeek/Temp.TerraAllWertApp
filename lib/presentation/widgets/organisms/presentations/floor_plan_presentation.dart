@@ -22,6 +22,7 @@ import '../../../../infra/storage/floor_plan_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../notification/snackbar_notification.dart';
+import '../../molecules/permission_wrapper.dart';
 import 'providers/floor_plan_notifier.dart';
 
 /// Apresentação de plantas de pavimento com gerenciamento completo
@@ -466,22 +467,28 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Editar imagem
-          _buildFloatingButton(
-            icon: Icons.edit_outlined,
-            onPressed: _editFloorPlanImage,
-            tooltip: 'Editar Imagem',
-            backgroundColor: AppTheme.primaryColor,
+          // Editar imagem - apenas para admins
+          AdminOnlyWidget(
+            child: _buildFloatingButton(
+              icon: Icons.edit_outlined,
+              onPressed: _editFloorPlanImage,
+              tooltip: 'Editar Imagem',
+              backgroundColor: AppTheme.primaryColor,
+            ),
           ),
 
-          SizedBox(height: LayoutConstants.marginSm),
+          AdminOnlyWidget(
+            child: SizedBox(height: LayoutConstants.marginSm),
+          ),
 
-          // Adicionar marcador
-          _buildFloatingButton(
-            icon: _isEditingMarkers ? Icons.check : Icons.add_location_alt,
-            onPressed: _toggleMarkerEditing,
-            tooltip: _isEditingMarkers ? 'Finalizar Edição' : 'Adicionar Marcador',
-            backgroundColor: _isEditingMarkers ? Colors.green : AppTheme.secondaryColor,
+          // Adicionar marcador - apenas para admins
+          AdminOnlyWidget(
+            child: _buildFloatingButton(
+              icon: _isEditingMarkers ? Icons.check : Icons.add_location_alt,
+              onPressed: _toggleMarkerEditing,
+              tooltip: _isEditingMarkers ? 'Finalizar Edição' : 'Adicionar Marcador',
+              backgroundColor: _isEditingMarkers ? Colors.green : AppTheme.secondaryColor,
+            ),
           ),
         ],
       ),
@@ -1158,46 +1165,55 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
               Row(
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        if (marker.apartmentId != null) {
-                          _editApartment(marker.apartmentId!);
-                        } else {
-                          _createNewApartment(marker);
-                        }
-                      },
-                      icon: const Icon(Icons.edit),
-                      label: Text(
-                        marker.apartmentId != null ? 'Editar Apartamento' : 'Criar Apartamento',
+                  // Botão editar/criar apartamento - apenas para admins
+                  UpdatePermission(
+                    child: Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          if (marker.apartmentId != null) {
+                            _editApartment(marker.apartmentId!);
+                          } else {
+                            _createNewApartment(marker);
+                          }
+                        },
+                        icon: const Icon(Icons.edit),
+                        label: Text(
+                          marker.apartmentId != null ? 'Editar Apartamento' : 'Criar Apartamento',
+                        ),
                       ),
                     ),
                   ),
 
                   SizedBox(width: LayoutConstants.marginSm),
 
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _editMarkerPosition(marker);
-                      },
-                      icon: const Icon(Icons.edit_location),
-                      label: const Text('Editar Posição'),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor),
+                  // Botão editar posição - apenas para admins
+                  UpdatePermission(
+                    child: Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _editMarkerPosition(marker);
+                        },
+                        icon: const Icon(Icons.edit_location),
+                        label: const Text('Editar Posição'),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor),
+                      ),
                     ),
                   ),
 
                   SizedBox(width: LayoutConstants.marginSm),
 
-                  IconButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      _deleteMarker(marker);
-                    },
-                    icon: Icon(Icons.delete, color: Colors.red),
-                    tooltip: 'Excluir Marcador',
+                  // Botão excluir - apenas para admins
+                  DeletePermission(
+                    child: IconButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _deleteMarker(marker);
+                      },
+                      icon: Icon(Icons.delete, color: Colors.red),
+                      tooltip: 'Excluir Marcador',
+                    ),
                   ),
                 ],
               ),

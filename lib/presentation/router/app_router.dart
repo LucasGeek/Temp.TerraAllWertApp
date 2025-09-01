@@ -244,23 +244,28 @@ String? _redirectHandler(BuildContext context, GoRouterState state, Ref ref) {
   try {
     final authState = ref.read(authControllerProvider);
     final isAuthenticated = authState.value != null;
+    final canAccess = ref.read(canAccessAppProvider);
+    final shouldForceLogin = ref.read(shouldForceLoginProvider);
     final currentPath = state.uri.path;
     final navigationItems = ref.read(navigationItemsProvider);
     final currentRoute = ref.read(currentRouteProvider);
 
-    AppLogger.debug('AppRouter: Checking redirect for path: $currentPath, authenticated: $isAuthenticated', tag: 'ROUTER');
+    AppLogger.debug('AppRouter: Checking redirect for path: $currentPath, authenticated: $isAuthenticated, canAccess: $canAccess, shouldForceLogin: $shouldForceLogin', tag: 'ROUTER');
 
-    // Se não está autenticado, redireciona para login
-    if (!isAuthenticated) {
-      if (currentPath != '/login') {
-        AppLogger.info('AppRouter: Unauthenticated user tried to access protected route, redirecting to login', tag: 'ROUTER');
-        return '/login';
-      }
-      return null;
+    // Se deve forçar login e não está na página de login, redireciona
+    if (shouldForceLogin && currentPath != '/login') {
+      AppLogger.info('AppRouter: Force login required, redirecting to login', tag: 'ROUTER');
+      return '/login';
+    }
+
+    // Se não pode acessar o app (não autenticado e não permite offline), redireciona para login
+    if (!canAccess && currentPath != '/login') {
+      AppLogger.info('AppRouter: Access denied, redirecting to login', tag: 'ROUTER');
+      return '/login';
     }
 
     // Se está autenticado e tenta acessar login, determina onde redirecionar
-    if (currentPath == '/login') {
+    if (isAuthenticated && currentPath == '/login') {
       String redirectTo;
       
       if (navigationItems.isNotEmpty) {
@@ -278,6 +283,12 @@ String? _redirectHandler(BuildContext context, GoRouterState state, Ref ref) {
 
     // Redirecionar root path
     if (currentPath == '/') {
+      // Se não pode acessar e deve forçar login, vai para login
+      if (shouldForceLogin) {
+        AppLogger.info('AppRouter: Root path accessed but login required, redirecting to login', tag: 'ROUTER');
+        return '/login';
+      }
+
       String redirectTo;
       
       if (navigationItems.isNotEmpty) {

@@ -23,6 +23,7 @@ import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../notification/snackbar_notification.dart';
 import '../../molecules/offline_image.dart';
+import '../../molecules/permission_wrapper.dart';
 
 /// Tipos de item no carrossel
 enum CarouselItemType { image, map }
@@ -781,44 +782,62 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           if (_allImages.isNotEmpty || _carouselData!.mapConfig != null)
             SizedBox(height: LayoutConstants.marginSm),
 
-          _buildControlButton(
-            icon: Icons.add_photo_alternate,
-            onPressed: _addImages,
-            tooltip: 'Adicionar Imagem',
+          AdminOnlyWidget(
+            child: _buildControlButton(
+              icon: Icons.add_photo_alternate,
+              onPressed: _addImages,
+              tooltip: 'Adicionar Imagem',
+            ),
           ),
 
-          SizedBox(height: LayoutConstants.marginSm),
-
-          _buildControlButton(
-            icon: Icons.reorder,
-            onPressed: _reorderImages,
-            tooltip: 'Reordenar Imagens',
+          AdminOnlyWidget(
+            child: SizedBox(height: LayoutConstants.marginSm),
           ),
 
-          SizedBox(height: LayoutConstants.marginSm),
-
-          _buildControlButton(
-            icon: Icons.text_fields,
-            onPressed: _addOrEditTextBox,
-            tooltip: _carouselData!.textBox != null ? 'Editar Texto' : 'Adicionar Texto',
-            hasContent: _carouselData!.textBox != null,
+          AdminOnlyWidget(
+            child: _buildControlButton(
+              icon: Icons.reorder,
+              onPressed: _reorderImages,
+              tooltip: 'Reordenar Imagens',
+            ),
           ),
 
-          SizedBox(height: LayoutConstants.marginSm),
-
-          _buildControlButton(
-            icon: Icons.map_outlined,
-            onPressed: _addOrEditMap,
-            tooltip: _carouselData!.mapConfig != null ? 'Editar Mapa' : 'Adicionar Mapa',
-            hasContent: _carouselData!.mapConfig != null,
+          AdminOnlyWidget(
+            child: SizedBox(height: LayoutConstants.marginSm),
           ),
 
-          SizedBox(height: LayoutConstants.marginSm),
+          AdminOnlyWidget(
+            child: _buildControlButton(
+              icon: Icons.text_fields,
+              onPressed: _addOrEditTextBox,
+              tooltip: _carouselData!.textBox != null ? 'Editar Texto' : 'Adicionar Texto',
+              hasContent: _carouselData!.textBox != null,
+            ),
+          ),
 
-          _buildControlButton(
-            icon: Icons.delete_outline,
-            onPressed: _deleteCurrentImage,
-            tooltip: 'Apagar Imagem',
+          AdminOnlyWidget(
+            child: SizedBox(height: LayoutConstants.marginSm),
+          ),
+
+          AdminOnlyWidget(
+            child: _buildControlButton(
+              icon: Icons.map_outlined,
+              onPressed: _addOrEditMap,
+              tooltip: _carouselData!.mapConfig != null ? 'Editar Mapa' : 'Adicionar Mapa',
+              hasContent: _carouselData!.mapConfig != null,
+            ),
+          ),
+
+          AdminOnlyWidget(
+            child: SizedBox(height: LayoutConstants.marginSm),
+          ),
+
+          AdminOnlyWidget(
+            child: _buildControlButton(
+              icon: Icons.delete_outline,
+              onPressed: _deleteCurrentImage,
+              tooltip: 'Apagar Imagem',
+            ),
           ),
         ],
       ),
@@ -1229,10 +1248,12 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               icon: Icon(Icons.play_circle_outline),
               label: Text('Visualizar Vídeo'),
             ),
-            TextButton.icon(
-              onPressed: () => _removeVideo(context),
-              icon: Icon(Icons.delete, color: Colors.red),
-              label: Text('Remover Vídeo', style: TextStyle(color: Colors.red)),
+            AdminOnlyWidget(
+              child: TextButton.icon(
+                onPressed: () => _removeVideo(context),
+                icon: Icon(Icons.delete, color: Colors.red),
+                label: Text('Remover Vídeo', style: TextStyle(color: Colors.red)),
+              ),
             ),
           ],
           TextButton(onPressed: () => Navigator.of(context).pop(), child: Text('Cancelar')),

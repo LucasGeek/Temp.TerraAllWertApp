@@ -6,6 +6,7 @@ import '../../../../../domain/usecases/login_usecase.dart';
 import '../../../../../domain/usecases/logout_usecase.dart';
 import '../../../../../data/repositories/auth_repository_impl.dart';
 import '../../../../utils/error_handler.dart';
+import '../../../../providers/connectivity_provider.dart';
 
 // Use Cases
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
@@ -32,6 +33,51 @@ final currentUserProvider = StreamProvider<User?>((ref) {
 final isAuthenticatedProvider = FutureProvider<bool>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return repository.isAuthenticated();
+});
+
+// Provider para verificar se o usuário pode acessar o app (autenticado ou offline)
+final canAccessAppProvider = Provider<bool>((ref) {
+  final userAsync = ref.watch(authControllerProvider);
+  final isOnline = ref.watch(isOnlineProvider);
+  final isWeb = ref.watch(isWebProvider);
+  
+  return userAsync.when(
+    data: (user) {
+      // Se há usuário autenticado, sempre pode acessar
+      if (user != null) return true;
+      
+      // Se não há usuário:
+      // - Web sempre exige autenticação
+      // - Mobile offline permite acesso apenas para visualização
+      // - Mobile online exige autenticação
+      if (isWeb) return false; // Web sempre exige login
+      
+      return !isOnline; // Mobile só permite sem login quando offline
+    },
+    loading: () => true, // Durante loading, permitir acesso
+    error: (_, _) => !isOnline && !isWeb, // Em caso de erro, offline mobile pode acessar
+  );
+});
+
+// Provider para verificar se deve forçar login
+final shouldForceLoginProvider = Provider<bool>((ref) {
+  final userAsync = ref.watch(authControllerProvider);
+  final isOnline = ref.watch(isOnlineProvider);
+  final isWeb = ref.watch(isWebProvider);
+  
+  return userAsync.when(
+    data: (user) {
+      // Se já tem usuário, não forçar login
+      if (user != null) return false;
+      
+      // Forçar login se:
+      // - É web (sempre)
+      // - É mobile e está online
+      return isWeb || (isOnline && !isWeb);
+    },
+    loading: () => false, // Durante loading, não forçar login ainda
+    error: (_, _) => isWeb || (isOnline && !isWeb), // Em caso de erro, mesma regra
+  );
 });
 
 // Auth Controller
