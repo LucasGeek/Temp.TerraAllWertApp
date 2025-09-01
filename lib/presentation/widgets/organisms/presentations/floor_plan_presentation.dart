@@ -87,6 +87,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       // Inicializar upload service
       final uploadService = MinIOUploadService(
         cacheService: cacheService,
+        graphqlClient: graphqlClient,
       );
       
       // Inicializar sync service para URLs baseadas na plataforma

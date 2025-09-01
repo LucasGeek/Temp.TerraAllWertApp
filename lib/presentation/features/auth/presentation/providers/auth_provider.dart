@@ -8,6 +8,8 @@ import '../../../../../data/repositories/auth_repository_impl.dart';
 import '../../../../utils/error_handler.dart';
 import '../../../../providers/connectivity_provider.dart';
 import '../../../../providers/post_login_sync_provider.dart';
+import '../../../navigation/providers/navigation_provider.dart';
+import '../../../../../domain/services/post_login_sync_service.dart';
 
 // Use Cases
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
@@ -263,7 +265,31 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
         
         // Disparar sincronização através do provider
         final syncNotifier = _ref.read(postLoginSyncNotifierProvider.notifier);
-        syncNotifier.executeSync(user).catchError((e) {
+        syncNotifier.executeSync(user).then((result) {
+          // Se a sincronização foi bem-sucedida e trouxe menus da API
+          final syncResult = _ref.read(syncResultProvider);
+          if (syncResult?.success == true && syncResult?.menuResult.success == true && 
+              syncResult?.menuResult.source == MenuSyncSource.api) {
+            
+            // Recarregar os menus no NavigationProvider
+            try {
+              final navigationNotifier = _ref.read(navigationItemsProvider.notifier);
+              navigationNotifier.reloadFromStorage().catchError((e) {
+                if (kDebugMode) {
+                  print('[AUTH] Failed to reload navigation after sync: $e');
+                }
+              });
+              
+              if (kDebugMode) {
+                print('[AUTH] Post-login sync completed successfully, navigation reloaded');
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('[AUTH] Failed to trigger navigation reload: $e');
+              }
+            }
+          }
+        }).catchError((e) {
           if (kDebugMode) {
             print('[AUTH] Post-login sync failed: $e');
           }

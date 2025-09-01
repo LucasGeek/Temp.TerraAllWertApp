@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../design_system/app_theme.dart';
 import '../../design_system/layout_constants.dart';
 import '../atoms/menu_toggle_button.dart';
+import 'search_modal.dart';
 
 /// Header da aplicação com AppBar configurável
 /// Implementa atomic design com validação e prevenção de erros
@@ -42,11 +43,19 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
   }
 
   List<Widget> _buildActions(BuildContext context) {
+    final defaultActions = <Widget>[
+      IconButton(
+        icon: const Icon(Icons.search),
+        onPressed: () => SearchModal.show(context),
+        tooltip: 'Buscar Pavimentação',
+      ),
+    ];
+
     if (actions != null) {
-      return [...actions!];
+      return [...actions!, ...defaultActions];
     }
 
-    return [];
+    return defaultActions;
   }
 
   AppBar _buildFallbackAppBar() {

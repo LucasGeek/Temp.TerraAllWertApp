@@ -7,17 +7,25 @@ import 'package:path/path.dart' as path;
 import '../cache/cache_service.dart';
 import '../cache/models/cache_metadata.dart';
 import '../logging/app_logger.dart';
+import '../graphql/graphql_client.dart';
+import '../graphql/mutations/file_upload_mutations.dart';
+import 'package:graphql/client.dart';
+import 'package:dio/dio.dart';
 
 /// Serviço de upload para MinIO com URLs assinadas
 class MinIOUploadService {
   final CacheService _cacheService;
+  final GraphQLClientService _graphqlClient;
+  final Dio _dio = Dio();
   
   // Stream controllers para progresso de upload
   final Map<String, StreamController<UploadProgress>> _progressControllers = {};
   
   MinIOUploadService({
     required CacheService cacheService,
-  }) : _cacheService = cacheService;
+    required GraphQLClientService graphqlClient,
+  }) : _cacheService = cacheService,
+       _graphqlClient = graphqlClient;
 
   /// Obtém URL assinada para upload
   Future<SignedUrlResponse> getSignedUploadUrl({
@@ -30,42 +38,49 @@ class MinIOUploadService {
     String? pinId,
   }) async {
     try {
-      // TODO: Implementar mutation GraphQL para obter URL assinada
-      // Esta é a mutation que deve ser implementada na API:
-      /*
-      mutation GetSignedUploadUrl($input: SignedUrlRequestInput!) {
-        getSignedUploadUrl(input: $input) {
-          uploadUrl
-          minioPath
-          fileId
-          expiresAt
-          headers {
-            key
-            value
-          }
-        }
-      }
-      */
-      
       AppLogger.debug('Requesting signed upload URL for file: $fileId', tag: 'MinIO');
       
-      // TODO: Substituir por chamada GraphQL real quando API estiver implementada
-      // Por enquanto, simular resposta para desenvolvimento
-      await Future.delayed(Duration(milliseconds: 500)); // Simular latência
-      
-      final mockResponse = SignedUrlResponse(
-        uploadUrl: 'https://mock-minio.example.com/upload/signed-url',
-        minioPath: 'pins/$routeId/$fileId/${path.basename(fileName)}',
-        fileId: fileId,
-        expiresAt: DateTime.now().add(Duration(hours: 1)),
-        headers: {
-          'Content-Type': contentType,
-          'x-amz-acl': 'private',
-        },
+      // Real GraphQL API integration
+      final result = await _graphqlClient.mutate(
+        MutationOptions(
+          document: gql(getSignedUploadUrlMutation),
+          variables: {
+            'input': {
+              'fileName': fileName,
+              'fileType': fileType,
+              'contentType': contentType,
+              'routeId': routeId,
+              if (pinId != null) 'context': {
+                'pinId': pinId,
+              },
+            }
+          },
+        ),
       );
       
-      AppLogger.info('Got signed upload URL for $fileId: ${mockResponse.minioPath}', tag: 'MinIO');
-      return mockResponse;
+      if (result.hasException) {
+        AppLogger.error('GraphQL error getting signed upload URL: ${result.exception}', tag: 'MinIO');
+        throw Exception('Failed to get signed upload URL: ${result.exception}');
+      }
+      
+      final data = result.data?['getSignedUploadUrl'];
+      if (data == null) {
+        throw Exception('No data returned from getSignedUploadUrl mutation');
+      }
+      
+      final response = SignedUrlResponse(
+        uploadUrl: data['uploadUrl'] as String,
+        minioPath: data['minioPath'] as String,
+        fileId: data['fileId'] as String,
+        expiresAt: DateTime.parse(data['expiresAt'] as String),
+        headers: (data['headers'] as List?)?.fold<Map<String, String>>({}, (map, header) {
+          map[header['key'] as String] = header['value'] as String;
+          return map;
+        }) ?? {},
+      );
+      
+      AppLogger.info('Got signed upload URL for $fileId: ${response.minioPath}', tag: 'MinIO');
+      return response;
       
     } catch (e) {
       AppLogger.error('Failed to get signed upload URL for $fileId: $e', tag: 'MinIO');
@@ -114,29 +129,19 @@ class MinIOUploadService {
       progressController.add(uploadProgress);
       
       try {
-        // TODO: Fazer upload real para MinIO quando URL assinada estiver funcionando
-        // Por enquanto, simular upload para desenvolvimento
+        AppLogger.debug('Starting real upload for file: $fileId', tag: 'MinIO');
         
-        AppLogger.debug('Simulating upload for file: $fileId', tag: 'MinIO');
+        // Merge headers from signed URL response
+        final headers = Map<String, String>.from(signedUrl.headers);
         
-        // Simular progresso de upload
-        for (int i = 0; i <= 10; i++) {
-          await Future.delayed(Duration(milliseconds: 200));
-          uploadProgress = uploadProgress.copyWith(
-            progress: i / 10.0,
-            bytesUploaded: (fileBytes.length * i / 10.0).round(),
-          );
-          progressController.add(uploadProgress);
-        }
-        
-        /*
-        // Código real de upload (descomentado quando API estiver pronta):
-        final response = await _dio.post(
+        // Perform the actual upload to MinIO
+        final response = await _dio.put(
           signedUrl.uploadUrl,
-          data: formData,
+          data: fileBytes,
           options: Options(
             headers: headers,
-            validateStatus: (status) => status! < 400,
+            validateStatus: (status) => status != null && status < 400,
+            responseType: ResponseType.plain,
           ),
           onSendProgress: (sent, total) {
             uploadProgress = uploadProgress.copyWith(
@@ -148,14 +153,21 @@ class MinIOUploadService {
           },
         );
         
-        if (response.statusCode != 200) {
+        if (response.statusCode != 200 && response.statusCode != 204) {
           throw DioException(
             requestOptions: response.requestOptions,
             response: response,
             message: 'Upload failed with status: ${response.statusCode}',
           );
         }
-        */
+        
+        // Confirm upload with the API
+        await _confirmFileUpload(
+          fileId: signedUrl.fileId,
+          minioPath: signedUrl.minioPath,
+          checksum: 'TODO_CALCULATE_CHECKSUM', // TODO: Calculate actual file checksum
+          fileSize: fileBytes.length,
+        );
         
         // Marcar como completado
         uploadProgress = uploadProgress.copyWith(
@@ -484,6 +496,48 @@ class MinIOUploadService {
         return 'application/pdf';
       default:
         return 'application/octet-stream';
+    }
+  }
+
+  /// Confirma upload com a API
+  Future<void> _confirmFileUpload({
+    required String fileId,
+    required String minioPath,
+    required String checksum,
+    required int fileSize,
+  }) async {
+    try {
+      AppLogger.debug('Confirming file upload with API: $fileId', tag: 'MinIO');
+      
+      final result = await _graphqlClient.mutate(
+        MutationOptions(
+          document: gql(confirmFileUploadMutation),
+          variables: {
+            'input': {
+              'fileId': fileId,
+              'minioPath': minioPath,
+              'checksum': checksum,
+              'fileSize': fileSize,
+            }
+          },
+        ),
+      );
+      
+      if (result.hasException) {
+        AppLogger.error('GraphQL error confirming upload: ${result.exception}', tag: 'MinIO');
+        throw Exception('Failed to confirm file upload: ${result.exception}');
+      }
+      
+      final data = result.data?['confirmFileUpload'];
+      if (data == null || !(data['success'] as bool? ?? false)) {
+        throw Exception('Upload confirmation failed: ${data?['error']}');
+      }
+      
+      AppLogger.info('Upload confirmed successfully for file: $fileId', tag: 'MinIO');
+      
+    } catch (e) {
+      AppLogger.error('Failed to confirm upload for $fileId: $e', tag: 'MinIO');
+      rethrow;
     }
   }
 

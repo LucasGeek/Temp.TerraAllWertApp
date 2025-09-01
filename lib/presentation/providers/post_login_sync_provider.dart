@@ -7,6 +7,7 @@ import '../../infra/cache/cache_service.dart';
 import '../../infra/graphql/menu_service.dart';
 import '../../infra/sync/offline_sync_service.dart';
 import '../../infra/graphql/graphql_client.dart';
+import '../../infra/storage/menu_storage_service.dart';
 import 'connectivity_provider.dart';
 
 // Provider do serviço de sincronização pós-login
@@ -16,11 +17,13 @@ final postLoginSyncServiceProvider = Provider<PostLoginSyncService>((ref) {
   final graphqlClient = ref.watch(graphQLClientProvider);
   final menuService = MenuGraphQLService(graphqlClient.client);
   final syncService = OfflineSyncService(graphqlClient: graphqlClient);
+  final menuStorageService = ref.watch(menuStorageServiceProvider);
 
   return PostLoginSyncServiceImpl(
     cacheService: cacheService,
     menuService: menuService,
     syncService: syncService,
+    menuStorageService: menuStorageService,
   );
 });
 

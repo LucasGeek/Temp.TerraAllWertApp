@@ -287,8 +287,7 @@ class FloorPlanCacheAdapter {
     required String routeId,
     String? floorId,
   }) {
-    // TODO: Implementar upload em background quando API estiver pronta
-    AppLogger.debug('TODO: Starting background upload for floor plan file: $fileId', tag: 'FloorPlanCache');
+    AppLogger.debug('Starting background upload for floor plan file: $fileId', tag: 'FloorPlanCache');
     
     // Metadata específica para plantas
     final metadata = {
@@ -299,6 +298,48 @@ class FloorPlanCacheAdapter {
     };
     
     AppLogger.debug('Upload metadata: $metadata', tag: 'FloorPlanCache');
+    
+    // Executar upload em background sem bloquear o cache
+    Future.microtask(() async {
+      try {
+        // Obter dados do arquivo em cache
+        final fileBytes = await _cacheService.getCachedFile(fileId);
+        if (fileBytes == null) {
+          AppLogger.warning('File not found in cache: $fileId', tag: 'FloorPlanCache');
+          return;
+        }
+        
+        final fileInfo = _cacheService.getCachedFileInfo(fileId);
+        if (fileInfo == null) {
+          AppLogger.warning('File info not found in cache: $fileId', tag: 'FloorPlanCache');
+          return;
+        }
+        
+        AppLogger.debug('Starting upload to MinIO for file: $fileId', tag: 'FloorPlanCache');
+        
+        // Obter URL assinada para upload
+        final signedUrl = await _uploadService.getSignedUploadUrl(
+          fileId: fileId,
+          fileName: fileInfo.originalPath,
+          fileType: 'floorplan',
+          contentType: contentType,
+          fileSize: fileInfo.size,
+          routeId: routeId,
+        );
+        
+        // Fazer upload para MinIO
+        await _uploadService.uploadFile(
+          fileId: fileId,
+          signedUrl: signedUrl,
+        );
+        
+        AppLogger.info('Background upload completed for file: $fileId', tag: 'FloorPlanCache');
+        
+      } catch (e) {
+        AppLogger.error('Background upload failed for file $fileId: $e', tag: 'FloorPlanCache');
+        // Não propagar erro para não quebrar o fluxo de cache
+      }
+    });
   }
 
   /// Obtém arquivo do cache local

@@ -34,7 +34,7 @@ class CacheService {
       // Para Flutter Web, usar um diretório virtual
       if (kIsWeb) {
         AppLogger.info('Cache service initialized for Web (in-memory)', tag: 'Cache');
-        // Para web, usar apenas índice em memória sem arquivos físicos
+        // Para web, inicializar variáveis com valores vazios
         _cacheIndex = {};
         _metadata = CacheMetadata(
           version: '1.0.0',
@@ -43,6 +43,14 @@ class CacheService {
           totalFiles: 0,
           totalSize: 0,
         );
+        
+        // Inicializar diretórios com paths vazios para Web
+        _cacheDir = Directory('');
+        _metadataDir = Directory('');
+        _imagesDir = Directory('');
+        _videosDir = Directory('');
+        _documentsDir = Directory('');
+        
         return;
       }
       
@@ -105,6 +113,13 @@ class CacheService {
 
   /// Carrega o índice do cache
   Future<void> _loadCacheIndex() async {
+    if (kIsWeb) {
+      // Para web, usar índice vazio em memória
+      _cacheIndex = {};
+      AppLogger.debug('Web platform: using empty in-memory cache index', tag: 'Cache');
+      return;
+    }
+
     try {
       final indexFile = File(path.join(_metadataDir.path, _cacheIndexFile));
       if (await indexFile.exists()) {
@@ -126,6 +141,12 @@ class CacheService {
 
   /// Salva o índice do cache
   Future<void> _saveCacheIndex() async {
+    if (kIsWeb) {
+      // Para web, salvar no localStorage ou apenas em memória
+      AppLogger.debug('Web platform: cache index kept in memory', tag: 'Cache');
+      return;
+    }
+
     try {
       final indexFile = File(path.join(_metadataDir.path, _cacheIndexFile));
       final json = <String, dynamic>{};
@@ -143,6 +164,19 @@ class CacheService {
 
   /// Carrega metadados do cache
   Future<void> _loadMetadata() async {
+    if (kIsWeb) {
+      // Para web, usar valores padrão em memória
+      _metadata = CacheMetadata(
+        version: '1.0.0',
+        lastSync: DateTime.now(),
+        itemTimestamps: {},
+        totalFiles: 0,
+        totalSize: 0,
+      );
+      AppLogger.debug('Web platform: using in-memory metadata', tag: 'Cache');
+      return;
+    }
+
     try {
       final metadataFile = File(path.join(_metadataDir.path, _versionControlFile));
       if (await metadataFile.exists()) {
@@ -173,6 +207,12 @@ class CacheService {
   /// Salva metadados do cache
   Future<void> _saveMetadata() async {
     if (_metadata == null) return;
+    
+    if (kIsWeb) {
+      // Para web, apenas manter em memória
+      AppLogger.debug('Web platform: metadata kept in memory', tag: 'Cache');
+      return;
+    }
     
     try {
       final metadataFile = File(path.join(_metadataDir.path, _versionControlFile));
@@ -276,6 +316,12 @@ class CacheService {
       final fileInfo = _cacheIndex[fileId];
       if (fileInfo == null) {
         AppLogger.debug('File not found in cache: $fileId', tag: 'Cache');
+        return null;
+      }
+      
+      if (kIsWeb) {
+        // Para web, os arquivos não são persistidos fisicamente
+        AppLogger.warning('Web platform: cannot retrieve cached file from disk: $fileId', tag: 'Cache');
         return null;
       }
       

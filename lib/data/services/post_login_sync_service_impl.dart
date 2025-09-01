@@ -6,15 +6,19 @@ import '../../infra/cache/cache_service.dart';
 import '../../infra/graphql/menu_service.dart';
 import '../../infra/sync/offline_sync_service.dart';
 import '../../infra/logging/app_logger.dart';
+import '../../infra/storage/menu_storage_service.dart';
 
 class PostLoginSyncServiceImpl implements PostLoginSyncService {
   final MenuGraphQLService _menuService;
+  final MenuStorageService _menuStorageService;
 
   PostLoginSyncServiceImpl({
     required CacheService cacheService,
     required MenuGraphQLService menuService,
     required OfflineSyncService syncService,
-  }) : _menuService = menuService;
+    required MenuStorageService menuStorageService,
+  }) : _menuService = menuService,
+       _menuStorageService = menuStorageService;
 
   @override
   Future<PostLoginSyncResult> executeSyncFlow({
@@ -198,8 +202,18 @@ class PostLoginSyncServiceImpl implements PostLoginSyncService {
         AppLogger.debug('Online - fetching menus from API', tag: 'PostLoginSync');
         
         try {
-          // Tentar buscar da API primeiro
-          final menus = await _menuService.getMenus(userId: userId);
+          // Tentar buscar da API primeiro usando routeId padrão
+          final menus = await _menuService.getMenus(routeId: 'main');
+          
+          // Salvar menus no storage local para uso offline
+          if (menus.isNotEmpty) {
+            try {
+              await _menuStorageService.saveNavigationItems(menus);
+              AppLogger.debug('Menus saved to local storage successfully', tag: 'PostLoginSync');
+            } catch (storageError) {
+              AppLogger.warning('Failed to save menus to storage, but API fetch succeeded: $storageError', tag: 'PostLoginSync');
+            }
+          }
           
           AppLogger.info('Successfully fetched ${menus.length} menus from API', tag: 'PostLoginSync');
           
@@ -240,18 +254,28 @@ class PostLoginSyncServiceImpl implements PostLoginSyncService {
   /// Obtém menus do cache local
   Future<MenuSyncResult> _getMenusFromCache() async {
     try {
-      // TODO: Implementar busca real do cache
-      // Por enquanto, simular busca do cache
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Buscar menus do storage local
+      final cachedMenus = await _menuStorageService.loadNavigationItems();
       
-      AppLogger.info('Using cached menus (fallback)', tag: 'PostLoginSync');
-      
-      return MenuSyncResult(
-        success: true,
-        source: MenuSyncSource.cache,
-        menuCount: 3, // Exemplo: menu padrão
-        syncedAt: DateTime.now(),
-      );
+      if (cachedMenus.isNotEmpty) {
+        AppLogger.info('Using ${cachedMenus.length} cached menus from local storage', tag: 'PostLoginSync');
+        
+        return MenuSyncResult(
+          success: true,
+          source: MenuSyncSource.cache,
+          menuCount: cachedMenus.length,
+          syncedAt: DateTime.now(),
+        );
+      } else {
+        AppLogger.debug('No cached menus found in local storage', tag: 'PostLoginSync');
+        
+        return MenuSyncResult(
+          success: true,
+          source: MenuSyncSource.fallback,
+          menuCount: 0,
+          syncedAt: DateTime.now(),
+        );
+      }
       
     } catch (e) {
       AppLogger.error('Cache menu fetch failed: $e', tag: 'PostLoginSync');

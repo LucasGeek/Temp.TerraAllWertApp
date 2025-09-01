@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/dynamic/pages/dynamic_page.dart';
+import '../features/search/pages/search_results_page.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/navigation/providers/navigation_provider.dart';
 import '../features/navigation/providers/current_route_provider.dart';
@@ -226,6 +227,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'dashboard',
             pageBuilder: (context, state) => AppPageTransitions.slideTransition(
               const DashboardPage(),
+              state,
+            ),
+          ),
+          GoRoute(
+            path: '/search-results',
+            name: 'search-results',
+            pageBuilder: (context, state) => AppPageTransitions.slideTransition(
+              SearchResultsPage(
+                searchData: state.extra as Map<String, dynamic>,
+              ),
               state,
             ),
           ),

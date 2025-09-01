@@ -89,6 +89,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       // Inicializar upload service
       final uploadService = MinIOUploadService(
         cacheService: cacheService,
+        graphqlClient: graphqlClient,
       );
       
       // Inicializar sync service

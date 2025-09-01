@@ -4,9 +4,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
 import '../graphql/graphql_client.dart';
+import '../graphql/mutations/file_upload_mutations.dart';
 import '../logging/app_logger.dart';
 import '../download/background_downloader.dart';
 import 'zip_manager.dart';
+import 'package:graphql/client.dart';
 
 /// Serviço de sincronização offline que gerencia URLs da API e fallback ZIP
 class OfflineSyncService {
@@ -137,11 +139,9 @@ class OfflineSyncService {
         return cachedEntry.url;
       }
 
-      // TODO: Implementar chamada GraphQL real quando API estiver pronta
-      AppLogger.debug('TODO: Getting API URL for file: $fileId', tag: 'OfflineSync');
+      AppLogger.debug('Getting API URL for file: $fileId', tag: 'OfflineSync');
       
-      /*
-      // Código real para quando API estiver implementada:
+      // Real API integration
       final result = await _graphqlClient.query(
         QueryOptions(
           document: gql(getSignedDownloadUrlsQuery),
@@ -170,12 +170,8 @@ class OfflineSyncService {
           return url;
         }
       }
-      */
-
-      // Mock para desenvolvimento
-      final mockUrl = 'https://api.example.com/files/$routeId/$fileId/download';
-      _urlCache[cacheKey] = _UrlCacheEntry(mockUrl, DateTime.now().add(_urlCacheExpiry));
-      return mockUrl;
+      
+      return null;
 
     } catch (e) {
       AppLogger.error('Failed to get API URL for $fileId: $e', tag: 'OfflineSync');
@@ -191,12 +187,10 @@ class OfflineSyncService {
     try {
       final result = <String, String?>{};
 
-      // TODO: Implementar batch query GraphQL real quando API estiver pronta
-      AppLogger.debug('TODO: Getting batch API URLs for ${fileIds.length} files', tag: 'OfflineSync');
+      AppLogger.debug('Getting batch API URLs for ${fileIds.length} files', tag: 'OfflineSync');
       
-      /*
-      // Código real para quando API estiver implementada:
-      final result = await _graphqlClient.query(
+      // Real API integration for batch downloads
+      final queryResult = await _graphqlClient.query(
         QueryOptions(
           document: gql(getSignedDownloadUrlsQuery),
           variables: {
@@ -209,8 +203,8 @@ class OfflineSyncService {
         ),
       );
 
-      if (!result.hasException && result.data?['getSignedDownloadUrls'] != null) {
-        final urls = result.data!['getSignedDownloadUrls']['urls'] as List?;
+      if (!queryResult.hasException && queryResult.data?['getSignedDownloadUrls'] != null) {
+        final urls = queryResult.data!['getSignedDownloadUrls']['urls'] as List?;
         
         if (urls != null) {
           for (final urlData in urls) {
@@ -225,16 +219,6 @@ class OfflineSyncService {
             }
           }
         }
-      }
-      */
-
-      // Mock para desenvolvimento
-      for (final fileId in fileIds) {
-        final mockUrl = 'https://api.example.com/files/$routeId/$fileId/download';
-        result[fileId] = mockUrl;
-        
-        final cacheKey = '${routeId}_$fileId';
-        _urlCache[cacheKey] = _UrlCacheEntry(mockUrl, DateTime.now().add(_urlCacheExpiry));
       }
 
       return result;

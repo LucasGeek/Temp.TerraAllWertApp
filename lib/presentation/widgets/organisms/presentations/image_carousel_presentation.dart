@@ -105,6 +105,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       // Inicializar upload service
       final uploadService = MinIOUploadService(
         cacheService: cacheService,
+        graphqlClient: graphqlClient,
       );
       
       // Inicializar sync service para URLs baseadas na plataforma
