@@ -147,13 +147,13 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       return _buildErrorState();
     }
 
-    // Se o mapa está vazio E não tem imagem de fundo customizada, mostra estado vazio informativo
+    // Se o mapa está vazio E não tem imagem de fundo customizada E não está no modo edição, mostra estado vazio informativo
     final hasCustomBackgroundImage =
         _mapData!.backgroundImageUrl != null &&
         _mapData!.backgroundImageUrl!.isNotEmpty &&
         _mapData!.backgroundImageUrl != _mockBackgroundImage;
 
-    if (_mapData!.pins.isEmpty && !hasCustomBackgroundImage) {
+    if (_mapData!.pins.isEmpty && !hasCustomBackgroundImage && !_isEditMode) {
       return _buildEmptyState();
     }
 
