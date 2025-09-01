@@ -1,15 +1,16 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:video_player/video_player.dart';
 import 'package:uuid/uuid.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../domain/entities/map_pin.dart';
 import '../../../../domain/enums/pin_content_type.dart';
-import '../../../../infra/storage/map_data_storage.dart';
-import '../../../../infra/platform/platform_service.dart';
 import '../../../../infra/logging/app_logger.dart';
+import '../../../../infra/platform/platform_service.dart';
+import '../../../../infra/storage/map_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../molecules/offline_image.dart';
@@ -48,7 +49,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   VideoPlayerController? _videoController;
 
   // Mock data para demonstração
-  final String _mockBackgroundImage = 'https://via.placeholder.com/1200x800/E8F5E8/2E7D32?text=Mapa+Interativo';
+  final String _mockBackgroundImage =
+      'https://via.placeholder.com/1200x800/E8F5E8/2E7D32?text=Mapa+Interativo';
 
   @override
   void initState() {
@@ -69,10 +71,10 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       _isLoading = true;
       _hasError = false;
     });
-    
+
     try {
       final mapData = await _mapStorage.loadMapData(widget.route);
-      
+
       if (mapData == null) {
         // Cria dados iniciais se não existir - não é erro, é menu novo
         _mapData = InteractiveMapData(
@@ -103,15 +105,13 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   /// Salva os dados do mapa no storage local
   Future<void> _saveMapData() async {
     if (_mapData == null) return;
-    
+
     try {
-      final updatedMapData = _mapData!.copyWith(
-        updatedAt: DateTime.now(),
-      );
-      
+      final updatedMapData = _mapData!.copyWith(updatedAt: DateTime.now());
+
       await _mapStorage.saveMapData(updatedMapData);
       _mapData = updatedMapData;
-      
+
       _showSuccessSnackBar('Dados salvos com sucesso!');
     } catch (e) {
       _showErrorSnackBar('Erro ao salvar dados: $e');
@@ -127,9 +127,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(
-                color: AppTheme.primaryColor,
-              ),
+              CircularProgressIndicator(color: AppTheme.primaryColor),
               SizedBox(height: LayoutConstants.marginMd),
               Text(
                 'Carregando mapa interativo...',
@@ -150,10 +148,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     }
 
     // Se o mapa está vazio E não tem imagem de fundo customizada, mostra estado vazio informativo
-    final hasCustomBackgroundImage = _mapData!.backgroundImageUrl != null && 
-                                     _mapData!.backgroundImageUrl!.isNotEmpty &&
-                                     _mapData!.backgroundImageUrl != _mockBackgroundImage;
-    
+    final hasCustomBackgroundImage =
+        _mapData!.backgroundImageUrl != null &&
+        _mapData!.backgroundImageUrl!.isNotEmpty &&
+        _mapData!.backgroundImageUrl != _mockBackgroundImage;
+
     if (_mapData!.pins.isEmpty && !hasCustomBackgroundImage) {
       return _buildEmptyState();
     }
@@ -169,50 +168,55 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
               child: GestureDetector(
                 onTapDown: _isEditMode ? _onMapTap : null,
                 child: InteractiveViewer(
-                transformationController: _transformationController,
-                minScale: 1.0,
-                maxScale: 1.0, // Desabilita zoom - tamanho fixo
-                constrained: true, // Usa constraints do pai
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Usar dimensões seguras para evitar constraints infinitos
-                    final safeWidth = constraints.maxWidth.isFinite 
-                        ? constraints.maxWidth 
-                        : MediaQuery.of(context).size.width;
-                    final safeHeight = constraints.maxHeight.isFinite 
-                        ? constraints.maxHeight 
-                        : MediaQuery.of(context).size.height;
-                        
-                    return SizedBox(
-                      width: safeWidth,
-                      height: safeHeight,
-                      child: Stack(
-                        children: [
-                          // Imagem de fundo
-                          Positioned.fill(
-                            child: _buildBackgroundImage(),
-                          ),
-                          // Pins
-                          ..._mapData!.pins.map((pin) => _buildPin(pin, BoxConstraints.tight(Size(safeWidth, safeHeight)))),
-                        ],
-                      ),
-                    );
-                  },
+                  transformationController: _transformationController,
+                  minScale: 1.0,
+                  maxScale: 1.0, // Desabilita zoom - tamanho fixo
+                  constrained: true, // Usa constraints do pai
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Usar dimensões seguras para evitar constraints infinitos
+                      final safeWidth = constraints.maxWidth.isFinite
+                          ? constraints.maxWidth
+                          : MediaQuery.of(context).size.width;
+                      final safeHeight = constraints.maxHeight.isFinite
+                          ? constraints.maxHeight
+                          : MediaQuery.of(context).size.height;
+
+                      return SizedBox(
+                        width: safeWidth,
+                        height: safeHeight,
+                        child: Stack(
+                          children: [
+                            // Imagem de fundo
+                            Positioned.fill(child: _buildBackgroundImage()),
+                            // Pins
+                            ..._mapData!.pins.map(
+                              (pin) =>
+                                  _buildPin(pin, BoxConstraints.tight(Size(safeWidth, safeHeight))),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-            ),
           ),
 
-          // Header com controles
-          _buildHeader(),
+          // Controles superiores esquerdos (minimizados)
+          if (_isEditMode)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + LayoutConstants.paddingMd,
+              left: LayoutConstants.paddingMd,
+              child: _buildTopLeftControls(),
+            ),
 
           // Botões fixos
           _buildFloatingButtons(),
 
           // Detalhes do pin selecionado
-          if (_selectedPin != null && !_isEditMode)
-            _buildPinDetails(_selectedPin!),
+          if (_selectedPin != null && !_isEditMode) _buildPinDetails(_selectedPin!),
         ],
       ),
     );
@@ -222,12 +226,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   Widget _buildBackgroundImage() {
     final imageUrl = _mapData!.backgroundImageUrl ?? _mockBackgroundImage;
     final isMockImage = imageUrl == _mockBackgroundImage;
-    
+
     AppLogger.debug('BUILD imageUrl: $imageUrl', tag: 'PinMap');
     AppLogger.debug('BUILD _mockBackgroundImage: $_mockBackgroundImage', tag: 'PinMap');
     AppLogger.debug('BUILD isMockImage: $isMockImage', tag: 'PinMap');
     AppLogger.debug('BUILD _isEditMode: $_isEditMode', tag: 'PinMap');
-    
+
     // Se for imagem mock e estiver em modo edição, mostra instruções
     if (isMockImage && _isEditMode) {
       return Container(
@@ -235,11 +239,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         child: Stack(
           children: [
             // Pattern de fundo para indicar área tocável
-            CustomPaint(
-              size: Size.infinite,
-              painter: _GridPainter(),
-            ),
-            
+            CustomPaint(size: Size.infinite, painter: _GridPainter()),
+
             // Instruções centralizadas
             Center(
               child: Container(
@@ -258,11 +259,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.touch_app,
-                      size: 48,
-                      color: AppTheme.primaryColor,
-                    ),
+                    Icon(Icons.touch_app, size: 48, color: AppTheme.primaryColor),
                     SizedBox(height: LayoutConstants.marginMd),
                     Text(
                       'Toque aqui para adicionar pins',
@@ -289,29 +286,29 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         ),
       );
     }
-    
+
     // Para web, blob URLs devem ser passados como networkUrl
     final isHttpUrl = imageUrl.startsWith('http');
     final isBlobUrl = imageUrl.startsWith('blob:');
     final shouldUseNetworkUrl = isHttpUrl || (PlatformService.isWeb && isBlobUrl);
-    
-    AppLogger.debug('BUILD: isHttpUrl=$isHttpUrl, isBlobUrl=$isBlobUrl, shouldUseNetworkUrl=$shouldUseNetworkUrl', tag: 'PinMap');
-    
+
+    AppLogger.debug(
+      'BUILD: isHttpUrl=$isHttpUrl, isBlobUrl=$isBlobUrl, shouldUseNetworkUrl=$shouldUseNetworkUrl',
+      tag: 'PinMap',
+    );
+
     return OfflineImage(
       key: ValueKey(imageUrl), // Force rebuild quando URL muda
       networkUrl: shouldUseNetworkUrl ? imageUrl : null,
       localPath: !shouldUseNetworkUrl ? imageUrl : null,
-      fit: BoxFit.cover,
+      fit: BoxFit.fill,
       placeholder: Container(
         color: AppTheme.surfaceColor,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(
-                color: AppTheme.primaryColor,
-                strokeWidth: 3,
-              ),
+              CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 3),
               SizedBox(height: LayoutConstants.marginMd),
               Text(
                 'Carregando mapa...',
@@ -329,11 +326,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.map_outlined,
-              size: 80,
-              color: AppTheme.primaryColor,
-            ),
+            Icon(Icons.map_outlined, size: 80, color: AppTheme.primaryColor),
             SizedBox(height: LayoutConstants.marginMd),
             Text(
               'Imagem do mapa não disponível',
@@ -357,74 +350,6 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     );
   }
 
-  /// Constrói o header com título e controles
-  Widget _buildHeader() {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + LayoutConstants.paddingMd,
-          bottom: LayoutConstants.paddingMd,
-          left: LayoutConstants.paddingMd,
-          right: LayoutConstants.paddingMd,
-        ),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Espaçamento flexível
-            Expanded(child: SizedBox()),
-            
-            // Botões de controle centralizados
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Botão de Imagem de Fundo (apenas modo edição)
-                if (_isEditMode)
-                  _buildControlButton(
-                    icon: Icons.image,
-                    onPressed: _changeBackgroundImage,
-                    tooltip: 'Alterar imagem de fundo',
-                  ),
-                
-                if (_isEditMode)
-                  SizedBox(width: LayoutConstants.marginSm),
-                
-                // Botão de Upload de Vídeo (apenas modo edição)
-                if (_isEditMode)
-                  _buildControlButton(
-                    icon: Icons.videocam,
-                    onPressed: _uploadVideo,
-                    tooltip: 'Adicionar vídeo',
-                  ),
-                
-                if (_isEditMode)
-                  SizedBox(width: LayoutConstants.marginSm),
-                
-                // Reset zoom button
-                _buildControlButton(
-                  icon: Icons.fit_screen,
-                  onPressed: _resetZoom,
-                  tooltip: 'Ajustar à tela',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// Constrói os botões flutuantes fixos
   Widget _buildFloatingButtons() {
     return Positioned(
@@ -441,19 +366,16 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
               backgroundColor: AppTheme.primaryColor,
               child: const Icon(Icons.play_arrow, color: Colors.white),
             ),
-          
+
           if (_mapData!.videoUrl != null || _mapData!.videoPath != null)
             SizedBox(height: LayoutConstants.marginMd),
-          
+
           // Botão Editar
           FloatingActionButton(
             heroTag: 'edit',
             onPressed: _toggleEditMode,
             backgroundColor: _isEditMode ? Colors.green : AppTheme.secondaryColor,
-            child: Icon(
-              _isEditMode ? Icons.check : Icons.edit,
-              color: Colors.white,
-            ),
+            child: Icon(_isEditMode ? Icons.check : Icons.edit, color: Colors.white),
           ),
         ],
       ),
@@ -464,7 +386,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   Widget _buildPin(MapPin pin, BoxConstraints constraints) {
     final left = (pin.positionX * constraints.maxWidth) - 24;
     final top = (pin.positionY * constraints.maxHeight) - 48;
-    
+
     return Positioned(
       left: left,
       top: top,
@@ -489,13 +411,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.place,
-                color: Colors.white,
-                size: 24,
-              ),
+              child: const Icon(Icons.place, color: Colors.white, size: 24),
             ),
-            
+
             // Pin point
             Container(
               width: 6,
@@ -508,7 +426,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 ),
               ),
             ),
-            
+
             // Título do pin sempre visível
             const SizedBox(height: 8),
             Container(
@@ -521,7 +439,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 color: AppTheme.surfaceColor.withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
                 border: Border.all(
-                  color: _selectedPin?.id == pin.id 
+                  color: _selectedPin?.id == pin.id
                       ? AppTheme.secondaryColor.withValues(alpha: 0.3)
                       : AppTheme.primaryColor.withValues(alpha: 0.2),
                   width: 1,
@@ -539,7 +457,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 style: TextStyle(
                   fontSize: LayoutConstants.fontSizeSmall,
                   fontWeight: FontWeight.w600,
-                  color: _selectedPin?.id == pin.id ? AppTheme.secondaryColor : AppTheme.textPrimary,
+                  color: _selectedPin?.id == pin.id
+                      ? AppTheme.secondaryColor
+                      : AppTheme.textPrimary,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -584,11 +504,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                     color: AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
-                    Icons.place,
-                    color: Colors.white,
-                    size: 18,
-                  ),
+                  child: const Icon(Icons.place, color: Colors.white, size: 18),
                 ),
                 SizedBox(width: LayoutConstants.marginSm),
                 Expanded(
@@ -607,9 +523,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 ),
               ],
             ),
-            
+
             SizedBox(height: LayoutConstants.marginSm),
-            
+
             Text(
               pin.description,
               style: TextStyle(
@@ -617,9 +533,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 fontSize: LayoutConstants.fontSizeMedium,
               ),
             ),
-            
+
             SizedBox(height: LayoutConstants.marginMd),
-            
+
             // Botões de ação
             Row(
               children: [
@@ -634,9 +550,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                     ),
                   ),
                 ),
-                
+
                 SizedBox(width: LayoutConstants.marginSm),
-                
+
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _editPin(pin),
@@ -648,9 +564,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                     ),
                   ),
                 ),
-                
+
                 SizedBox(width: LayoutConstants.marginSm),
-                
+
                 IconButton(
                   onPressed: () => _deletePin(pin),
                   icon: Icon(Icons.delete, color: Colors.red),
@@ -675,16 +591,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
             child: Stack(
               children: [
                 _buildBackgroundImage(),
-                Container(
-                  color: AppTheme.backgroundColor.withValues(alpha: 0.85),
-                ),
+                Container(color: AppTheme.backgroundColor.withValues(alpha: 0.85)),
               ],
             ),
           ),
-          
-          // Header
-          _buildHeader(),
-          
+
+
           // Conteúdo central
           Positioned.fill(
             child: Padding(
@@ -699,15 +611,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                       color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.map_outlined,
-                      size: 80,
-                      color: AppTheme.primaryColor,
-                    ),
+                    child: Icon(Icons.map_outlined, size: 80, color: AppTheme.primaryColor),
                   ),
-                  
+
                   SizedBox(height: LayoutConstants.marginXl),
-                  
+
                   // Título
                   Text(
                     'Menu "${widget.title}" criado com sucesso!',
@@ -718,9 +626,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  
+
                   SizedBox(height: LayoutConstants.marginMd),
-                  
+
                   // Subtítulo explicativo
                   Text(
                     'Este é um novo mapa interativo. Para começar:\n\n'
@@ -734,9 +642,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                       height: 1.5,
                     ),
                   ),
-                  
+
                   SizedBox(height: LayoutConstants.marginXl),
-                  
+
                   // Botão de ação principal
                   ElevatedButton.icon(
                     onPressed: _toggleEditMode,
@@ -751,9 +659,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                       ),
                     ),
                   ),
-                  
+
                   SizedBox(height: LayoutConstants.marginMd),
-                  
+
                   // Botão secundário
                   OutlinedButton.icon(
                     onPressed: _showEmptyMapInstructions,
@@ -766,9 +674,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                       ),
                     ),
                   ),
-                  
+
                   SizedBox(height: LayoutConstants.marginXl),
-                  
+
                   // Dica informativa
                   Container(
                     padding: EdgeInsets.all(LayoutConstants.paddingMd),
@@ -817,11 +725,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: AppTheme.textSecondary,
-            ),
+            Icon(Icons.error_outline, size: 64, color: AppTheme.textSecondary),
             SizedBox(height: LayoutConstants.marginMd),
             Text(
               'Erro ao carregar dados do mapa',
@@ -832,12 +736,46 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
               ),
             ),
             SizedBox(height: LayoutConstants.marginMd),
-            ElevatedButton(
-              onPressed: _loadMapData,
-              child: const Text('Tentar Novamente'),
-            ),
+            ElevatedButton(onPressed: _loadMapData, child: const Text('Tentar Novamente')),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Constrói controles superiores esquerdos minimizados
+  Widget _buildTopLeftControls() {
+    return Container(
+      padding: EdgeInsets.all(LayoutConstants.paddingSm),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildControlButton(
+            icon: Icons.image,
+            onPressed: _changeBackgroundImage,
+            tooltip: 'Alterar imagem de fundo',
+          ),
+          
+          SizedBox(height: LayoutConstants.marginSm),
+          
+          _buildControlButton(
+            icon: Icons.videocam,
+            onPressed: _uploadVideo,
+            tooltip: 'Adicionar vídeo',
+          ),
+          
+          SizedBox(height: LayoutConstants.marginSm),
+          
+          _buildControlButton(
+            icon: Icons.fit_screen,
+            onPressed: _resetZoom,
+            tooltip: 'Ajustar à tela',
+          ),
+        ],
       ),
     );
   }
@@ -854,20 +792,13 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+          color: Colors.white.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppTheme.primaryColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
         ),
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: AppTheme.primaryColor,
-            size: 20,
-          ),
+          icon: Icon(icon, color: Colors.white, size: 20),
           padding: EdgeInsets.zero,
         ),
       ),
@@ -898,7 +829,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
     final renderBox = context.findRenderObject() as RenderBox;
     final position = renderBox.globalToLocal(details.globalPosition);
-    
+
     // Calcular posição relativa
     final relativeX = position.dx / renderBox.size.width;
     final relativeY = position.dy / renderBox.size.height;
@@ -926,10 +857,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   /// Mostra dialog do modo de edição
   Future<void> _showEditModeDialog() async {
-    final hasBackgroundImage = _mapData?.backgroundImageUrl != null && 
-                              _mapData!.backgroundImageUrl!.isNotEmpty &&
-                              _mapData!.backgroundImageUrl != _mockBackgroundImage;
-    
+    final hasBackgroundImage =
+        _mapData?.backgroundImageUrl != null &&
+        _mapData!.backgroundImageUrl!.isNotEmpty &&
+        _mapData!.backgroundImageUrl != _mockBackgroundImage;
+
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -973,10 +905,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 Text(
                   '1. Clique no botão 🖼️ no AppBar (parte superior) para adicionar uma imagem de fundo do mapa\n'
                   '2. Após adicionar a imagem, você poderá tocar nela para adicionar pins',
-                  style: TextStyle(
-                    fontSize: LayoutConstants.fontSizeMedium,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(fontSize: LayoutConstants.fontSizeMedium, height: 1.4),
                 ),
               ] else ...[
                 Text(
@@ -984,19 +913,13 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   '• Tocar na imagem do mapa para adicionar pins\n'
                   '• Tocar em pins existentes para editá-los\n'
                   '• Usar o botão 🖼️ no AppBar para trocar a imagem de fundo',
-                  style: TextStyle(
-                    fontSize: LayoutConstants.fontSizeMedium,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(fontSize: LayoutConstants.fontSizeMedium, height: 1.4),
                 ),
               ],
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Entendi'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Entendi')),
           ],
         );
       },
@@ -1028,20 +951,20 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     TextField(
                       controller: descriptionController,
                       decoration: const InputDecoration(
-                        labelText: 'Descrição*',
+                        labelText: 'Descrição (opcional)',
                         border: OutlineInputBorder(),
                       ),
                       maxLines: 3,
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     DropdownButtonFormField<PinContentType>(
                       value: contentType,
                       onChanged: (value) => setState(() => contentType = value!),
@@ -1050,15 +973,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       items: PinContentType.values.map((type) {
-                        return DropdownMenuItem(
-                          value: type,
-                          child: Text(type.displayName),
-                        );
+                        return DropdownMenuItem(value: type, child: Text(type.displayName));
                       }).toList(),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     ElevatedButton.icon(
                       onPressed: () async {
                         final images = await _pickImages(contentType);
@@ -1066,9 +986,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                       },
                       icon: const Icon(Icons.photo_library),
                       label: Text(
-                        imageUrls.isEmpty 
-                          ? 'Selecionar Imagens*'
-                          : '${imageUrls.length} imagem(s) selecionada(s)',
+                        imageUrls.isEmpty
+                            ? 'Selecionar Imagens*'
+                            : '${imageUrls.length} imagem(s) selecionada(s)',
                       ),
                     ),
                   ],
@@ -1080,9 +1000,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: titleController.text.isNotEmpty &&
-                      descriptionController.text.isNotEmpty &&
-                      imageUrls.isNotEmpty
+                  onPressed:
+                      titleController.text.isNotEmpty &&
+                          imageUrls.isNotEmpty
                       ? () {
                           _addPin(
                             x,
@@ -1126,9 +1046,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     );
 
     setState(() {
-      _mapData = _mapData!.copyWith(
-        pins: [..._mapData!.pins, newPin],
-      );
+      _mapData = _mapData!.copyWith(pins: [..._mapData!.pins, newPin]);
     });
   }
 
@@ -1157,20 +1075,20 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     TextField(
                       controller: descriptionController,
                       decoration: const InputDecoration(
-                        labelText: 'Descrição*',
+                        labelText: 'Descrição (opcional)',
                         border: OutlineInputBorder(),
                       ),
                       maxLines: 3,
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     DropdownButtonFormField<PinContentType>(
                       value: contentType,
                       onChanged: (value) => setState(() => contentType = value!),
@@ -1179,15 +1097,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       items: PinContentType.values.map((type) {
-                        return DropdownMenuItem(
-                          value: type,
-                          child: Text(type.displayName),
-                        );
+                        return DropdownMenuItem(value: type, child: Text(type.displayName));
                       }).toList(),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     ElevatedButton.icon(
                       onPressed: () async {
                         final images = await _pickImages(contentType);
@@ -1261,10 +1176,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
           title: const Text('Excluir Pin'),
           content: Text('Tem certeza que deseja excluir o pin "${pin.title}"?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
                 setState(() {
@@ -1284,120 +1196,64 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     );
   }
 
-  /// Mostra as imagens do pin
+  /// Mostra as imagens do pin em tela fullscreen
   void _showPinImages(MapPin pin) {
-    if (pin.imageUrls.isEmpty) return;
+    // Combinar URLs e paths locais
+    final allImageUrls = <String>[
+      ...pin.imageUrls,
+      ...pin.imagePaths,
+    ].where((url) => url.isNotEmpty).toList();
 
-    if (pin.contentType == PinContentType.singleImage) {
-      _showSingleImage(pin.imageUrls.first);
-    } else {
-      _showImageCarousel(pin.imageUrls);
+    if (allImageUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Este pin não possui imagens'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
     }
-  }
 
-  /// Mostra uma única imagem
-  void _showSingleImage(String imageUrl) {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: InteractiveViewer(
-            child: OfflineImage(
-              key: ValueKey(imageUrl),
-              networkUrl: imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:')) ? imageUrl : null,
-              localPath: !(imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:'))) ? imageUrl : null,
-              fit: BoxFit.contain,
-              errorWidget: Container(
-                height: 200,
-                color: AppTheme.surfaceColor,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.broken_image_outlined,
-                        size: 48,
-                        color: AppTheme.textSecondary,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Imagem não disponível',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    // Navegar para tela fullscreen com o modal
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => _FullScreenImageModal(
+          imageUrls: allImageUrls,
+          title: pin.title,
+          description: pin.description,
+        ),
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      ),
     );
   }
 
-  /// Mostra carrossel de imagens
-  void _showImageCarousel(List<String> imageUrls) {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: SizedBox(
-            height: 400,
-            child: PageView.builder(
-              itemCount: imageUrls.length,
-              itemBuilder: (context, index) {
-                final imageUrl = imageUrls[index];
-                return InteractiveViewer(
-                  child: OfflineImage(
-                    key: ValueKey(imageUrl),
-                    networkUrl: imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:')) ? imageUrl : null,
-                    localPath: !(imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:'))) ? imageUrl : null,
-                    fit: BoxFit.contain,
-                    errorWidget: Container(
-                      color: AppTheme.surfaceColor,
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.broken_image_outlined,
-                              size: 48,
-                              color: AppTheme.textSecondary,
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Imagem ${index + 1} não disponível',
-                              style: TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
 
-  /// Mostra o vídeo
+
+  /// Mostra o vídeo em tela fullscreen
   void _showVideo() {
     if (_mapData!.videoUrl == null && _mapData!.videoPath == null) return;
 
     final videoSource = _mapData!.videoUrl ?? _mapData!.videoPath!;
-    
+
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => _VideoPlayerScreen(videoSource: videoSource),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => _VideoPlayerScreen(videoSource: videoSource),
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
       ),
     );
   }
@@ -1426,19 +1282,19 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       final image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 85, // Compress for performance
-        maxWidth: 1920,   // Limit size for performance
+        maxWidth: 1920, // Limit size for performance
         maxHeight: 1080,
       );
-      
+
       if (image != null && _mapData != null) {
         AppLogger.debug('Imagem selecionada: ${image.path}', tag: 'PinMap');
-        
+
         // Verificar se o arquivo existe (apenas para platforms que suportam File)
         if (!PlatformService.isWeb) {
           final file = File(image.path);
           final exists = await file.exists();
           AppLogger.debug('Arquivo existe: $exists', tag: 'PinMap');
-          
+
           if (!exists) {
             AppLogger.warning('Arquivo não existe no path: ${image.path}', tag: 'PinMap');
             _showErrorSnackBar('Arquivo de imagem não encontrado');
@@ -1447,23 +1303,26 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         } else {
           AppLogger.debug('Plataforma Web - usando blob URL: ${image.path}', tag: 'PinMap');
         }
-        
+
         // Atualizar a imagem de fundo nos dados do mapa
         _mapData = _mapData!.copyWith(
           backgroundImageUrl: image.path, // Use local path ou blob URL
           updatedAt: DateTime.now(),
         );
-        
+
         AppLogger.debug('_mapData atualizado: ${_mapData!.backgroundImageUrl}', tag: 'PinMap');
         AppLogger.debug('_mockBackgroundImage: $_mockBackgroundImage', tag: 'PinMap');
-        AppLogger.debug('São diferentes? ${_mapData!.backgroundImageUrl != _mockBackgroundImage}', tag: 'PinMap');
-        
+        AppLogger.debug(
+          'São diferentes? ${_mapData!.backgroundImageUrl != _mockBackgroundImage}',
+          tag: 'PinMap',
+        );
+
         // Salvar os dados atualizados
         await _saveMapData();
-        
+
         // Aguardar um frame antes de chamar setState
         await Future.delayed(const Duration(milliseconds: 100));
-        
+
         if (mounted) {
           setState(() {}); // Refresh UI
           AppLogger.debug('setState chamado - forçando rebuild', tag: 'PinMap');
@@ -1487,7 +1346,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5), // Limit video length
       );
-      
+
       if (video != null && _mapData != null) {
         // Atualizar os dados do mapa com o vídeo
         _mapData = _mapData!.copyWith(
@@ -1495,12 +1354,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
           videoUrl: null, // Clear URL if using local path
           updatedAt: DateTime.now(),
         );
-        
+
         // Salvar os dados atualizados
         await _saveMapData();
-        
+
         setState(() {}); // Refresh UI
-        
+
         _showSuccessSnackBar('Vídeo adicionado com sucesso!');
       }
     } catch (e) {
@@ -1510,22 +1369,16 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   /// Mostra snackbar de erro
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 
   /// Mostra snackbar de sucesso
   void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green));
   }
 
   /// Mostra instruções sobre como usar mapas com pins
@@ -1551,33 +1404,33 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   'Modo de Edição',
                   'Clique no botão de edição (✏️) para começar a adicionar pins',
                 ),
-                
+
                 SizedBox(height: LayoutConstants.marginMd),
-                
+
                 _buildInstructionStep(
                   '2',
                   'Adicionar Pins',
                   'Toque em qualquer lugar do mapa para adicionar um pin com informações',
                 ),
-                
+
                 SizedBox(height: LayoutConstants.marginMd),
-                
+
                 _buildInstructionStep(
                   '3',
                   'Conteúdo dos Pins',
                   'Cada pin pode conter título, descrição, imagens e diferentes tipos de apresentação',
                 ),
-                
+
                 SizedBox(height: LayoutConstants.marginMd),
-                
+
                 _buildInstructionStep(
                   '4',
                   'Visualizar',
                   'Saia do modo de edição para tocar nos pins e ver as informações',
                 ),
-                
+
                 SizedBox(height: LayoutConstants.marginMd),
-                
+
                 Container(
                   padding: EdgeInsets.all(LayoutConstants.paddingMd),
                   decoration: BoxDecoration(
@@ -1608,10 +1461,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Entendi'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Entendi')),
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
@@ -1633,18 +1483,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         Container(
           width: 28,
           height: 28,
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle),
           child: Center(
             child: Text(
               number,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -1705,7 +1548,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
       } else {
         _controller = VideoPlayerController.file(File(widget.videoSource));
       }
-      
+
       await _controller.initialize();
       setState(() => _isInitialized = true);
       _controller.play();
@@ -1724,10 +1567,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(backgroundColor: Colors.transparent, foregroundColor: Colors.white),
       body: Center(
         child: _isInitialized
             ? AspectRatio(
@@ -1740,51 +1580,15 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
           ? FloatingActionButton(
               onPressed: () {
                 setState(() {
-                  _controller.value.isPlaying 
-                      ? _controller.pause() 
-                      : _controller.play();
+                  _controller.value.isPlaying ? _controller.pause() : _controller.play();
                 });
               },
-              child: Icon(
-                _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-              ),
+              child: Icon(_controller.value.isPlaying ? Icons.pause : Icons.play_arrow),
             )
           : null,
     );
   }
 
-  /// Mostra imagens do pin em modal fullscreen com carousel
-  void _showPinImages(MapPin pin) {
-    // Combinar URLs e paths locais
-    final allImageUrls = <String>[
-      ...pin.imageUrls,
-      ...pin.imagePaths,
-    ].where((url) => url.isNotEmpty).toList();
-
-    if (allImageUrls.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Este pin não possui imagens'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.9),
-      builder: (BuildContext context) {
-        return _FullScreenImageModal(
-          imageUrls: allImageUrls,
-          title: pin.title,
-          description: pin.description,
-        );
-      },
-    );
-  }
 }
 
 /// Modal fullscreen para visualização de imagens com carousel
@@ -1846,10 +1650,7 @@ class _FullScreenImageModalState extends State<_FullScreenImageModal> {
             if (hasMultipleImages)
               Text(
                 '${_currentIndex + 1} de ${widget.imageUrls.length}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
               ),
           ],
         ),
@@ -1887,16 +1688,21 @@ class _FullScreenImageModalState extends State<_FullScreenImageModal> {
                   minScale: 0.8,
                   child: OfflineImage(
                     key: ValueKey(imageUrl),
-                    networkUrl: imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:')) ? imageUrl : null,
-                    localPath: !(imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:'))) ? imageUrl : null,
+                    networkUrl:
+                        imageUrl.startsWith('http') ||
+                            (PlatformService.isWeb && imageUrl.startsWith('blob:'))
+                        ? imageUrl
+                        : null,
+                    localPath:
+                        !(imageUrl.startsWith('http') ||
+                            (PlatformService.isWeb && imageUrl.startsWith('blob:')))
+                        ? imageUrl
+                        : null,
                     fit: BoxFit.contain,
                     placeholder: Container(
                       color: Colors.black,
                       child: const Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       ),
                     ),
                     errorWidget: Container(
@@ -1905,11 +1711,7 @@ class _FullScreenImageModalState extends State<_FullScreenImageModal> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(
-                              Icons.image_not_supported,
-                              color: Colors.white54,
-                              size: 64,
-                            ),
+                            const Icon(Icons.image_not_supported, color: Colors.white54, size: 64),
                             const SizedBox(height: 16),
                             Text(
                               'Imagem não encontrada',
@@ -1944,8 +1746,8 @@ class _FullScreenImageModalState extends State<_FullScreenImageModal> {
                     height: 8,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: index == _currentIndex 
-                          ? Colors.white 
+                      color: index == _currentIndex
+                          ? Colors.white
                           : Colors.white.withValues(alpha: 0.4),
                     ),
                   ),
@@ -1967,10 +1769,7 @@ class _FullScreenImageModalState extends State<_FullScreenImageModal> {
                 ),
                 child: Text(
                   widget.description,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -1990,16 +1789,12 @@ class _FullScreenImageModalState extends State<_FullScreenImageModal> {
                   child: Container(
                     color: Colors.transparent,
                     child: const Center(
-                      child: Icon(
-                        Icons.chevron_left,
-                        color: Colors.white54,
-                        size: 48,
-                      ),
+                      child: Icon(Icons.chevron_left, color: Colors.white54, size: 48),
                     ),
                   ),
                 ),
               ),
-            
+
             // Área clicável direita
             if (_currentIndex < widget.imageUrls.length - 1)
               Positioned(
@@ -2012,11 +1807,7 @@ class _FullScreenImageModalState extends State<_FullScreenImageModal> {
                   child: Container(
                     color: Colors.transparent,
                     child: const Center(
-                      child: Icon(
-                        Icons.chevron_right,
-                        color: Colors.white54,
-                        size: 48,
-                      ),
+                      child: Icon(Icons.chevron_right, color: Colors.white54, size: 48),
                     ),
                   ),
                 ),
@@ -2058,20 +1849,12 @@ class _GridPainter extends CustomPainter {
 
     // Linhas verticais
     for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
     // Linhas horizontais
     for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
 
