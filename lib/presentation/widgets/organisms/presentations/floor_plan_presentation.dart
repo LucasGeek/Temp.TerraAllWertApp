@@ -100,6 +100,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     // Atualizar variáveis locais para compatibilidade com o resto do código existente
     _floorPlanData = floorPlanState.floorPlanData;
     _currentFloor = floorPlanState.currentFloor;
+
+    // CRÍTICO: Verificar se há pavimento atual disponível
+    if (_currentFloor == null || _floorPlanData!.floors.isEmpty) {
+      return _buildNoFloorsState();
+    }
     // _isLoading removido - agora gerenciado pelo provider
     _isEditingMarkers = floorPlanState.isEditingMarkers;
     _floorImageBytesMap.clear();
@@ -351,6 +356,54 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
             ),
             SizedBox(height: LayoutConstants.marginMd),
             ElevatedButton(onPressed: _loadFloorPlanData, child: const Text('Tentar Novamente')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Estado quando não há pavimentos
+  Widget _buildNoFloorsState() {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.apartment_outlined, size: 96, color: AppTheme.textSecondary),
+            SizedBox(height: LayoutConstants.marginLg),
+            Text(
+              'Nenhum pavimento configurado',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: LayoutConstants.fontSizeXLarge,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: LayoutConstants.marginMd),
+            Text(
+              'Adicione um pavimento para começar',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: LayoutConstants.fontSizeMedium,
+              ),
+            ),
+            SizedBox(height: LayoutConstants.marginXl),
+            ElevatedButton.icon(
+              onPressed: _addFloor,
+              icon: Icon(Icons.add, color: Colors.white),
+              label: Text(
+                'Adicionar Primeiro Pavimento',
+                style: TextStyle(color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                padding: EdgeInsets.symmetric(
+                  horizontal: LayoutConstants.paddingXl,
+                  vertical: LayoutConstants.paddingMd,
+                ),
+              ),
+            ),
           ],
         ),
       ),
