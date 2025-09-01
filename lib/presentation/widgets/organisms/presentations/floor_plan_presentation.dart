@@ -46,13 +46,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
   FloorPlanData? _floorPlanData;
   Floor? _currentFloor;
-  bool _isLoading = false;
   bool _isEditingMarkers = false;
   final Map<String, Uint8List> _floorImageBytesMap = {};
 
-  // Mock data para demonstração
-  final String _mockFloorPlan =
-      'https://via.placeholder.com/1000x700/F5F5F5/333333?text=Planta+do+Pavimento';
 
   @override
   void initState() {
@@ -71,7 +67,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
   /// Carrega os dados da planta do storage local
   Future<void> _loadFloorPlanData() async {
-    setState(() => _isLoading = true);
+    // Carregamento agora é gerenciado pelo provider
 
     try {
       final floorPlanData = await _floorPlanStorage.loadFloorPlanData(widget.route);
@@ -81,7 +77,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         final defaultFloor = Floor(
           id: _uuid.v4(),
           number: widget.floorNumber ?? '1º Pavimento',
-          floorPlanImageUrl: _mockFloorPlan,
+          floorPlanImageUrl: null,
           createdAt: DateTime.now(),
         );
 
@@ -105,7 +101,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       final defaultFloor = Floor(
         id: _uuid.v4(),
         number: widget.floorNumber ?? '1º Pavimento',
-        floorPlanImageUrl: _mockFloorPlan,
+        floorPlanImageUrl: null,
         createdAt: DateTime.now(),
       );
 
@@ -118,7 +114,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       _currentFloor = defaultFloor;
       _showErrorSnackBar('Aviso: Usando dados padrão - $e');
     } finally {
-      setState(() => _isLoading = false);
+      // Loading state é gerenciado pelo provider
     }
   }
 
@@ -154,7 +150,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     // Atualizar variáveis locais para compatibilidade com o resto do código existente
     _floorPlanData = floorPlanState.floorPlanData;
     _currentFloor = floorPlanState.currentFloor;
-    _isLoading = floorPlanState.isLoading;
+    // _isLoading removido - agora gerenciado pelo provider
     _isEditingMarkers = floorPlanState.isEditingMarkers;
     _floorImageBytesMap.clear();
     _floorImageBytesMap.addAll(floorPlanState.floorImageBytesMap);
@@ -314,7 +310,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     }
 
     final imagePath = _currentFloor!.floorPlanImagePath;
-    final imageUrl = _currentFloor!.floorPlanImageUrl ?? _mockFloorPlan;
+    final imageUrl = _currentFloor!.floorPlanImageUrl;
 
     if (!kIsWeb && imagePath != null && imagePath.isNotEmpty) {
       return Image.file(
@@ -322,6 +318,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         fit: BoxFit.cover, // ou BoxFit.contain
         errorBuilder: (context, error, stackTrace) => _buildImageError(),
       );
+    }
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return _buildImageError();
     }
 
     return imageUrl.startsWith('http')
@@ -554,7 +554,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   final newFloor = Floor(
                     id: _uuid.v4(),
                     number: nameController.text,
-                    floorPlanImageUrl: _mockFloorPlan,
+                    floorPlanImageUrl: null,
                     markers: [], // Inicializa com lista vazia de marcadores
                     createdAt: DateTime.now(),
                   );

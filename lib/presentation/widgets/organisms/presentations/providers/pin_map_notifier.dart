@@ -27,12 +27,12 @@ class PinMapNotifier extends StateNotifier<PinMapState> {
       final data = await _mapStorage.loadMapData(_route);
       
       state = state.copyWith(
-        mapData: data ?? _createMockMapData(),
+        mapData: data,
         isLoading: false,
       );
       
       AppLogger.debug(
-        'Dados do mapa carregados: ${state.mapData!.pins.length} pins',
+        'Dados do mapa carregados: ${state.mapData?.pins.length ?? 0} pins',
         tag: 'PinMap',
       );
     } catch (e) {
@@ -208,16 +208,6 @@ class PinMapNotifier extends StateNotifier<PinMapState> {
     state = state.clearError();
   }
 
-  /// Cria dados mock para demonstração
-  InteractiveMapData _createMockMapData() {
-    return InteractiveMapData(
-      id: _uuid.v4(),
-      routeId: _route,
-      backgroundImageUrl: 'https://via.placeholder.com/1200x800/E8F5E8/2E7D32?text=Mapa+Interativo',
-      pins: [],
-      createdAt: DateTime.now(),
-    );
-  }
 }
 
 /// Provider do StateNotifier

@@ -27,7 +27,7 @@ class FloorPlanNotifier extends StateNotifier<FloorPlanState> {
       final data = await _floorPlanStorage.loadFloorPlanData(_route);
       
       state = state.copyWith(
-        floorPlanData: data ?? _createMockFloorPlanData(),
+        floorPlanData: data,
         isLoading: false,
       );
 
@@ -205,21 +205,6 @@ class FloorPlanNotifier extends StateNotifier<FloorPlanState> {
     state = state.copyWith(error: null);
   }
 
-  /// Cria dados mock para demonstração
-  FloorPlanData _createMockFloorPlanData() {
-    return FloorPlanData(
-      id: _uuid.v4(),
-      routeId: _route,
-      floors: [
-        Floor(
-          id: _uuid.v4(),
-          number: 'Pavimento Modelo',
-          floorPlanImagePath: null,
-          markers: [],
-        ),
-      ],
-    );
-  }
 }
 
 /// Provider do StateNotifier

@@ -160,7 +160,7 @@ class UniversalStorageService {
         StorageLogger.debug('Secure string stored: $key (SecureStorage)');
       } else {
         // Web: fallback para SharedPreferences
-        await _prefs!.setString(_keyPrefix + 'secure_' + key, value);
+        await _prefs!.setString('${_keyPrefix}secure_$key', value);
         StorageLogger.debug('Secure string stored: $key (SharedPreferences fallback)');
       }
     } catch (e, stackTrace) {
@@ -181,7 +181,7 @@ class UniversalStorageService {
         StorageLogger.debug('Secure string retrieved: $key ${value != null ? '(found)' : '(not found)'} (SecureStorage)');
       } else {
         // Web: fallback para SharedPreferences
-        value = _prefs!.getString(_keyPrefix + 'secure_' + key);
+        value = _prefs!.getString('${_keyPrefix}secure_$key');
         StorageLogger.debug('Secure string retrieved: $key ${value != null ? '(found)' : '(not found)'} (SharedPreferences fallback)');
       }
       
@@ -201,7 +201,7 @@ class UniversalStorageService {
         await _secureStorage!.delete(key: _keyPrefix + key);
         StorageLogger.debug('Secure string removed: $key (SecureStorage)');
       } else {
-        await _prefs!.remove(_keyPrefix + 'secure_' + key);
+        await _prefs!.remove('${_keyPrefix}secure_$key');
         StorageLogger.debug('Secure string removed: $key (SharedPreferences fallback)');
       }
     } catch (e, stackTrace) {
@@ -217,7 +217,7 @@ class UniversalStorageService {
     try {
       await _ensureInitialized();
       final jsonString = jsonEncode(value);
-      await _prefs!.setString(_keyPrefix + 'json_' + key, jsonString);
+      await _prefs!.setString('${_keyPrefix}json_$key', jsonString);
       StorageLogger.debug('JSON stored: $key (${jsonString.length} chars)');
     } catch (e, stackTrace) {
       StorageLogger.error('Failed to store JSON: $key', error: e, stackTrace: stackTrace);
@@ -229,7 +229,7 @@ class UniversalStorageService {
   Future<Map<String, dynamic>?> getJson(String key) async {
     try {
       await _ensureInitialized();
-      final jsonString = _prefs!.getString(_keyPrefix + 'json_' + key);
+      final jsonString = _prefs!.getString('${_keyPrefix}json_$key');
       
       if (jsonString == null) {
         StorageLogger.debug('JSON retrieved: $key (not found)');
@@ -250,7 +250,7 @@ class UniversalStorageService {
     try {
       await _ensureInitialized();
       final jsonString = jsonEncode(value);
-      await _prefs!.setString(_keyPrefix + 'json_list_' + key, jsonString);
+      await _prefs!.setString('${_keyPrefix}json_list_$key', jsonString);
       StorageLogger.debug('JSON list stored: $key (${value.length} items, ${jsonString.length} chars)');
     } catch (e, stackTrace) {
       StorageLogger.error('Failed to store JSON list: $key', error: e, stackTrace: stackTrace);
@@ -262,7 +262,7 @@ class UniversalStorageService {
   Future<List<Map<String, dynamic>>?> getJsonList(String key) async {
     try {
       await _ensureInitialized();
-      final jsonString = _prefs!.getString(_keyPrefix + 'json_list_' + key);
+      final jsonString = _prefs!.getString('${_keyPrefix}json_list_$key');
       
       if (jsonString == null) {
         StorageLogger.debug('JSON list retrieved: $key (not found)');

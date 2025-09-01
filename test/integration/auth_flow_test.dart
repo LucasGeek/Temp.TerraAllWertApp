@@ -5,21 +5,21 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:terra_allwert_app/domain/entities/auth_token.dart';
 import 'package:terra_allwert_app/domain/entities/user.dart';
-import 'package:terra_allwert_app/infra/graphql/auth_service.dart';
+import 'package:terra_allwert_app/infra/graphql/smart_auth_service.dart';
 import 'package:terra_allwert_app/data/repositories/auth_repository_impl.dart';
 import 'package:terra_allwert_app/presentation/features/auth/presentation/pages/login_page.dart';
 
-class MockGraphQLAuthService extends Mock implements GraphQLAuthService {}
+class MockSmartAuthService extends Mock implements SmartAuthService {}
 
 void main() {
-  late MockGraphQLAuthService mockAuthService;
+  late MockSmartAuthService mockAuthService;
 
   setUpAll(() {
     // Register fallback values if needed
   });
 
   setUp(() {
-    mockAuthService = MockGraphQLAuthService();
+    mockAuthService = MockSmartAuthService();
   });
 
   group('Auth Integration Tests', () {

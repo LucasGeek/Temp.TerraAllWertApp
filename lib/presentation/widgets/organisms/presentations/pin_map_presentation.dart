@@ -46,33 +46,29 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   InteractiveMapData? _mapData;
   MapPin? _selectedPin;
   bool _isEditMode = false;
-  bool _isLoading = false;
   bool _hasError = false;
   bool _isZoomed = false;
   VideoPlayerController? _videoController;
 
-  // Mock data para demonstração
-  final String _mockBackgroundImage =
-      'https://via.placeholder.com/1200x800/E8F5E8/2E7D32?text=Mapa+Interativo';
 
   @override
   void initState() {
     super.initState();
-    
+
     // Carregar dados usando o provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(pinMapNotifierProvider(widget.route).notifier).loadMapData();
     });
-    
+
     // Listener para detectar zoom
     _transformationController.addListener(_onTransformationChanged);
   }
-  
+
   void _onTransformationChanged() {
     final matrix = _transformationController.value;
     final currentScale = matrix.getMaxScaleOnAxis();
     final isCurrentlyZoomed = currentScale > 1.0;
-    
+
     if (isCurrentlyZoomed != _isZoomed) {
       ref.read(pinMapNotifierProvider(widget.route).notifier).setZoomed(isCurrentlyZoomed);
     }
@@ -89,7 +85,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   /// Carrega os dados do mapa do storage local
   Future<void> _loadMapData() async {
     setState(() {
-      _isLoading = true;
+      // Loading agora é gerenciado pelo provider
       _hasError = false;
     });
 
@@ -101,7 +97,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         _mapData = InteractiveMapData(
           id: _uuid.v4(),
           routeId: widget.route,
-          backgroundImageUrl: widget.backgroundImageUrl ?? _mockBackgroundImage,
+          backgroundImageUrl: widget.backgroundImageUrl,
           pins: [],
           createdAt: DateTime.now(),
         );
@@ -113,13 +109,13 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       _mapData = InteractiveMapData(
         id: _uuid.v4(),
         routeId: widget.route,
-        backgroundImageUrl: widget.backgroundImageUrl ?? _mockBackgroundImage,
+        backgroundImageUrl: widget.backgroundImageUrl,
         pins: [],
         createdAt: DateTime.now(),
       );
       _showErrorSnackBar('Aviso: Usando dados padrão - $e');
     } finally {
-      setState(() => _isLoading = false);
+      // Loading state é gerenciado pelo provider
     }
   }
 
@@ -143,16 +139,16 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   Widget build(BuildContext context) {
     // Usar o provider para obter o estado atual
     final pinMapState = ref.watch(pinMapStateProvider(widget.route));
-    
+
     // Atualizar variáveis locais para compatibilidade com o resto do código existente
     _mapData = pinMapState.mapData;
     _selectedPin = pinMapState.selectedPin;
     _isEditMode = pinMapState.isEditMode;
-    _isLoading = pinMapState.isLoading;
+    // _isLoading removido - agora gerenciado pelo provider
     _hasError = pinMapState.hasError;
     _isZoomed = pinMapState.isZoomed;
     _videoController = pinMapState.videoController;
-    
+
     if (pinMapState.isLoading) {
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
@@ -184,7 +180,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     final hasCustomBackgroundImage =
         _mapData!.backgroundImageUrl != null &&
         _mapData!.backgroundImageUrl!.isNotEmpty &&
-        _mapData!.backgroundImageUrl != _mockBackgroundImage;
+        _mapData!.backgroundImageUrl != null && _mapData!.backgroundImageUrl!.isNotEmpty;
 
     if (_mapData!.pins.isEmpty && !hasCustomBackgroundImage && !_isEditMode) {
       return _buildEmptyState();
@@ -225,8 +221,10 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                             // Pins (ocultos durante zoom)
                             if (!_isZoomed)
                               ..._mapData!.pins.map(
-                                (pin) =>
-                                    _buildPin(pin, BoxConstraints.tight(Size(safeWidth, safeHeight))),
+                                (pin) => _buildPin(
+                                  pin,
+                                  BoxConstraints.tight(Size(safeWidth, safeHeight)),
+                                ),
                               ),
                           ],
                         ),
@@ -258,16 +256,16 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   /// Constrói a imagem de fundo do mapa
   Widget _buildBackgroundImage() {
-    final imageUrl = _mapData!.backgroundImageUrl ?? _mockBackgroundImage;
-    final isMockImage = imageUrl == _mockBackgroundImage;
+    final imageUrl = _mapData!.backgroundImageUrl;
+    final hasImage = imageUrl != null && imageUrl.isNotEmpty;
 
     AppLogger.debug('BUILD imageUrl: $imageUrl', tag: 'PinMap');
-    AppLogger.debug('BUILD _mockBackgroundImage: $_mockBackgroundImage', tag: 'PinMap');
-    AppLogger.debug('BUILD isMockImage: $isMockImage', tag: 'PinMap');
+    AppLogger.debug('BUILD imageUrl: $imageUrl', tag: 'PinMap');
+    AppLogger.debug('BUILD hasImage: $hasImage', tag: 'PinMap');
     AppLogger.debug('BUILD _isEditMode: $_isEditMode', tag: 'PinMap');
 
-    // Se for imagem mock e estiver em modo edição, mostra instruções
-    if (isMockImage && _isEditMode) {
+    // Se não tiver imagem e estiver em modo edição, mostra instruções
+    if (!hasImage && _isEditMode) {
       return Container(
         color: AppTheme.primaryColor.withValues(alpha: 0.05),
         child: Stack(
@@ -322,8 +320,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     }
 
     // Para web, blob URLs devem ser passados como networkUrl
-    final isHttpUrl = imageUrl.startsWith('http');
-    final isBlobUrl = imageUrl.startsWith('blob:');
+    final isHttpUrl = imageUrl?.startsWith('http') ?? false;
+    final isBlobUrl = imageUrl?.startsWith('blob:') ?? false;
     final shouldUseNetworkUrl = isHttpUrl || (PlatformService.isWeb && isBlobUrl);
 
     AppLogger.debug(
@@ -552,7 +550,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection(),
+                  onPressed: () =>
+                      ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection(),
                   icon: Icon(Icons.close, color: AppTheme.textSecondary),
                 ),
               ],
@@ -629,7 +628,6 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
               ],
             ),
           ),
-
 
           // Conteúdo central
           Positioned.fill(
@@ -793,17 +791,17 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
             onPressed: _changeBackgroundImage,
             tooltip: 'Alterar imagem de fundo',
           ),
-          
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           _buildControlButton(
             icon: Icons.videocam,
             onPressed: _uploadVideo,
             tooltip: 'Adicionar vídeo',
           ),
-          
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           _buildControlButton(
             icon: Icons.fit_screen,
             onPressed: _resetZoom,
@@ -862,7 +860,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     final hasCustomBackgroundImage =
         _mapData!.backgroundImageUrl != null &&
         _mapData!.backgroundImageUrl!.isNotEmpty &&
-        _mapData!.backgroundImageUrl != _mockBackgroundImage;
+        _mapData!.backgroundImageUrl != null && _mapData!.backgroundImageUrl!.isNotEmpty;
 
     // Se não há imagem customizada, abre modal para alterar imagem de fundo
     if (!hasCustomBackgroundImage) {
@@ -903,7 +901,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     final hasBackgroundImage =
         _mapData?.backgroundImageUrl != null &&
         _mapData!.backgroundImageUrl!.isNotEmpty &&
-        _mapData!.backgroundImageUrl != _mockBackgroundImage;
+        _mapData!.backgroundImageUrl != null && _mapData!.backgroundImageUrl!.isNotEmpty;
 
     return showDialog<void>(
       context: context,
@@ -1043,9 +1041,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed:
-                      titleController.text.isNotEmpty &&
-                          imageUrls.isNotEmpty
+                  onPressed: titleController.text.isNotEmpty && imageUrls.isNotEmpty
                       ? () {
                           _addPin(
                             x,
@@ -1269,16 +1265,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 300),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
+          return FadeTransition(opacity: animation, child: child);
         },
       ),
     );
   }
-
-
 
   /// Mostra o vídeo em tela fullscreen
   void _showVideo() {
@@ -1288,14 +1279,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => _VideoPlayerScreen(videoSource: videoSource),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            _VideoPlayerScreen(videoSource: videoSource),
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 300),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
+          return FadeTransition(opacity: animation, child: child);
         },
       ),
     );
@@ -1354,9 +1343,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         );
 
         AppLogger.debug('_mapData atualizado: ${_mapData!.backgroundImageUrl}', tag: 'PinMap');
-        AppLogger.debug('_mockBackgroundImage: $_mockBackgroundImage', tag: 'PinMap');
+        AppLogger.debug('backgroundImageUrl: ${_mapData!.backgroundImageUrl}', tag: 'PinMap');
         AppLogger.debug(
-          'São diferentes? ${_mapData!.backgroundImageUrl != _mockBackgroundImage}',
+          'Tem imagem? ${_mapData!.backgroundImageUrl != null && _mapData!.backgroundImageUrl!.isNotEmpty}',
           tag: 'PinMap',
         );
 
@@ -1386,13 +1375,13 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   Future<void> _uploadVideo() async {
     _showVideoConfigDialog();
   }
-  
+
   /// Modal para configuração de vídeo com título e opção de remover
   void _showVideoConfigDialog() {
     final hasExistingVideo = _mapData?.videoUrl != null || _mapData?.videoPath != null;
     final titleController = TextEditingController(text: _mapData?.videoTitle ?? '');
     final urlController = TextEditingController(text: _mapData?.videoUrl ?? '');
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1413,7 +1402,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 ),
               ),
               SizedBox(height: 16),
-              
+
               // Campo de URL
               TextField(
                 controller: urlController,
@@ -1424,7 +1413,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 ),
                 maxLines: 3,
               ),
-              
+
               if (hasExistingVideo) ...[
                 SizedBox(height: 16),
                 Container(
@@ -1453,10 +1442,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
               icon: Icon(Icons.delete, color: Colors.red),
               label: Text('Remover Vídeo', style: TextStyle(color: Colors.red)),
             ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text('Cancelar')),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1467,7 +1453,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
               ),
               SizedBox(width: 8),
               ElevatedButton.icon(
-                onPressed: () => _saveVideoFromUrl(context, titleController.text, urlController.text),
+                onPressed: () =>
+                    _saveVideoFromUrl(context, titleController.text, urlController.text),
                 icon: Icon(Icons.link),
                 label: Text('Salvar URL'),
               ),
@@ -1477,7 +1464,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       ),
     );
   }
-  
+
   /// Remove o vídeo configurado
   void _removeVideo(BuildContext dialogContext) async {
     if (_mapData != null) {
@@ -1487,16 +1474,16 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         videoTitle: null,
         updatedAt: DateTime.now(),
       );
-      
+
       await _saveMapData();
       if (mounted) {
         setState(() {});
-        Navigator.of(dialogContext).pop();
+        Navigator.of(context).pop();
         _showSuccessSnackBar('Vídeo removido com sucesso!');
       }
     }
   }
-  
+
   /// Seleciona vídeo da galeria
   void _pickVideoFromGallery(BuildContext dialogContext, String title) async {
     try {
@@ -1504,7 +1491,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5),
       );
-      
+
       if (video != null && _mapData != null && mounted) {
         _mapData = _mapData!.copyWith(
           videoPath: video.path,
@@ -1512,11 +1499,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
           videoTitle: title.trim().isEmpty ? 'Vídeo do mapa' : title.trim(),
           updatedAt: DateTime.now(),
         );
-        
+
         await _saveMapData();
         if (mounted) {
           setState(() {});
-          Navigator.of(dialogContext).pop();
+          Navigator.of(context).pop();
           _showSuccessSnackBar('Vídeo adicionado com sucesso!');
         }
       }
@@ -1526,7 +1513,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       }
     }
   }
-  
+
   /// Salva vídeo através de URL
   void _saveVideoFromUrl(BuildContext dialogContext, String title, String url) async {
     if (url.trim().isEmpty) {
@@ -1535,7 +1522,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       }
       return;
     }
-    
+
     if (_mapData != null && mounted) {
       _mapData = _mapData!.copyWith(
         videoUrl: url.trim(),
@@ -1543,11 +1530,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         videoTitle: title.trim().isEmpty ? 'Vídeo do mapa' : title.trim(),
         updatedAt: DateTime.now(),
       );
-      
+
       await _saveMapData();
       if (mounted) {
         setState(() {});
-        Navigator.of(dialogContext).pop();
+        Navigator.of(context).pop();
         _showSuccessSnackBar('Vídeo configurado com sucesso!');
       }
     }
@@ -1765,23 +1752,23 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                 child: VideoPlayer(_controller!),
               )
             : _controller == null && !_isInitialized
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, color: Colors.red, size: 48),
-                      SizedBox(height: 16),
-                      Text(
-                        'Erro ao carregar vídeo',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Verifique a URL ou tente novamente',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                    ],
-                  )
-                : const CircularProgressIndicator(),
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  SizedBox(height: 16),
+                  Text(
+                    'Erro ao carregar vídeo',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Verifique a URL ou tente novamente',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
+              )
+            : const CircularProgressIndicator(),
       ),
       floatingActionButton: _isInitialized && _controller != null
           ? FloatingActionButton(
@@ -1795,7 +1782,6 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
           : null,
     );
   }
-
 }
 
 /// Modal fullscreen para visualização de imagens com carousel
