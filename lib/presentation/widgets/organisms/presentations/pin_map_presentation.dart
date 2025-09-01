@@ -51,7 +51,6 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   bool _isZoomed = false;
   VideoPlayerController? _videoController;
 
-
   @override
   void initState() {
     super.initState();
@@ -181,7 +180,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     final hasCustomBackgroundImage =
         _mapData!.backgroundImageUrl != null &&
         _mapData!.backgroundImageUrl!.isNotEmpty &&
-        _mapData!.backgroundImageUrl != null && _mapData!.backgroundImageUrl!.isNotEmpty;
+        _mapData!.backgroundImageUrl != null &&
+        _mapData!.backgroundImageUrl!.isNotEmpty;
 
     if (_mapData!.pins.isEmpty && !hasCustomBackgroundImage && !_isEditMode) {
       return _buildEmptyState();
@@ -305,7 +305,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                       ),
                       SizedBox(height: LayoutConstants.marginSm),
                       Text(
-                        'Ou clique no botão 🖼️ no AppBar\npara adicionar uma imagem de fundo',
+                        'Ou clique no botão 🖼️\npara adicionar uma imagem de fundo',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: LayoutConstants.fontSizeMedium,
@@ -348,63 +348,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       }
     }
 
-    // Se chegou aqui, hasImage é true
-    if (_isEditMode) {
-      return Container(
-        color: AppTheme.primaryColor.withValues(alpha: 0.05),
-        child: Stack(
-          children: [
-            // Pattern de fundo para indicar área tocável
-            CustomPaint(size: Size.infinite, painter: _GridPainter()),
-
-            // Instruções centralizadas
-            Center(
-              child: Container(
-                padding: EdgeInsets.all(LayoutConstants.paddingLg),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceColor.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.touch_app, size: 48, color: AppTheme.primaryColor),
-                    SizedBox(height: LayoutConstants.marginMd),
-                    Text(
-                      'Toque aqui para adicionar pins',
-                      style: TextStyle(
-                        fontSize: LayoutConstants.fontSizeLarge,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: LayoutConstants.marginSm),
-                    Text(
-                      'Ou clique no botão 🖼️ no AppBar\npara adicionar uma imagem de fundo',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: LayoutConstants.fontSizeMedium,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+    // Se chegou aqui, hasImage é true - sempre mostrar a imagem
     // Para web, blob URLs devem ser passados como networkUrl
-    // Neste ponto, imageUrl não pode ser null pois hasImage é true
     final isHttpUrl = imageUrl.startsWith('http');
     final isBlobUrl = imageUrl.startsWith('blob:');
     final shouldUseNetworkUrl = isHttpUrl || (PlatformService.isWeb && isBlobUrl);
@@ -414,12 +359,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       tag: 'PinMap',
     );
 
-    return OfflineImage(
-      key: ValueKey('${imageUrl}_${_mapData!.updatedAt?.millisecondsSinceEpoch}'), // Force rebuild quando dados mudam
+    Widget imageWidget = OfflineImage(
+      key: ValueKey('${imageUrl}_${_mapData!.updatedAt?.millisecondsSinceEpoch}'),
       networkUrl: shouldUseNetworkUrl ? imageUrl : null,
       localPath: !shouldUseNetworkUrl ? imageUrl : null,
       fit: BoxFit.fill,
-      enableCaching: false, // Disable cache para permitir refresh de imagens
+      enableCaching: false,
       placeholder: Container(
         color: AppTheme.surfaceColor,
         child: Center(
@@ -447,25 +392,76 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
             Icon(Icons.map_outlined, size: 80, color: AppTheme.primaryColor),
             SizedBox(height: LayoutConstants.marginMd),
             Text(
-              'Imagem do mapa não disponível',
+              'Erro ao carregar mapa',
               style: TextStyle(
-                color: AppTheme.onSurface,
                 fontSize: LayoutConstants.fontSizeLarge,
-                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
               ),
             ),
             SizedBox(height: LayoutConstants.marginSm),
             Text(
-              'Usando visualização padrão de mapa',
+              'Toque para tentar novamente',
               style: TextStyle(
+                fontSize: LayoutConstants.fontSizeSmall,
                 color: AppTheme.textSecondary,
-                fontSize: LayoutConstants.fontSizeMedium,
               ),
             ),
           ],
         ),
       ),
     );
+
+    // Se está no modo de edição, adicionar sobreposição com instruções transparentes
+    if (_isEditMode) {
+      return Stack(
+        fit: StackFit.expand, // Garantir que o Stack expanda para preencher o espaço
+        children: [
+          // A imagem de fundo que preenche todo o espaço
+          Positioned.fill(child: imageWidget),
+          // Sobreposição sutil com instruções de edição
+          Positioned(
+            top: 20,
+            right: 20,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: LayoutConstants.paddingMd,
+                vertical: LayoutConstants.paddingSm,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.touch_app, size: 20, color: AppTheme.primaryColor),
+                  SizedBox(width: LayoutConstants.marginSm),
+                  Text(
+                    'Toque para adicionar pins',
+                    style: TextStyle(
+                      fontSize: LayoutConstants.fontSizeSmall,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Modo normal: apenas a imagem
+    return imageWidget;
   }
 
   /// Constrói os botões flutuantes fixos
@@ -946,7 +942,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     final hasCustomBackgroundImage =
         _mapData!.backgroundImageUrl != null &&
         _mapData!.backgroundImageUrl!.isNotEmpty &&
-        _mapData!.backgroundImageUrl != null && _mapData!.backgroundImageUrl!.isNotEmpty;
+        _mapData!.backgroundImageUrl != null &&
+        _mapData!.backgroundImageUrl!.isNotEmpty;
 
     // Se não há imagem customizada, abre modal para alterar imagem de fundo
     if (!hasCustomBackgroundImage) {
@@ -969,9 +966,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     if (_isEditMode) {
       _editPin(pin);
     } else {
-      setState(() {
-        _selectedPin = _selectedPin?.id == pin.id ? null : pin;
-      });
+      // CORREÇÃO: Usar o provider para selecionar/deselecionar pin
+      if (_selectedPin?.id == pin.id) {
+        ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection();
+      } else {
+        ref.read(pinMapNotifierProvider(widget.route).notifier).selectPin(pin);
+      }
     }
   }
 
@@ -987,7 +987,8 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     final hasBackgroundImage =
         _mapData?.backgroundImageUrl != null &&
         _mapData!.backgroundImageUrl!.isNotEmpty &&
-        _mapData!.backgroundImageUrl != null && _mapData!.backgroundImageUrl!.isNotEmpty;
+        _mapData!.backgroundImageUrl != null &&
+        _mapData!.backgroundImageUrl!.isNotEmpty;
 
     return showDialog<void>(
       context: context,
@@ -1030,7 +1031,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 ),
                 SizedBox(height: LayoutConstants.marginMd),
                 Text(
-                  '1. Clique no botão 🖼️ no AppBar (parte superior) para adicionar uma imagem de fundo do mapa\n'
+                  '1. Clique no botão 🖼️ na parte superior para adicionar uma imagem de fundo do mapa\n'
                   '2. Após adicionar a imagem, você poderá tocar nela para adicionar pins',
                   style: TextStyle(fontSize: LayoutConstants.fontSizeMedium, height: 1.4),
                 ),
@@ -1039,7 +1040,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   'Agora você pode:\n'
                   '• Tocar na imagem do mapa para adicionar pins\n'
                   '• Tocar em pins existentes para editá-los\n'
-                  '• Usar o botão 🖼️ no AppBar para trocar a imagem de fundo',
+                  '• Usar o botão 🖼️ para trocar a imagem de fundo',
                   style: TextStyle(fontSize: LayoutConstants.fontSizeMedium, height: 1.4),
                 ),
               ],
@@ -1128,8 +1129,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 ),
                 ElevatedButton(
                   onPressed: titleController.text.isNotEmpty && imageUrls.isNotEmpty
-                      ? () {
-                          _addPin(
+                      ? () async {
+                          final navigator = Navigator.of(context);
+                          await _addPin(
                             x,
                             y,
                             titleController.text,
@@ -1137,7 +1139,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                             contentType,
                             imageUrls,
                           );
-                          Navigator.of(context).pop();
+                          navigator.pop();
                         }
                       : null,
                   child: const Text('Adicionar'),
@@ -1151,28 +1153,38 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   }
 
   /// Adiciona um novo pin
-  void _addPin(
+  Future<void> _addPin(
     double x,
     double y,
     String title,
     String description,
     PinContentType contentType,
     List<String> imageUrls,
-  ) {
-    final newPin = MapPin(
-      id: _uuid.v4(),
-      title: title,
-      description: description,
-      positionX: x,
-      positionY: y,
-      contentType: contentType,
-      imageUrls: imageUrls,
-      createdAt: DateTime.now(),
-    );
+  ) async {
+    try {
+      // CORREÇÃO: Usar o provider para adicionar o pin
+      await ref
+          .read(pinMapNotifierProvider(widget.route).notifier)
+          .addPin(
+            title: title,
+            description: description,
+            positionX: x,
+            positionY: y,
+            contentType: contentType,
+            imageUrls: imageUrls,
+          );
 
-    setState(() {
-      _mapData = _mapData!.copyWith(pins: [..._mapData!.pins, newPin]);
-    });
+      // Mostrar feedback de sucesso
+      if (mounted) {
+        SnackbarNotification.showSuccess('Pin adicionado com sucesso!');
+      }
+    } catch (e) {
+      // Mostrar feedback de erro
+      if (mounted) {
+        SnackbarNotification.showError('Erro ao adicionar pin: $e');
+      }
+      AppLogger.error('Erro ao adicionar pin: $e', tag: 'PinMap');
+    }
   }
 
   /// Edita um pin existente
@@ -1245,15 +1257,16 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    _updatePin(
+                  onPressed: () async {
+                    final navigator = Navigator.of(context);
+                    await _updatePin(
                       pin.id,
                       titleController.text,
                       descriptionController.text,
                       contentType,
                       imageUrls,
                     );
-                    Navigator.of(context).pop();
+                    navigator.pop();
                     ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection();
                   },
                   child: const Text('Salvar'),
@@ -1267,29 +1280,40 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   }
 
   /// Atualiza um pin existente
-  void _updatePin(
+  Future<void> _updatePin(
     String pinId,
     String title,
     String description,
     PinContentType contentType,
     List<String> imageUrls,
-  ) {
-    setState(() {
-      _mapData = _mapData!.copyWith(
-        pins: _mapData!.pins.map((pin) {
-          if (pin.id == pinId) {
-            return pin.copyWith(
-              title: title,
-              description: description,
-              contentType: contentType,
-              imageUrls: imageUrls,
-              updatedAt: DateTime.now(),
-            );
-          }
-          return pin;
-        }).toList(),
+  ) async {
+    try {
+      // Encontrar o pin atual para preservar dados não modificados
+      final currentPin = _mapData!.pins.firstWhere((pin) => pin.id == pinId);
+
+      // Criar pin atualizado
+      final updatedPin = currentPin.copyWith(
+        title: title,
+        description: description,
+        contentType: contentType,
+        imageUrls: imageUrls,
+        updatedAt: DateTime.now(),
       );
-    });
+
+      // CORREÇÃO: Usar o provider para atualizar o pin
+      await ref.read(pinMapNotifierProvider(widget.route).notifier).updatePin(updatedPin);
+
+      // Mostrar feedback de sucesso
+      if (mounted) {
+        SnackbarNotification.showSuccess('Pin atualizado com sucesso!');
+      }
+    } catch (e) {
+      // Mostrar feedback de erro
+      if (mounted) {
+        SnackbarNotification.showError('Erro ao atualizar pin: $e');
+      }
+      AppLogger.error('Erro ao atualizar pin: $e', tag: 'PinMap');
+    }
   }
 
   /// Exclui um pin
@@ -1303,14 +1327,30 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _mapData = _mapData!.copyWith(
-                    pins: _mapData!.pins.where((p) => p.id != pin.id).toList(),
-                  );
-                  _selectedPin = null;
-                });
-                Navigator.of(context).pop();
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                try {
+                  // CORREÇÃO: Usar o provider para remover o pin
+                  await ref.read(pinMapNotifierProvider(widget.route).notifier).removePin(pin.id);
+
+                  // Limpar seleção
+                  ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection();
+
+                  navigator.pop();
+
+                  // Mostrar feedback de sucesso
+                  if (mounted) {
+                    SnackbarNotification.showSuccess('Pin removido com sucesso!');
+                  }
+                } catch (e) {
+                  navigator.pop();
+
+                  // Mostrar feedback de erro
+                  if (mounted) {
+                    SnackbarNotification.showError('Erro ao remover pin: $e');
+                  }
+                  AppLogger.error('Erro ao remover pin: $e', tag: 'PinMap');
+                }
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text('Excluir', style: TextStyle(color: Colors.white)),
@@ -1423,9 +1463,11 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         }
 
         // Atualizar usando o provider ao invés de setState local
-        await ref.read(pinMapNotifierProvider(widget.route).notifier).updateMapData(
-          backgroundImageUrl: image.path, // Use local path ou blob URL
-        );
+        await ref
+            .read(pinMapNotifierProvider(widget.route).notifier)
+            .updateMapData(
+              backgroundImageUrl: image.path, // Use local path ou blob URL
+            );
 
         AppLogger.debug('Imagem de fundo atualizada via provider: ${image.path}', tag: 'PinMap');
 
@@ -1611,7 +1653,6 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       }
     }
   }
-
 
   /// Mostra instruções sobre como usar mapas com pins
   Future<void> _showEmptyMapInstructions() async {
