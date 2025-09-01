@@ -1752,6 +1752,298 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
           : null,
     );
   }
+
+  /// Mostra imagens do pin em modal fullscreen com carousel
+  void _showPinImages(MapPin pin) {
+    // Combinar URLs e paths locais
+    final allImageUrls = <String>[
+      ...pin.imageUrls,
+      ...pin.imagePaths,
+    ].where((url) => url.isNotEmpty).toList();
+
+    if (allImageUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Este pin não possui imagens'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (BuildContext context) {
+        return _FullScreenImageModal(
+          imageUrls: allImageUrls,
+          title: pin.title,
+          description: pin.description,
+        );
+      },
+    );
+  }
+}
+
+/// Modal fullscreen para visualização de imagens com carousel
+class _FullScreenImageModal extends StatefulWidget {
+  final List<String> imageUrls;
+  final String title;
+  final String description;
+
+  const _FullScreenImageModal({
+    required this.imageUrls,
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  State<_FullScreenImageModal> createState() => _FullScreenImageModalState();
+}
+
+class _FullScreenImageModalState extends State<_FullScreenImageModal> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasMultipleImages = widget.imageUrls.length > 1;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (hasMultipleImages)
+              Text(
+                '${_currentIndex + 1} de ${widget.imageUrls.length}',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          if (hasMultipleImages && _currentIndex > 0)
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: Colors.white, size: 32),
+              onPressed: _previousImage,
+            ),
+          if (hasMultipleImages && _currentIndex < widget.imageUrls.length - 1)
+            IconButton(
+              icon: const Icon(Icons.chevron_right, color: Colors.white, size: 32),
+              onPressed: _nextImage,
+            ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Carousel de imagens
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemCount: widget.imageUrls.length,
+            itemBuilder: (context, index) {
+              final imageUrl = widget.imageUrls[index];
+              return SizedBox(
+                width: double.infinity,
+                height: double.infinity,
+                child: InteractiveViewer(
+                  maxScale: 3.0,
+                  minScale: 0.8,
+                  child: OfflineImage(
+                    key: ValueKey(imageUrl),
+                    networkUrl: imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:')) ? imageUrl : null,
+                    localPath: !(imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:'))) ? imageUrl : null,
+                    fit: BoxFit.contain,
+                    placeholder: Container(
+                      color: Colors.black,
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                    errorWidget: Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.image_not_supported,
+                              color: Colors.white54,
+                              size: 64,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Imagem não encontrada',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: LayoutConstants.fontSizeMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Indicadores de páginas (dots) - apenas se múltiplas imagens
+          if (hasMultipleImages)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 24,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  widget.imageUrls.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentIndex 
+                          ? Colors.white 
+                          : Colors.white.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Descrição no bottom (se houver)
+          if (widget.description.isNotEmpty)
+            Positioned(
+              bottom: hasMultipleImages ? 80 : 40,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: EdgeInsets.all(LayoutConstants.paddingMd),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(LayoutConstants.radiusMedium),
+                ),
+                child: Text(
+                  widget.description,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+
+          // Navegação por gestos - setas laterais para múltiplas imagens
+          if (hasMultipleImages) ...[
+            // Área clicável esquerda
+            if (_currentIndex > 0)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 60,
+                child: GestureDetector(
+                  onTap: _previousImage,
+                  child: Container(
+                    color: Colors.transparent,
+                    child: const Center(
+                      child: Icon(
+                        Icons.chevron_left,
+                        color: Colors.white54,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            
+            // Área clicável direita
+            if (_currentIndex < widget.imageUrls.length - 1)
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 60,
+                child: GestureDetector(
+                  onTap: _nextImage,
+                  child: Container(
+                    color: Colors.transparent,
+                    child: const Center(
+                      child: Icon(
+                        Icons.chevron_right,
+                        color: Colors.white54,
+                        size: 48,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _previousImage() {
+    if (_currentIndex > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _nextImage() {
+    if (_currentIndex < widget.imageUrls.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 }
 
 /// Custom painter para desenhar grid no fundo
