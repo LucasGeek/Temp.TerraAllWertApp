@@ -7,6 +7,7 @@ import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/dynamic/pages/dynamic_page.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/navigation/providers/navigation_provider.dart';
+import '../features/navigation/providers/current_route_provider.dart';
 import '../widgets/templates/main_layout.dart';
 import '../../infra/logging/app_logger.dart';
 
@@ -244,25 +245,51 @@ String? _redirectHandler(BuildContext context, GoRouterState state, Ref ref) {
     final authState = ref.read(authControllerProvider);
     final isAuthenticated = authState.value != null;
     final currentPath = state.uri.path;
+    final navigationItems = ref.read(navigationItemsProvider);
+    final currentRoute = ref.read(currentRouteProvider);
 
     AppLogger.debug('AppRouter: Checking redirect for path: $currentPath, authenticated: $isAuthenticated', tag: 'ROUTER');
 
-    // Se está autenticado e tenta acessar login, redireciona para dashboard
-    if (isAuthenticated && currentPath == '/login') {
-      AppLogger.info('AppRouter: Authenticated user tried to access login, redirecting to dashboard', tag: 'ROUTER');
-      return '/dashboard';
+    // Se não está autenticado, redireciona para login
+    if (!isAuthenticated) {
+      if (currentPath != '/login') {
+        AppLogger.info('AppRouter: Unauthenticated user tried to access protected route, redirecting to login', tag: 'ROUTER');
+        return '/login';
+      }
+      return null;
     }
 
-    // Se não está autenticado e não está na página de login, redireciona para login
-    if (!isAuthenticated && currentPath != '/login') {
-      AppLogger.info('AppRouter: Unauthenticated user tried to access protected route, redirecting to login', tag: 'ROUTER');
-      return '/login';
+    // Se está autenticado e tenta acessar login, determina onde redirecionar
+    if (currentPath == '/login') {
+      String redirectTo;
+      
+      if (navigationItems.isNotEmpty) {
+        // Se há menus criados, redireciona para o menu selecionado ou o primeiro
+        redirectTo = currentRoute ?? navigationItems.first.route;
+        AppLogger.info('AppRouter: Authenticated user tried to access login, redirecting to selected menu: $redirectTo', tag: 'ROUTER');
+      } else {
+        // Se não há menus, redireciona para dashboard
+        redirectTo = '/dashboard';
+        AppLogger.info('AppRouter: Authenticated user tried to access login, no menus found, redirecting to dashboard', tag: 'ROUTER');
+      }
+      
+      return redirectTo;
     }
 
-    // Redirecionar root para dashboard se autenticado, para login se não autenticado
+    // Redirecionar root path
     if (currentPath == '/') {
-      final redirectTo = isAuthenticated ? '/dashboard' : '/login';
-      AppLogger.info('AppRouter: Root path accessed, redirecting to $redirectTo', tag: 'ROUTER');
+      String redirectTo;
+      
+      if (navigationItems.isNotEmpty) {
+        // Se há menus criados, redireciona para o menu selecionado ou o primeiro
+        redirectTo = currentRoute ?? navigationItems.first.route;
+        AppLogger.info('AppRouter: Root path accessed, redirecting to menu: $redirectTo', tag: 'ROUTER');
+      } else {
+        // Se não há menus, redireciona para dashboard
+        redirectTo = '/dashboard';
+        AppLogger.info('AppRouter: Root path accessed, no menus found, redirecting to dashboard', tag: 'ROUTER');
+      }
+      
       return redirectTo;
     }
 

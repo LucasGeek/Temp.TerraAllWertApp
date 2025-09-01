@@ -8,6 +8,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../domain/entities/map_pin.dart';
 import '../../../../domain/enums/pin_content_type.dart';
 import '../../../../infra/storage/map_data_storage.dart';
+import '../../../../infra/platform/platform_service.dart';
+import '../../../../infra/logging/app_logger.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../molecules/offline_image.dart';
@@ -84,8 +86,15 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         _mapData = mapData;
       }
     } catch (e) {
-      setState(() => _hasError = true);
-      _showErrorSnackBar('Erro ao carregar dados do mapa: $e');
+      // Em caso de erro, ainda cria dados iniciais para menus novos
+      _mapData = InteractiveMapData(
+        id: _uuid.v4(),
+        routeId: widget.route,
+        backgroundImageUrl: widget.backgroundImageUrl ?? _mockBackgroundImage,
+        pins: [],
+        createdAt: DateTime.now(),
+      );
+      _showErrorSnackBar('Aviso: Usando dados padrão - $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -140,8 +149,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       return _buildErrorState();
     }
 
-    // Se o mapa está vazio mas foi carregado com sucesso, mostra estado vazio informativo
-    if (_mapData!.pins.isEmpty) {
+    // Se o mapa está vazio E não tem imagem de fundo customizada, mostra estado vazio informativo
+    final hasCustomBackgroundImage = _mapData!.backgroundImageUrl != null && 
+                                     _mapData!.backgroundImageUrl!.isNotEmpty &&
+                                     _mapData!.backgroundImageUrl != _mockBackgroundImage;
+    
+    if (_mapData!.pins.isEmpty && !hasCustomBackgroundImage) {
       return _buildEmptyState();
     }
 
@@ -160,9 +173,17 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 constrained: false,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    // Usar dimensões seguras para evitar constraints infinitos
+                    final safeWidth = constraints.maxWidth.isFinite 
+                        ? constraints.maxWidth 
+                        : MediaQuery.of(context).size.width;
+                    final safeHeight = constraints.maxHeight.isFinite 
+                        ? constraints.maxHeight 
+                        : MediaQuery.of(context).size.height;
+                        
                     return SizedBox(
-                      width: constraints.maxWidth,
-                      height: constraints.maxHeight,
+                      width: safeWidth,
+                      height: safeHeight,
                       child: Stack(
                         children: [
                           // Imagem de fundo
@@ -170,7 +191,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                             child: _buildBackgroundImage(),
                           ),
                           // Pins
-                          ..._mapData!.pins.map((pin) => _buildPin(pin, constraints)),
+                          ..._mapData!.pins.map((pin) => _buildPin(pin, BoxConstraints.tight(Size(safeWidth, safeHeight)))),
                         ],
                       ),
                     );
@@ -197,10 +218,86 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   /// Constrói a imagem de fundo do mapa
   Widget _buildBackgroundImage() {
     final imageUrl = _mapData!.backgroundImageUrl ?? _mockBackgroundImage;
+    final isMockImage = imageUrl == _mockBackgroundImage;
+    
+    AppLogger.debug('BUILD imageUrl: $imageUrl', tag: 'PinMap');
+    AppLogger.debug('BUILD _mockBackgroundImage: $_mockBackgroundImage', tag: 'PinMap');
+    AppLogger.debug('BUILD isMockImage: $isMockImage', tag: 'PinMap');
+    AppLogger.debug('BUILD _isEditMode: $_isEditMode', tag: 'PinMap');
+    
+    // Se for imagem mock e estiver em modo edição, mostra instruções
+    if (isMockImage && _isEditMode) {
+      return Container(
+        color: AppTheme.primaryColor.withValues(alpha: 0.05),
+        child: Stack(
+          children: [
+            // Pattern de fundo para indicar área tocável
+            CustomPaint(
+              size: Size.infinite,
+              painter: _GridPainter(),
+            ),
+            
+            // Instruções centralizadas
+            Center(
+              child: Container(
+                padding: EdgeInsets.all(LayoutConstants.paddingLg),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceColor.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.touch_app,
+                      size: 48,
+                      color: AppTheme.primaryColor,
+                    ),
+                    SizedBox(height: LayoutConstants.marginMd),
+                    Text(
+                      'Toque aqui para adicionar pins',
+                      style: TextStyle(
+                        fontSize: LayoutConstants.fontSizeLarge,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: LayoutConstants.marginSm),
+                    Text(
+                      'Ou clique no botão 🖼️ no AppBar\npara adicionar uma imagem de fundo',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: LayoutConstants.fontSizeMedium,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Para web, blob URLs devem ser passados como networkUrl
+    final isHttpUrl = imageUrl.startsWith('http');
+    final isBlobUrl = imageUrl.startsWith('blob:');
+    final shouldUseNetworkUrl = isHttpUrl || (PlatformService.isWeb && isBlobUrl);
+    
+    AppLogger.debug('BUILD: isHttpUrl=$isHttpUrl, isBlobUrl=$isBlobUrl, shouldUseNetworkUrl=$shouldUseNetworkUrl', tag: 'PinMap');
     
     return OfflineImage(
-      networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
-      localPath: !imageUrl.startsWith('http') ? imageUrl : null,
+      key: ValueKey(imageUrl), // Force rebuild quando URL muda
+      networkUrl: shouldUseNetworkUrl ? imageUrl : null,
+      localPath: !shouldUseNetworkUrl ? imageUrl : null,
       fit: BoxFit.cover,
       placeholder: Container(
         color: AppTheme.surfaceColor,
@@ -282,47 +379,42 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         ),
         child: Row(
           children: [
-            IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-              iconSize: LayoutConstants.iconLarge,
-            ),
-            SizedBox(width: LayoutConstants.marginSm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (widget.description != null) ...[
-                    SizedBox(height: 4),
-                    Text(
-                      widget.description!,
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            // Espaçamento flexível
+            Expanded(child: SizedBox()),
             
-            // Reset zoom button
-            _buildControlButton(
-              icon: Icons.fit_screen,
-              onPressed: _resetZoom,
-              tooltip: 'Ajustar à tela',
+            // Botões de controle centralizados
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Botão de Imagem de Fundo (apenas modo edição)
+                if (_isEditMode)
+                  _buildControlButton(
+                    icon: Icons.image,
+                    onPressed: _changeBackgroundImage,
+                    tooltip: 'Alterar imagem de fundo',
+                  ),
+                
+                if (_isEditMode)
+                  SizedBox(width: LayoutConstants.marginSm),
+                
+                // Botão de Upload de Vídeo (apenas modo edição)
+                if (_isEditMode)
+                  _buildControlButton(
+                    icon: Icons.videocam,
+                    onPressed: _uploadVideo,
+                    tooltip: 'Adicionar vídeo',
+                  ),
+                
+                if (_isEditMode)
+                  SizedBox(width: LayoutConstants.marginSm),
+                
+                // Reset zoom button
+                _buildControlButton(
+                  icon: Icons.fit_screen,
+                  onPressed: _resetZoom,
+                  tooltip: 'Ajustar à tela',
+                ),
+              ],
             ),
           ],
         ),
@@ -590,7 +682,10 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   
                   // Subtítulo explicativo
                   Text(
-                    'Este é um novo mapa interativo e ainda não possui pins.\nVocê pode adicionar pins clicando no botão de edição e tocando no mapa.',
+                    'Este é um novo mapa interativo. Para começar:\n\n'
+                    '1. Clique em "Começar a Editar" abaixo\n'
+                    '2. Adicione uma imagem de fundo do mapa\n'
+                    '3. Toque na imagem para adicionar pins',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppTheme.textSecondary,
@@ -790,16 +885,71 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
 
   /// Mostra dialog do modo de edição
   Future<void> _showEditModeDialog() async {
+    final hasBackgroundImage = _mapData?.backgroundImageUrl != null && 
+                              _mapData!.backgroundImageUrl!.isNotEmpty &&
+                              _mapData!.backgroundImageUrl != _mockBackgroundImage;
+    
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Modo de Edição'),
-          content: const Text(
-            'Você está no modo de edição.\n\n'
-            '• Toque em qualquer lugar do mapa para adicionar um novo pin\n'
-            '• Toque em um pin existente para editá-lo\n'
-            '• Use os botões na barra superior para gerenciar a imagem e vídeo',
+          title: Row(
+            children: [
+              Icon(Icons.edit, color: AppTheme.primaryColor),
+              SizedBox(width: LayoutConstants.marginSm),
+              const Text('Modo de Edição Ativo'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!hasBackgroundImage) ...[
+                Container(
+                  padding: EdgeInsets.all(LayoutConstants.paddingMd),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange, size: 20),
+                      SizedBox(width: LayoutConstants.marginSm),
+                      Expanded(
+                        child: Text(
+                          'Primeira etapa: Adicione uma imagem de fundo',
+                          style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: LayoutConstants.marginMd),
+                Text(
+                  '1. Clique no botão 🖼️ no AppBar (parte superior) para adicionar uma imagem de fundo do mapa\n'
+                  '2. Após adicionar a imagem, você poderá tocar nela para adicionar pins',
+                  style: TextStyle(
+                    fontSize: LayoutConstants.fontSizeMedium,
+                    height: 1.4,
+                  ),
+                ),
+              ] else ...[
+                Text(
+                  'Agora você pode:\n'
+                  '• Tocar na imagem do mapa para adicionar pins\n'
+                  '• Tocar em pins existentes para editá-los\n'
+                  '• Usar o botão 🖼️ no AppBar para trocar a imagem de fundo',
+                  style: TextStyle(
+                    fontSize: LayoutConstants.fontSizeMedium,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ],
           ),
           actions: [
             TextButton(
@@ -1112,8 +1262,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         return Dialog(
           child: InteractiveViewer(
             child: OfflineImage(
-              networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
-              localPath: !imageUrl.startsWith('http') ? imageUrl : null,
+              key: ValueKey(imageUrl),
+              networkUrl: imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:')) ? imageUrl : null,
+              localPath: !(imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:'))) ? imageUrl : null,
               fit: BoxFit.contain,
               errorWidget: Container(
                 height: 200,
@@ -1160,8 +1311,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 final imageUrl = imageUrls[index];
                 return InteractiveViewer(
                   child: OfflineImage(
-                    networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
-                    localPath: !imageUrl.startsWith('http') ? imageUrl : null,
+                    key: ValueKey(imageUrl),
+                    networkUrl: imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:')) ? imageUrl : null,
+                    localPath: !(imageUrl.startsWith('http') || (PlatformService.isWeb && imageUrl.startsWith('blob:'))) ? imageUrl : null,
                     fit: BoxFit.contain,
                     errorWidget: Container(
                       color: AppTheme.surfaceColor,
@@ -1224,6 +1376,94 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     } catch (e) {
       _showErrorSnackBar('Erro ao selecionar imagens: $e');
       return [];
+    }
+  }
+
+  /// Altera a imagem de fundo do mapa
+  Future<void> _changeBackgroundImage() async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85, // Compress for performance
+        maxWidth: 1920,   // Limit size for performance
+        maxHeight: 1080,
+      );
+      
+      if (image != null && _mapData != null) {
+        AppLogger.debug('Imagem selecionada: ${image.path}', tag: 'PinMap');
+        
+        // Verificar se o arquivo existe (apenas para platforms que suportam File)
+        if (!PlatformService.isWeb) {
+          final file = File(image.path);
+          final exists = await file.exists();
+          AppLogger.debug('Arquivo existe: $exists', tag: 'PinMap');
+          
+          if (!exists) {
+            AppLogger.warning('Arquivo não existe no path: ${image.path}', tag: 'PinMap');
+            _showErrorSnackBar('Arquivo de imagem não encontrado');
+            return;
+          }
+        } else {
+          AppLogger.debug('Plataforma Web - usando blob URL: ${image.path}', tag: 'PinMap');
+        }
+        
+        // Atualizar a imagem de fundo nos dados do mapa
+        _mapData = _mapData!.copyWith(
+          backgroundImageUrl: image.path, // Use local path ou blob URL
+          updatedAt: DateTime.now(),
+        );
+        
+        AppLogger.debug('_mapData atualizado: ${_mapData!.backgroundImageUrl}', tag: 'PinMap');
+        AppLogger.debug('_mockBackgroundImage: $_mockBackgroundImage', tag: 'PinMap');
+        AppLogger.debug('São diferentes? ${_mapData!.backgroundImageUrl != _mockBackgroundImage}', tag: 'PinMap');
+        
+        // Salvar os dados atualizados
+        await _saveMapData();
+        
+        // Aguardar um frame antes de chamar setState
+        await Future.delayed(const Duration(milliseconds: 100));
+        
+        if (mounted) {
+          setState(() {}); // Refresh UI
+          AppLogger.debug('setState chamado - forçando rebuild', tag: 'PinMap');
+          _showSuccessSnackBar('Imagem de fundo alterada com sucesso!');
+        }
+      } else {
+        AppLogger.warning('Imagem nula ou _mapData nulo', tag: 'PinMap');
+        if (image == null) AppLogger.debug('image é null', tag: 'PinMap');
+        if (_mapData == null) AppLogger.debug('_mapData é null', tag: 'PinMap');
+      }
+    } catch (e) {
+      AppLogger.error('Erro ao alterar imagem de fundo: $e', tag: 'PinMap');
+      _showErrorSnackBar('Erro ao alterar imagem de fundo: $e');
+    }
+  }
+
+  /// Upload de vídeo para o mapa
+  Future<void> _uploadVideo() async {
+    try {
+      final video = await _imagePicker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 5), // Limit video length
+      );
+      
+      if (video != null && _mapData != null) {
+        // Atualizar os dados do mapa com o vídeo
+        _mapData = _mapData!.copyWith(
+          videoPath: video.path, // Use local path
+          videoUrl: null, // Clear URL if using local path
+          updatedAt: DateTime.now(),
+        );
+        
+        // Salvar os dados atualizados
+        await _saveMapData();
+        
+        setState(() {}); // Refresh UI
+        
+        _showSuccessSnackBar('Vídeo adicionado com sucesso!');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Erro ao adicionar vídeo: $e');
     }
   }
 
@@ -1471,4 +1711,37 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
           : null,
     );
   }
+}
+
+/// Custom painter para desenhar grid no fundo
+class _GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppTheme.primaryColor.withValues(alpha: 0.1)
+      ..strokeWidth = 1;
+
+    const spacing = 40.0;
+
+    // Linhas verticais
+    for (double x = 0; x < size.width; x += spacing) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        paint,
+      );
+    }
+
+    // Linhas horizontais
+    for (double y = 0; y < size.height; y += spacing) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

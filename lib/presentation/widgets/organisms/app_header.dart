@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../design_system/app_theme.dart';
 import '../../design_system/layout_constants.dart';
@@ -35,7 +34,6 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
         foregroundColor: AppTheme.onSurface,
         elevation: LayoutConstants.elevationXs,
         leading: showMenuButton ? const AppMenuButton() : null,
-        title: _buildTitleRow(context),
         automaticallyImplyLeading: false,
         actions: _buildActions(context),
       );
@@ -43,29 +41,6 @@ class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
       debugPrint('AppHeader: Error building header - $e');
       return _buildFallbackAppBar();
     }
-  }
-
-  Widget _buildTitleRow(BuildContext context) {
-    // Verifica se deve mostrar botão de voltar (quando não é dashboard)
-    final shouldShowBack = showBackButton || (currentRoute != null && currentRoute != '/dashboard');
-
-    if (shouldShowBack) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            onPressed: () => context.go('/dashboard'),
-            icon: const Icon(Icons.arrow_back),
-            tooltip: 'Voltar',
-            iconSize: LayoutConstants.iconLarge,
-            splashRadius: LayoutConstants.iconSplashRadius,
-          ),
-          const SizedBox(width: 8),
-        ],
-      );
-    }
-
-    return Container();
   }
 
   List<Widget> _buildActions(BuildContext context) {

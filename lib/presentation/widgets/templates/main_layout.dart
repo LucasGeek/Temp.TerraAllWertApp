@@ -40,17 +40,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final isMobile = context.isMobile || (context.isTablet && context.isXs);
 
     return Scaffold(
-      appBar: isMobile ? _buildMobileAppBar() : null,
+      appBar: isMobile ? _buildAppBar() : null,
       body: _buildMainBody(userAsyncValue, isMobile),
       drawer: isMobile ? _buildMobileDrawer(userAsyncValue) : null,
     );
   }
 
-  PreferredSizeWidget _buildMobileAppBar() {
-    return AppHeader(
-      showMenuButton: true, 
-      currentRoute: widget.currentRoute,
-    );
+  PreferredSizeWidget _buildAppBar() {
+    return AppHeader(showMenuButton: true, currentRoute: widget.currentRoute);
   }
 
   Widget _buildMainBody(AsyncValue userAsyncValue, bool isMobile) {
@@ -74,17 +71,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!isMobile) _buildDesktopAppBar(),
+          if (!isMobile) _buildAppBar(),
           Expanded(child: widget.child),
         ],
       ),
-    );
-  }
-
-  Widget _buildDesktopAppBar() {
-    return AppHeader(
-      showMenuButton: true,
-      currentRoute: widget.currentRoute,
     );
   }
 

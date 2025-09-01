@@ -13,10 +13,12 @@ class SnackbarNotification {
     
     // Se for tablet ou maior (>= 768px), centraliza e limita a largura
     if (width >= Breakpoints.md) {
-      final maxWidth = width * 0.4; // Máximo 40% da largura da tela
-      final minWidth = 400.0; // Largura mínima
+      final maxWidth = width * 0.6; // Máximo 60% da largura da tela
+      final minWidth = 320.0; // Largura mínima para evitar overflow
       final finalWidth = maxWidth < minWidth ? minWidth : maxWidth;
-      final horizontalMargin = (width - finalWidth) / 2;
+      
+      // Garante que a margem nunca seja negativa ou muito pequena
+      final horizontalMargin = ((width - finalWidth) / 2).clamp(16.0, width * 0.2);
       
       return EdgeInsets.only(
         left: horizontalMargin,

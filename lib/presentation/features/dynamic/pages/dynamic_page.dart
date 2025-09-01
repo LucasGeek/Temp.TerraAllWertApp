@@ -22,8 +22,8 @@ class DynamicPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Buscar informações do item de navegação pela rota
-    final navigationNotifier = ref.read(navigationItemsProvider.notifier);
-    final navigationItem = navigationNotifier.findItemByRoute(route);
+    final navigationItems = ref.watch(navigationItemsProvider);
+    final navigationItem = navigationItems.where((item) => item.route == route).firstOrNull;
 
     // Se não encontrou o item ou não tem tipo definido, mostra a página padrão
     if (navigationItem == null) {

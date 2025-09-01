@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../infra/logging/app_logger.dart';
 import '../../domain/entities/navigation_item.dart';
+import '../../domain/enums/menu_presentation_type.dart';
 
 /// Service para armazenamento local de menus customizados
 /// Usa SharedPreferences para persistir configurações de navegação
@@ -52,6 +53,8 @@ class MenuStorageService {
               'isVisible': item.isVisible,
               'isEnabled': item.isEnabled,
               'description': item.description,
+              'parentId': item.parentId,
+              'menuType': item.menuType.name, // Serializar o enum como string
               'permissions': item.permissions,
             },
           )
@@ -83,6 +86,20 @@ class MenuStorageService {
       final List<dynamic> serializedItems = jsonDecode(jsonString);
 
       final items = serializedItems.map((itemData) {
+        // Deserializar menuType enum
+        MenuPresentationType menuType = MenuPresentationType.standard;
+        final menuTypeString = itemData['menuType'] as String?;
+        if (menuTypeString != null) {
+          try {
+            menuType = MenuPresentationType.values.firstWhere(
+              (type) => type.name == menuTypeString,
+              orElse: () => MenuPresentationType.standard,
+            );
+          } catch (e) {
+            StorageLogger.warning('Unknown menu type: $menuTypeString, using default');
+          }
+        }
+
         return NavigationItem(
           id: itemData['id'] as String,
           label: itemData['label'] as String,
@@ -99,6 +116,8 @@ class MenuStorageService {
           isVisible: itemData['isVisible'] as bool? ?? true,
           isEnabled: itemData['isEnabled'] as bool? ?? true,
           description: itemData['description'] as String?,
+          parentId: itemData['parentId'] as String?,
+          menuType: menuType,
           permissions: (itemData['permissions'] as List<dynamic>?)?.cast<String>(),
         );
       }).toList();

@@ -6,6 +6,7 @@ import '../../../domain/enums/menu_presentation_type.dart';
 import '../../design_system/app_theme.dart';
 import '../../design_system/layout_constants.dart';
 import '../../features/navigation/providers/navigation_provider.dart';
+import '../../features/navigation/providers/current_route_provider.dart';
 import '../../notification/snackbar_notification.dart';
 import '../../responsive/breakpoints.dart';
 
@@ -92,6 +93,7 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
 
   /// Gera rota automaticamente baseada no título usando regex
   /// Evita duplicatas adicionando números sequenciais quando necessário
+  /// Cria URLs hierárquicas baseadas no parentId
   String _generateRoute(String title, List<NavigationItem> existingItems, {String? currentItemId}) {
     if (title.trim().isEmpty) return '/';
     
@@ -115,8 +117,21 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
     // Remove hífens no início e fim
     route = route.replaceAll(RegExp(r'^-+|-+$'), '');
     
-    // Garante que comece com /
-    String baseRoute = '/$route';
+    // Constrói URL hierárquica baseada no parent
+    String baseRoute;
+    if (_selectedParentId != null) {
+      // Encontra o item pai
+      final parentItem = existingItems.where((item) => item.id == _selectedParentId).firstOrNull;
+      if (parentItem != null) {
+        // Remove a barra inicial da rota pai se existir, e adiciona o novo segmento
+        final parentRoute = parentItem.route.replaceAll(RegExp(r'^/'), '');
+        baseRoute = '/$parentRoute/$route';
+      } else {
+        baseRoute = '/$route';
+      }
+    } else {
+      baseRoute = '/$route';
+    }
     
     // Verifica duplicatas e adiciona número se necessário
     return _ensureUniqueRoute(baseRoute, existingItems, currentItemId: currentItemId);
@@ -817,10 +832,15 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
         }
       } else {
         navigationNotifier.addNavigationItem(newItem);
+        
+        // Automaticamente seleciona o novo menu criado
+        final currentRouteNotifier = ref.read(currentRouteNotifierProvider.notifier);
+        currentRouteNotifier.setCurrentRoute(route);
+        
         if (routeWasModified) {
-          SnackbarNotification.showInfo('Menu criado! Rota ajustada para evitar duplicata: $route');
+          SnackbarNotification.showInfo('Menu criado e selecionado! Rota ajustada para evitar duplicata: $route');
         } else {
-          SnackbarNotification.showSuccess('Menu criado com sucesso!');
+          SnackbarNotification.showSuccess('Menu criado e selecionado com sucesso!');
         }
       }
       

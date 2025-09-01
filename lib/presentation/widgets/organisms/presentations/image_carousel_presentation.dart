@@ -102,7 +102,15 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         _initializeVideoController();
       }
     } catch (e) {
-      _showErrorSnackBar('Erro ao carregar dados: $e');
+      // Em caso de erro, ainda cria dados iniciais para menus novos
+      final initialImages = widget.images ?? _mockImages;
+      _carouselData = CarouselData(
+        id: _uuid.v4(),
+        routeId: widget.route,
+        imageUrls: initialImages,
+        createdAt: DateTime.now(),
+      );
+      _showErrorSnackBar('Aviso: Usando dados padrão - $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -186,13 +194,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 child: _buildBottomRightControls(),
               ),
 
-            // Botão voltar
-            if (_showControls)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + LayoutConstants.paddingMd,
-                right: LayoutConstants.paddingMd,
-                child: _buildBackButton(),
-              ),
 
             // Indicadores do carrossel (se múltiplas imagens)
             if (_showControls && _carouselData!.imageUrls.length > 1)
@@ -247,111 +248,121 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       onInteractionEnd: (details) {
         setState(() {});
       },
-      child: SizedBox(
-        width: double.infinity,
-        height: double.infinity,
-        child: _buildImageWidget(imageUrl),
-      ),
+      child: _buildImageWidget(imageUrl),
     );
   }
 
   /// Widget de imagem com tratamento de erro e loading robusto
   Widget _buildImageWidget(String imageUrl) {
     // Usa OfflineImage para tratamento robusto de erros e caching
-    return OfflineImage(
-      networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
-      localPath: !imageUrl.startsWith('http') ? imageUrl : null,
-      width: double.infinity,
-      height: double.infinity,
-      fit: BoxFit.contain,
-      placeholder: _buildRobustPlaceholder(),
-      errorWidget: _buildRobustErrorWidget(),
-      enableCaching: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          width: constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width,
+          height: constraints.maxHeight.isFinite ? constraints.maxHeight : MediaQuery.of(context).size.height,
+          child: OfflineImage(
+            networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
+            localPath: !imageUrl.startsWith('http') ? imageUrl : null,
+            fit: BoxFit.contain,
+            placeholder: _buildRobustPlaceholder(),
+            errorWidget: _buildRobustErrorWidget(),
+            enableCaching: true,
+          ),
+        );
+      },
     );
   }
 
   /// Placeholder robusto para carregamento
   Widget _buildRobustPlaceholder() {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: AppTheme.surfaceColor,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: AppTheme.primaryColor,
-            strokeWidth: 3,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          width: constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width,
+          height: constraints.maxHeight.isFinite ? constraints.maxHeight : MediaQuery.of(context).size.height,
+          color: AppTheme.surfaceColor,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: AppTheme.primaryColor,
+                strokeWidth: 3,
+              ),
+              SizedBox(height: LayoutConstants.marginMd),
+              Text(
+                'Carregando imagem...',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: LayoutConstants.fontSizeMedium,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(height: LayoutConstants.marginSm),
+              Text(
+                'Verifique sua conexão com a internet',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: LayoutConstants.fontSizeSmall,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: LayoutConstants.marginMd),
-          Text(
-            'Carregando imagem...',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: LayoutConstants.fontSizeMedium,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: LayoutConstants.marginSm),
-          Text(
-            'Verifique sua conexão com a internet',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: LayoutConstants.fontSizeSmall,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   /// Widget de erro robusto para imagens
   Widget _buildRobustErrorWidget() {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: AppTheme.surfaceColor,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.broken_image_outlined,
-            size: 80,
-            color: AppTheme.textSecondary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          width: constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width,
+          height: constraints.maxHeight.isFinite ? constraints.maxHeight : MediaQuery.of(context).size.height,
+          color: AppTheme.surfaceColor,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.broken_image_outlined,
+                size: 80,
+                color: AppTheme.textSecondary,
+              ),
+              SizedBox(height: LayoutConstants.marginMd),
+              Text(
+                'Imagem não disponível',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: LayoutConstants.fontSizeLarge,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: LayoutConstants.marginSm),
+              Text(
+                'A imagem pode ter sido removida ou\no caminho está incorreto',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: LayoutConstants.fontSizeMedium,
+                ),
+              ),
+              SizedBox(height: LayoutConstants.marginMd),
+              ElevatedButton.icon(
+                onPressed: () {
+                  // Força reload do widget
+                  setState(() {});
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tentar Novamente'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: LayoutConstants.marginMd),
-          Text(
-            'Imagem não disponível',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: LayoutConstants.fontSizeLarge,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: LayoutConstants.marginSm),
-          Text(
-            'A imagem pode ter sido removida ou\no caminho está incorreto',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: LayoutConstants.fontSizeMedium,
-            ),
-          ),
-          SizedBox(height: LayoutConstants.marginMd),
-          ElevatedButton.icon(
-            onPressed: () {
-              // Força reload do widget
-              setState(() {});
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Tentar Novamente'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -622,20 +633,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     );
   }
 
-  /// Botão de voltar
-  Widget _buildBackButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
-      ),
-      child: IconButton(
-        onPressed: () => Navigator.of(context).pop(),
-        icon: const Icon(Icons.close, color: Colors.white),
-        iconSize: LayoutConstants.iconLarge,
-      ),
-    );
-  }
 
   /// Indicadores de páginas
   Widget _buildPageIndicators() {

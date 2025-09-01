@@ -1,14 +1,15 @@
 import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../domain/entities/floor_plan_data.dart';
 import '../../../../domain/enums/apartment_status.dart';
-import '../../../../domain/enums/sun_position.dart';
 import '../../../../domain/enums/marker_type.dart';
+import '../../../../domain/enums/sun_position.dart';
 import '../../../../infra/storage/floor_plan_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
@@ -45,7 +46,8 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   bool _isEditingMarkers = false;
 
   // Mock data para demonstração
-  final String _mockFloorPlan = 'https://via.placeholder.com/1000x700/F5F5F5/333333?text=Planta+do+Pavimento';
+  final String _mockFloorPlan =
+      'https://via.placeholder.com/1000x700/F5F5F5/333333?text=Planta+do+Pavimento';
 
   @override
   void initState() {
@@ -62,10 +64,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   /// Carrega os dados da planta do storage local
   Future<void> _loadFloorPlanData() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final floorPlanData = await _floorPlanStorage.loadFloorPlanData(widget.route);
-      
+
       if (floorPlanData == null) {
         // Cria dados iniciais com um pavimento padrão
         final defaultFloor = Floor(
@@ -74,7 +76,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           floorPlanImageUrl: _mockFloorPlan,
           createdAt: DateTime.now(),
         );
-        
+
         _floorPlanData = FloorPlanData(
           id: _uuid.v4(),
           routeId: widget.route,
@@ -87,7 +89,22 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         _currentFloor = floorPlanData.floors.isNotEmpty ? floorPlanData.floors.first : null;
       }
     } catch (e) {
-      _showErrorSnackBar('Erro ao carregar dados da planta: $e');
+      // Em caso de erro, ainda cria dados iniciais para menus novos
+      final defaultFloor = Floor(
+        id: _uuid.v4(),
+        number: widget.floorNumber ?? '1º Pavimento',
+        floorPlanImageUrl: _mockFloorPlan,
+        createdAt: DateTime.now(),
+      );
+
+      _floorPlanData = FloorPlanData(
+        id: _uuid.v4(),
+        routeId: widget.route,
+        floors: [defaultFloor],
+        createdAt: DateTime.now(),
+      );
+      _currentFloor = defaultFloor;
+      _showErrorSnackBar('Aviso: Usando dados padrão - $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -96,15 +113,13 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   /// Salva os dados no storage local
   Future<void> _saveFloorPlanData() async {
     if (_floorPlanData == null) return;
-    
+
     try {
-      final updatedData = _floorPlanData!.copyWith(
-        updatedAt: DateTime.now(),
-      );
-      
+      final updatedData = _floorPlanData!.copyWith(updatedAt: DateTime.now());
+
       await _floorPlanStorage.saveFloorPlanData(updatedData);
       _floorPlanData = updatedData;
-      
+
       _showSuccessSnackBar('Dados salvos com sucesso!');
     } catch (e) {
       _showErrorSnackBar('Erro ao salvar dados: $e');
@@ -114,11 +129,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_floorPlanData == null || _currentFloor == null) {
@@ -128,50 +139,63 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Header com dropdown e controles
           _buildHeader(),
-          
+
           // Planta principal
-          Expanded(
-            child: Stack(
-              children: [
-                // Imagem de fundo com marcadores
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTapDown: _isEditingMarkers ? _onFloorPlanTap : null,
-                    child: InteractiveViewer(
-                      transformationController: _transformationController,
-                      minScale: 1.0,
-                      maxScale: 3.0,
-                      constrained: false,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return SizedBox(
-                            width: constraints.maxWidth,
-                            height: constraints.maxHeight,
-                            child: Stack(
-                              children: [
-                                // Imagem de fundo
-                                Positioned.fill(
-                                  child: _buildFloorPlanImage(),
-                                ),
+          Flexible(
+            child: SizedBox(
+              width: double.infinity,
+              height: MediaQuery.of(context).size.height - 
+                     MediaQuery.of(context).padding.top - 120, // Espaço para header
+              child: Stack(
+                children: [
+                  // Imagem de fundo com marcadores
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTapDown: _isEditingMarkers ? _onFloorPlanTap : null,
+                      child: InteractiveViewer(
+                        transformationController: _transformationController,
+                        minScale: 1.0,
+                        maxScale: 3.0,
+                        constrained: false,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Usar dimensões seguras para evitar constraints infinitos
+                            final safeWidth = constraints.maxWidth.isFinite 
+                                ? constraints.maxWidth 
+                                : MediaQuery.of(context).size.width;
+                            final safeHeight = constraints.maxHeight.isFinite 
+                                ? constraints.maxHeight 
+                                : MediaQuery.of(context).size.height - 200; // Espaço para header
                                 
-                                // Marcadores
-                                ..._currentFloor!.markers.map((marker) => 
-                                  _buildMarker(marker, constraints)),
-                              ],
-                            ),
-                          );
-                        },
+                            return SizedBox(
+                              width: safeWidth,
+                              height: safeHeight,
+                              child: Stack(
+                                children: [
+                                  // Imagem de fundo
+                                  Positioned.fill(child: _buildFloorPlanImage()),
+
+                                  // Marcadores
+                                  ..._currentFloor!.markers.map(
+                                    (marker) => _buildMarker(marker, BoxConstraints.tight(Size(safeWidth, safeHeight))),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                // Controles flutuantes sobre a imagem
-                _buildFloatingControls(),
-              ],
+                  // Controles flutuantes sobre a imagem
+                  _buildFloatingControls(),
+                ],
+              ),
             ),
           ),
         ],
@@ -200,16 +224,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-            iconSize: LayoutConstants.iconLarge,
-          ),
-          
-          SizedBox(width: LayoutConstants.marginSm),
-          
           // Dropdown de pavimentos
-          Expanded(
+          Flexible(
+            flex: 3,
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: LayoutConstants.paddingMd),
               decoration: BoxDecoration(
@@ -238,16 +255,16 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
               ),
             ),
           ),
-          
+
           SizedBox(width: LayoutConstants.marginSm),
-          
+
           // Adicionar pavimento
           IconButton(
             onPressed: _addFloor,
             icon: Icon(Icons.add, color: AppTheme.primaryColor),
             tooltip: 'Adicionar Pavimento',
           ),
-          
+
           // Excluir pavimento
           IconButton(
             onPressed: _floorPlanData!.floors.length > 1 ? _deleteCurrentFloor : null,
@@ -265,7 +282,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   /// Constrói a imagem da planta do pavimento
   Widget _buildFloorPlanImage() {
     final imageUrl = _currentFloor!.floorPlanImageUrl ?? _mockFloorPlan;
-    
+
     return imageUrl.startsWith('http')
         ? Image.network(
             imageUrl,
@@ -290,11 +307,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.architecture_outlined,
-            size: 64,
-            color: AppTheme.textSecondary,
-          ),
+          Icon(Icons.architecture_outlined, size: 64, color: AppTheme.textSecondary),
           SizedBox(height: LayoutConstants.marginMd),
           Text(
             'Planta do pavimento não disponível',
@@ -331,11 +344,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: AppTheme.textSecondary,
-            ),
+            Icon(Icons.error_outline, size: 64, color: AppTheme.textSecondary),
             SizedBox(height: LayoutConstants.marginMd),
             Text(
               'Erro ao carregar dados da planta',
@@ -346,10 +355,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
               ),
             ),
             SizedBox(height: LayoutConstants.marginMd),
-            ElevatedButton(
-              onPressed: _loadFloorPlanData,
-              child: const Text('Tentar Novamente'),
-            ),
+            ElevatedButton(onPressed: _loadFloorPlanData, child: const Text('Tentar Novamente')),
           ],
         ),
       ),
@@ -371,9 +377,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
             tooltip: 'Editar Imagem',
             backgroundColor: AppTheme.primaryColor,
           ),
-          
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           // Adicionar marcador
           _buildFloatingButton(
             icon: _isEditingMarkers ? Icons.check : Icons.add_location_alt,
@@ -411,11 +417,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
         ),
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: Colors.white,
-            size: 24,
-          ),
+          icon: Icon(icon, color: Colors.white, size: 24),
           padding: EdgeInsets.zero,
         ),
       ),
@@ -426,7 +428,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   Widget _buildMarker(FloorMarker marker, BoxConstraints constraints) {
     final left = (marker.positionX * constraints.maxWidth) - 20;
     final top = (marker.positionY * constraints.maxHeight) - 40;
-    
+
     return Positioned(
       left: left,
       top: top,
@@ -461,7 +463,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                 size: 20,
               ),
             ),
-            
+
             // Ponto do marcador
             Container(
               width: 4,
@@ -487,7 +489,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   /// Adiciona um novo pavimento
   Future<void> _addFloor() async {
     final nameController = TextEditingController();
-    
+
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -502,10 +504,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
                 if (nameController.text.isNotEmpty) {
@@ -515,14 +514,14 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                     floorPlanImageUrl: _mockFloorPlan,
                     createdAt: DateTime.now(),
                   );
-                  
+
                   setState(() {
                     _floorPlanData = _floorPlanData!.copyWith(
                       floors: [..._floorPlanData!.floors, newFloor],
                     );
                     _currentFloor = newFloor;
                   });
-                  
+
                   _saveFloorPlanData();
                   Navigator.of(context).pop();
                 }
@@ -538,7 +537,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   /// Exclui o pavimento atual
   Future<void> _deleteCurrentFloor() async {
     if (_floorPlanData!.floors.length <= 1) return;
-    
+
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -546,19 +545,18 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           title: const Text('Excluir Pavimento'),
           content: Text('Tem certeza que deseja excluir o pavimento "${_currentFloor!.number}"?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
-                final floors = _floorPlanData!.floors.where((f) => f.id != _currentFloor!.id).toList();
-                
+                final floors = _floorPlanData!.floors
+                    .where((f) => f.id != _currentFloor!.id)
+                    .toList();
+
                 setState(() {
                   _floorPlanData = _floorPlanData!.copyWith(floors: floors);
                   _currentFloor = floors.first;
                 });
-                
+
                 _saveFloorPlanData();
                 Navigator.of(context).pop();
               },
@@ -580,10 +578,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           title: const Text('Editar Imagem do Pavimento'),
           content: const Text('Escolha uma nova imagem para a planta do pavimento.'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
                 Navigator.of(context).pop();
@@ -604,19 +599,16 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       if (image != null) {
         final updatedFloors = _floorPlanData!.floors.map((floor) {
           if (floor.id == _currentFloor!.id) {
-            return floor.copyWith(
-              floorPlanImagePath: image.path,
-              updatedAt: DateTime.now(),
-            );
+            return floor.copyWith(floorPlanImagePath: image.path, updatedAt: DateTime.now());
           }
           return floor;
         }).toList();
-        
+
         setState(() {
           _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
           _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
         });
-        
+
         await _saveFloorPlanData();
       }
     } catch (e) {
@@ -629,7 +621,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     setState(() {
       _isEditingMarkers = !_isEditingMarkers;
     });
-    
+
     if (!_isEditingMarkers) {
       _saveFloorPlanData();
     } else {
@@ -643,7 +635,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
     final renderBox = context.findRenderObject() as RenderBox;
     final position = renderBox.globalToLocal(details.globalPosition);
-    
+
     // Calcular posição relativa
     final relativeX = position.dx / renderBox.size.width;
     final relativeY = position.dy / renderBox.size.height;
@@ -683,15 +675,12 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       items: MarkerType.values.map((type) {
-                        return DropdownMenuItem(
-                          value: type,
-                          child: Text(type.displayName),
-                        );
+                        return DropdownMenuItem(value: type, child: Text(type.displayName));
                       }).toList(),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     if (markerType == MarkerType.existingApartment) ...[
                       DropdownButtonFormField<Apartment>(
                         value: selectedApartment,
@@ -707,10 +696,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                           );
                         }).toList(),
                       ),
-                      
+
                       SizedBox(height: LayoutConstants.marginMd),
                     ],
-                    
+
                     TextField(
                       controller: titleController,
                       decoration: const InputDecoration(
@@ -718,9 +707,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     TextField(
                       controller: descriptionController,
                       decoration: const InputDecoration(
@@ -738,8 +727,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: titleController.text.isNotEmpty &&
-                      (markerType == MarkerType.newApartment || selectedApartment != null)
+                  onPressed:
+                      titleController.text.isNotEmpty &&
+                          (markerType == MarkerType.newApartment || selectedApartment != null)
                       ? () {
                           _addMarker(
                             x,
@@ -784,10 +774,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
     final updatedFloors = _floorPlanData!.floors.map((floor) {
       if (floor.id == _currentFloor!.id) {
-        return floor.copyWith(
-          markers: [...floor.markers, newMarker],
-          updatedAt: DateTime.now(),
-        );
+        return floor.copyWith(markers: [...floor.markers, newMarker], updatedAt: DateTime.now());
       }
       return floor;
     }).toList();
@@ -826,7 +813,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   color: AppTheme.textPrimary,
                 ),
               ),
-              
+
               if (marker.description != null) ...[
                 SizedBox(height: LayoutConstants.marginSm),
                 Text(
@@ -837,9 +824,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   ),
                 ),
               ],
-              
+
               SizedBox(height: LayoutConstants.marginLg),
-              
+
               Row(
                 children: [
                   Expanded(
@@ -853,12 +840,14 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         }
                       },
                       icon: const Icon(Icons.edit),
-                      label: Text(marker.apartmentId != null ? 'Editar Apartamento' : 'Criar Apartamento'),
+                      label: Text(
+                        marker.apartmentId != null ? 'Editar Apartamento' : 'Criar Apartamento',
+                      ),
                     ),
                   ),
-                  
+
                   SizedBox(width: LayoutConstants.marginSm),
-                  
+
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
@@ -867,14 +856,12 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                       },
                       icon: const Icon(Icons.edit_location),
                       label: const Text('Editar Posição'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.secondaryColor,
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor),
                     ),
                   ),
-                  
+
                   SizedBox(width: LayoutConstants.marginSm),
-                  
+
                   IconButton(
                     onPressed: () {
                       Navigator.of(context).pop();
@@ -912,9 +899,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              
+
               SizedBox(height: LayoutConstants.marginMd),
-              
+
               TextField(
                 controller: descriptionController,
                 decoration: const InputDecoration(
@@ -926,17 +913,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
-                _updateMarker(
-                  marker.id,
-                  titleController.text,
-                  descriptionController.text,
-                );
+                _updateMarker(marker.id, titleController.text, descriptionController.text);
                 Navigator.of(context).pop();
               },
               child: const Text('Salvar'),
@@ -961,11 +941,8 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           }
           return marker;
         }).toList();
-        
-        return floor.copyWith(
-          markers: updatedMarkers,
-          updatedAt: DateTime.now(),
-        );
+
+        return floor.copyWith(markers: updatedMarkers, updatedAt: DateTime.now());
       }
       return floor;
     }).toList();
@@ -974,7 +951,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
       _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
     });
-    
+
     _saveFloorPlanData();
   }
 
@@ -1005,9 +982,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     TextField(
                       controller: areaController,
                       decoration: const InputDecoration(
@@ -1016,9 +993,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                       ),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     Row(
                       children: [
                         Expanded(
@@ -1054,9 +1031,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         ),
                       ],
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     DropdownButtonFormField<SunPosition>(
                       value: sunPosition,
                       onChanged: (value) => setState(() => sunPosition = value!),
@@ -1065,15 +1042,12 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       items: SunPosition.values.map((position) {
-                        return DropdownMenuItem(
-                          value: position,
-                          child: Text(position.displayName),
-                        );
+                        return DropdownMenuItem(value: position, child: Text(position.displayName));
                       }).toList(),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     DropdownButtonFormField<ApartmentStatus>(
                       value: status,
                       onChanged: (value) => setState(() => status = value!),
@@ -1082,10 +1056,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       items: ApartmentStatus.values.map((status) {
-                        return DropdownMenuItem(
-                          value: status,
-                          child: Text(status.displayName),
-                        );
+                        return DropdownMenuItem(value: status, child: Text(status.displayName));
                       }).toList(),
                     ),
                   ],
@@ -1097,8 +1068,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: numberController.text.isNotEmpty &&
-                      areaController.text.isNotEmpty
+                  onPressed: numberController.text.isNotEmpty && areaController.text.isNotEmpty
                       ? () {
                           final area = double.tryParse(areaController.text) ?? 0.0;
                           if (area > 0) {
@@ -1159,7 +1129,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           }
           return m;
         }).toList();
-        
+
         return floor.copyWith(markers: updatedMarkers);
       }
       return floor;
@@ -1172,7 +1142,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       );
       _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
     });
-    
+
     _saveFloorPlanData();
     _showSuccessSnackBar('Apartamento criado com sucesso!');
   }
@@ -1180,7 +1150,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   /// Edita apartamento existente
   void _editApartment(String apartmentId) {
     final apartment = _floorPlanData!.apartments.firstWhere((apt) => apt.id == apartmentId);
-    
+
     final numberController = TextEditingController(text: apartment.number);
     final areaController = TextEditingController(text: apartment.area.toString());
     int bedrooms = apartment.bedrooms;
@@ -1206,9 +1176,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     TextField(
                       controller: areaController,
                       decoration: const InputDecoration(
@@ -1217,9 +1187,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                       ),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     Row(
                       children: [
                         Expanded(
@@ -1255,9 +1225,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         ),
                       ],
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     DropdownButtonFormField<SunPosition>(
                       value: sunPosition,
                       onChanged: (value) => setState(() => sunPosition = value!),
@@ -1266,15 +1236,12 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       items: SunPosition.values.map((position) {
-                        return DropdownMenuItem(
-                          value: position,
-                          child: Text(position.displayName),
-                        );
+                        return DropdownMenuItem(value: position, child: Text(position.displayName));
                       }).toList(),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     DropdownButtonFormField<ApartmentStatus>(
                       value: status,
                       onChanged: (value) => setState(() => status = value!),
@@ -1283,22 +1250,17 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       items: ApartmentStatus.values.map((status) {
-                        return DropdownMenuItem(
-                          value: status,
-                          child: Text(status.displayName),
-                        );
+                        return DropdownMenuItem(value: status, child: Text(status.displayName));
                       }).toList(),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     ElevatedButton.icon(
                       onPressed: () => _uploadFloorPlan(apartmentId),
                       icon: const Icon(Icons.upload_file),
                       label: const Text('Upload Planta Baixa'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.secondaryColor,
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor),
                     ),
                   ],
                 ),
@@ -1362,7 +1324,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     setState(() {
       _floorPlanData = _floorPlanData!.copyWith(apartments: updatedApartments);
     });
-    
+
     _saveFloorPlanData();
     _showSuccessSnackBar('Apartamento atualizado com sucesso!');
   }
@@ -1379,14 +1341,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         final filePath = file.path;
-        
+
         if (filePath != null) {
           final updatedApartments = _floorPlanData!.apartments.map((apt) {
             if (apt.id == apartmentId) {
-              return apt.copyWith(
-                floorPlanImagePath: filePath,
-                updatedAt: DateTime.now(),
-              );
+              return apt.copyWith(floorPlanImagePath: filePath, updatedAt: DateTime.now());
             }
             return apt;
           }).toList();
@@ -1394,7 +1353,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           setState(() {
             _floorPlanData = _floorPlanData!.copyWith(apartments: updatedApartments);
           });
-          
+
           await _saveFloorPlanData();
           _showSuccessSnackBar('Planta baixa salva com sucesso!');
         }
@@ -1424,9 +1383,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   fontSize: LayoutConstants.fontSizeSmall,
                 ),
               ),
-              
+
               SizedBox(height: LayoutConstants.marginMd),
-              
+
               TextField(
                 controller: xController,
                 decoration: const InputDecoration(
@@ -1435,9 +1394,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                 ),
                 keyboardType: TextInputType.numberWithOptions(decimal: true),
               ),
-              
+
               SizedBox(height: LayoutConstants.marginMd),
-              
+
               TextField(
                 controller: yController,
                 decoration: const InputDecoration(
@@ -1449,15 +1408,12 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
                 final x = double.tryParse(xController.text) ?? 0.0;
                 final y = double.tryParse(yController.text) ?? 0.0;
-                
+
                 if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
                   _updateMarkerPosition(marker.id, x, y);
                   Navigator.of(context).pop();
@@ -1479,15 +1435,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       if (floor.id == _currentFloor!.id) {
         final updatedMarkers = floor.markers.map((marker) {
           if (marker.id == markerId) {
-            return marker.copyWith(
-              positionX: x,
-              positionY: y,
-              updatedAt: DateTime.now(),
-            );
+            return marker.copyWith(positionX: x, positionY: y, updatedAt: DateTime.now());
           }
           return marker;
         }).toList();
-        
+
         return floor.copyWith(markers: updatedMarkers);
       }
       return floor;
@@ -1497,7 +1449,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
       _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
     });
-    
+
     _saveFloorPlanData();
     _showSuccessSnackBar('Posição atualizada com sucesso!');
   }
@@ -1511,10 +1463,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
           title: const Text('Excluir Marcador'),
           content: Text('Tem certeza que deseja excluir o marcador "${marker.title}"?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
                 final updatedFloors = _floorPlanData!.floors.map((floor) {
@@ -1530,7 +1479,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   _floorPlanData = _floorPlanData!.copyWith(floors: updatedFloors);
                   _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
                 });
-                
+
                 _saveFloorPlanData();
                 Navigator.of(context).pop();
               },
@@ -1547,31 +1496,22 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
   /// Mostra snackbar de erro
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 
   /// Mostra snackbar de sucesso
   void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green));
   }
 
   /// Mostra snackbar de info
   void _showInfoSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppTheme.primaryColor,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppTheme.primaryColor));
   }
 }
