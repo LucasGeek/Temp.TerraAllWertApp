@@ -831,6 +831,157 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     return true;
   }
 
+  /// Método auxiliar para validação do formulário de apartamento
+  bool _isCreateApartmentValid(String number, String area) {
+    if (number.trim().isEmpty) return false;
+    final parsedArea = double.tryParse(area);
+    return parsedArea != null && parsedArea > 0;
+  }
+
+  /// Seleciona imagem para apartamento
+  Future<void> _selectApartmentImage(
+    StateSetter setState, 
+    Function(String?, Uint8List?, String?) onImageSelected,
+  ) async {
+    try {
+      if (kIsWeb) {
+        // Web: usar FilePicker para obter bytes
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+          allowMultiple: false,
+        );
+
+        if (result != null && result.files.isNotEmpty) {
+          final file = result.files.first;
+          if (file.bytes != null) {
+            setState(() {
+              onImageSelected(null, file.bytes, file.name);
+            });
+          }
+        }
+      } else {
+        // Mobile: usar ImagePicker
+        final image = await _imagePicker.pickImage(source: ImageSource.gallery);
+        if (image != null) {
+          final imageBytes = await image.readAsBytes();
+          setState(() {
+            onImageSelected(image.path, imageBytes, image.name);
+          });
+        }
+      }
+    } catch (e) {
+      SnackbarNotification.showError('Erro ao selecionar imagem: $e');
+    }
+  }
+
+  /// Cria apartamento com imagem
+  Future<void> _createApartmentWithImage(
+    FloorMarker marker,
+    String number,
+    double area,
+    int bedrooms,
+    int suites,
+    SunPosition sunPosition,
+    ApartmentStatus status,
+    String? imagePath,
+    Uint8List? imageBytes,
+  ) async {
+    final newApartment = Apartment(
+      id: _uuid.v4(),
+      number: number,
+      area: area,
+      bedrooms: bedrooms,
+      suites: suites,
+      sunPosition: sunPosition,
+      status: status,
+      floorPlanImagePath: imagePath,
+      createdAt: DateTime.now(),
+    );
+
+    // Salvar bytes da imagem se fornecidos (Web)
+    if (imageBytes != null) {
+      _floorPlanStorage.saveImageBytes(
+        widget.route, 
+        newApartment.id, 
+        imageBytes
+      );
+    }
+
+    try {
+      // Primeiro, adicionar o apartamento usando o provider
+      await ref.read(floorPlanNotifierProvider(widget.route).notifier).addApartment(newApartment);
+      
+      // Depois, atualizar o marcador usando o provider
+      final updatedMarker = marker.copyWith(
+        markerType: MarkerType.existingApartment,
+        apartmentId: newApartment.id,
+        updatedAt: DateTime.now(),
+      );
+
+      // Remover o marcador antigo e adicionar o atualizado
+      await ref.read(floorPlanNotifierProvider(widget.route).notifier).removeMarker(marker.id);
+      await ref.read(floorPlanNotifierProvider(widget.route).notifier).addMarker(updatedMarker);
+
+      SnackbarNotification.showSuccess('Apartamento criado com sucesso!');
+    } catch (e) {
+      SnackbarNotification.showError('Erro ao criar apartamento: $e');
+    }
+  }
+
+  /// Atualiza apartamento com imagem
+  Future<void> _updateApartmentWithImage(
+    String apartmentId,
+    String number,
+    double area,
+    int bedrooms,
+    int suites,
+    SunPosition sunPosition,
+    ApartmentStatus status,
+    String? imagePath,
+    Uint8List? imageBytes,
+  ) async {
+    // Salvar bytes da imagem se fornecidos (Web)
+    if (imageBytes != null) {
+      _floorPlanStorage.saveImageBytes(
+        widget.route, 
+        apartmentId, 
+        imageBytes
+      );
+    }
+
+    try {
+      // Encontrar o apartamento atual para preservar dados não modificados
+      final floorPlanState = ref.read(floorPlanStateProvider(widget.route));
+      final currentApartment = floorPlanState.floorPlanData?.apartments
+          .firstWhere((apt) => apt.id == apartmentId);
+          
+      if (currentApartment == null) {
+        SnackbarNotification.showError('Apartamento não encontrado');
+        return;
+      }
+
+      final updatedApartment = currentApartment.copyWith(
+        number: number,
+        area: area,
+        bedrooms: bedrooms,
+        suites: suites,
+        sunPosition: sunPosition,
+        status: status,
+        floorPlanImagePath: imagePath,
+        updatedAt: DateTime.now(),
+      );
+
+      // Usar o provider para atualizar
+      await ref.read(floorPlanNotifierProvider(widget.route).notifier)
+          .updateApartment(updatedApartment);
+
+      SnackbarNotification.showSuccess('Apartamento atualizado com sucesso!');
+    } catch (e) {
+      SnackbarNotification.showError('Erro ao atualizar apartamento: $e');
+    }
+  }
+
   /// Adiciona um novo marcador
   void _addMarker(
     double x,
@@ -1013,7 +1164,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     ref.read(floorPlanNotifierProvider(widget.route).notifier).addMarker(updatedMarker);
   }
 
-  /// Cria novo apartamento a partir do marcador
+  /// Cria novo apartamento a partir do marcador - COM UPLOAD
   void _createNewApartment(FloorMarker marker) {
     final numberController = TextEditingController();
     final areaController = TextEditingController();
@@ -1021,6 +1172,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     int suites = 0;
     SunPosition sunPosition = SunPosition.north;
     ApartmentStatus status = ApartmentStatus.available;
+    
+    // Variáveis para controle do upload
+    String? selectedImagePath;
+    Uint8List? selectedImageBytes;
+    String? selectedImageName;
 
     showDialog<void>(
       context: context,
@@ -1039,6 +1195,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         labelText: 'Número*',
                         border: OutlineInputBorder(),
                       ),
+                      onChanged: (value) => setState(() {}),
                     ),
 
                     SizedBox(height: LayoutConstants.marginMd),
@@ -1050,6 +1207,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (value) => setState(() {}),
                     ),
 
                     SizedBox(height: LayoutConstants.marginMd),
@@ -1117,6 +1275,100 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         return DropdownMenuItem(value: status, child: Text(status.displayName));
                       }).toList(),
                     ),
+
+                    SizedBox(height: LayoutConstants.marginMd),
+
+                    // SEÇÃO DE UPLOAD DA PLANTA BAIXA
+                    Container(
+                      padding: EdgeInsets.all(LayoutConstants.paddingMd),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.outline),
+                        borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                        color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Planta Baixa do Apartamento',
+                            style: TextStyle(
+                              fontSize: LayoutConstants.fontSizeMedium,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          
+                          SizedBox(height: LayoutConstants.marginSm),
+                          
+                          if (selectedImageName != null) ...[
+                            Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                SizedBox(width: LayoutConstants.marginSm),
+                                Expanded(
+                                  child: Text(
+                                    selectedImageName!,
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: LayoutConstants.fontSizeSmall,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => setState(() {
+                                    selectedImagePath = null;
+                                    selectedImageBytes = null;
+                                    selectedImageName = null;
+                                  }),
+                                  icon: Icon(Icons.close, color: Colors.red, size: 20),
+                                  padding: EdgeInsets.zero,
+                                  constraints: BoxConstraints(minWidth: 24, minHeight: 24),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: LayoutConstants.marginSm),
+                          ],
+                          
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _selectApartmentImage(setState, (path, bytes, name) {
+                                selectedImagePath = path;
+                                selectedImageBytes = bytes;
+                                selectedImageName = name;
+                              }),
+                              icon: Icon(
+                                selectedImageName != null ? Icons.edit : Icons.upload_file,
+                                size: 20,
+                              ),
+                              label: Text(
+                                selectedImageName != null 
+                                  ? 'Alterar Imagem' 
+                                  : 'Selecionar Imagem',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: LayoutConstants.paddingMd,
+                                  horizontal: LayoutConstants.paddingMd,
+                                ),
+                              ),
+                            ),
+                          ),
+                          
+                          if (selectedImageName == null) ...[
+                            SizedBox(height: LayoutConstants.marginSm),
+                            Text(
+                              'Formatos aceitos: JPG, PNG, PDF',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: LayoutConstants.fontSizeSmall,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1126,21 +1378,22 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: numberController.text.isNotEmpty && areaController.text.isNotEmpty
-                      ? () {
+                  onPressed: _isCreateApartmentValid(numberController.text, areaController.text)
+                      ? () async {
+                          final navigator = Navigator.of(context);
                           final area = double.tryParse(areaController.text) ?? 0.0;
-                          if (area > 0) {
-                            _createApartment(
-                              marker,
-                              numberController.text,
-                              area,
-                              bedrooms,
-                              suites,
-                              sunPosition,
-                              status,
-                            );
-                            Navigator.of(context).pop();
-                          }
+                          await _createApartmentWithImage(
+                            marker,
+                            numberController.text,
+                            area,
+                            bedrooms,
+                            suites,
+                            sunPosition,
+                            status,
+                            selectedImagePath,
+                            selectedImageBytes,
+                          );
+                          navigator.pop();
                         }
                       : null,
                   child: const Text('Criar'),
@@ -1153,60 +1406,8 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     );
   }
 
-  /// Cria um novo apartamento
-  void _createApartment(
-    FloorMarker marker,
-    String number,
-    double area,
-    int bedrooms,
-    int suites,
-    SunPosition sunPosition,
-    ApartmentStatus status,
-  ) {
-    final newApartment = Apartment(
-      id: _uuid.v4(),
-      number: number,
-      area: area,
-      bedrooms: bedrooms,
-      suites: suites,
-      sunPosition: sunPosition,
-      status: status,
-      createdAt: DateTime.now(),
-    );
 
-    // Como o provider não tem método para apartamentos ainda, vamos manter temporariamente
-    // TODO: Implementar gerenciamento de apartamentos no provider
-    final updatedFloors = _floorPlanData!.floors.map((floor) {
-      if (floor.id == _currentFloor!.id) {
-        final updatedMarkers = floor.markers.map((m) {
-          if (m.id == marker.id) {
-            return m.copyWith(
-              markerType: MarkerType.existingApartment,
-              apartmentId: newApartment.id,
-              updatedAt: DateTime.now(),
-            );
-          }
-          return m;
-        }).toList();
-
-        return floor.copyWith(markers: updatedMarkers);
-      }
-      return floor;
-    }).toList();
-
-    // Atualizar via provider não é possível ainda para apartamentos
-    // mas precisamos salvar os dados
-    _floorPlanData = _floorPlanData!.copyWith(
-      floors: updatedFloors,
-      apartments: [..._floorPlanData!.apartments, newApartment],
-    );
-    _currentFloor = updatedFloors.firstWhere((f) => f.id == _currentFloor!.id);
-
-    _saveFloorPlanData();
-    SnackbarNotification.showSuccess('Apartamento criado com sucesso!');
-  }
-
-  /// Edita apartamento existente
+  /// Edita apartamento existente - COM UPLOAD
   void _editApartment(String apartmentId) {
     final apartment = _floorPlanData!.apartments.firstWhere((apt) => apt.id == apartmentId);
 
@@ -1216,6 +1417,11 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     int suites = apartment.suites;
     SunPosition sunPosition = apartment.sunPosition;
     ApartmentStatus status = apartment.status;
+    
+    // Variáveis para controle do upload
+    String? selectedImagePath = apartment.floorPlanImagePath;
+    Uint8List? selectedImageBytes;
+    String? selectedImageName = apartment.floorPlanImagePath?.split('/').last;
 
     showDialog<void>(
       context: context,
@@ -1234,6 +1440,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         labelText: 'Número*',
                         border: OutlineInputBorder(),
                       ),
+                      onChanged: (value) => setState(() {}),
                     ),
 
                     SizedBox(height: LayoutConstants.marginMd),
@@ -1245,6 +1452,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                         border: OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (value) => setState(() {}),
                     ),
 
                     SizedBox(height: LayoutConstants.marginMd),
@@ -1315,11 +1523,100 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
                     SizedBox(height: LayoutConstants.marginMd),
 
-                    ElevatedButton.icon(
-                      onPressed: () => _uploadFloorPlan(apartmentId),
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Upload Planta Baixa'),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor),
+                    // SEÇÃO DE UPLOAD DA PLANTA BAIXA
+                    Container(
+                      padding: EdgeInsets.all(LayoutConstants.paddingMd),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.outline),
+                        borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                        color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Planta Baixa do Apartamento',
+                            style: TextStyle(
+                              fontSize: LayoutConstants.fontSizeMedium,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          
+                          SizedBox(height: LayoutConstants.marginSm),
+                          
+                          if (selectedImageName != null) ...[
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle, 
+                                  color: Colors.green, 
+                                  size: 20
+                                ),
+                                SizedBox(width: LayoutConstants.marginSm),
+                                Expanded(
+                                  child: Text(
+                                    selectedImageName!,
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: LayoutConstants.fontSizeSmall,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => setState(() {
+                                    selectedImagePath = null;
+                                    selectedImageBytes = null;
+                                    selectedImageName = null;
+                                  }),
+                                  icon: Icon(Icons.close, color: Colors.red, size: 20),
+                                  padding: EdgeInsets.zero,
+                                  constraints: BoxConstraints(minWidth: 24, minHeight: 24),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: LayoutConstants.marginSm),
+                          ],
+                          
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _selectApartmentImage(setState, (path, bytes, name) {
+                                selectedImagePath = path;
+                                selectedImageBytes = bytes;
+                                selectedImageName = name;
+                              }),
+                              icon: Icon(
+                                selectedImageName != null ? Icons.edit : Icons.upload_file,
+                                size: 20,
+                              ),
+                              label: Text(
+                                selectedImageName != null 
+                                  ? 'Alterar Imagem' 
+                                  : 'Selecionar Imagem',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: LayoutConstants.paddingMd,
+                                  horizontal: LayoutConstants.paddingMd,
+                                ),
+                              ),
+                            ),
+                          ),
+                          
+                          if (selectedImageName == null) ...[
+                            SizedBox(height: LayoutConstants.marginSm),
+                            Text(
+                              'Formatos aceitos: JPG, PNG, PDF',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: LayoutConstants.fontSizeSmall,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1330,21 +1627,24 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    final area = double.tryParse(areaController.text) ?? 0.0;
-                    if (numberController.text.isNotEmpty && area > 0) {
-                      _updateApartment(
-                        apartmentId,
-                        numberController.text,
-                        area,
-                        bedrooms,
-                        suites,
-                        sunPosition,
-                        status,
-                      );
-                      Navigator.of(context).pop();
-                    }
-                  },
+                  onPressed: _isCreateApartmentValid(numberController.text, areaController.text)
+                      ? () async {
+                          final navigator = Navigator.of(context);
+                          final area = double.tryParse(areaController.text) ?? 0.0;
+                          await _updateApartmentWithImage(
+                            apartmentId,
+                            numberController.text,
+                            area,
+                            bedrooms,
+                            suites,
+                            sunPosition,
+                            status,
+                            selectedImagePath,
+                            selectedImageBytes,
+                          );
+                          navigator.pop();
+                        }
+                      : null,
                   child: const Text('Salvar'),
                 ),
               ],
@@ -1355,69 +1655,6 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     );
   }
 
-  /// Atualiza um apartamento
-  void _updateApartment(
-    String apartmentId,
-    String number,
-    double area,
-    int bedrooms,
-    int suites,
-    SunPosition sunPosition,
-    ApartmentStatus status,
-  ) {
-    final updatedApartments = _floorPlanData!.apartments.map((apt) {
-      if (apt.id == apartmentId) {
-        return apt.copyWith(
-          number: number,
-          area: area,
-          bedrooms: bedrooms,
-          suites: suites,
-          sunPosition: sunPosition,
-          status: status,
-          updatedAt: DateTime.now(),
-        );
-      }
-      return apt;
-    }).toList();
-
-    // Atualizar diretamente pois não temos provider para apartamentos ainda
-    _floorPlanData = _floorPlanData!.copyWith(apartments: updatedApartments);
-
-    _saveFloorPlanData();
-    SnackbarNotification.showSuccess('Apartamento atualizado com sucesso!');
-  }
-
-  /// Upload de planta baixa do apartamento
-  Future<void> _uploadFloorPlan(String apartmentId) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
-        allowMultiple: false,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final filePath = file.path;
-
-        if (filePath != null) {
-          final updatedApartments = _floorPlanData!.apartments.map((apt) {
-            if (apt.id == apartmentId) {
-              return apt.copyWith(floorPlanImagePath: filePath, updatedAt: DateTime.now());
-            }
-            return apt;
-          }).toList();
-
-          _floorPlanData = _floorPlanData!.copyWith(apartments: updatedApartments);
-
-          await _saveFloorPlanData();
-          SnackbarNotification.showSuccess('Planta baixa salva com sucesso!');
-        }
-      }
-    } catch (e) {
-      SnackbarNotification.showError('Erro ao fazer upload: $e');
-    }
-  }
 
   /// Edita posição do marcador
   void _editMarkerPosition(FloorMarker marker) {

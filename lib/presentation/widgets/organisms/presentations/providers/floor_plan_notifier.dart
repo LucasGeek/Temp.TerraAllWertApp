@@ -226,6 +226,41 @@ class FloorPlanNotifier extends StateNotifier<FloorPlanState> {
     state = state.copyWith(floorImageBytesMap: updatedMap);
   }
 
+  /// Adiciona apartamento ao pavimento atual
+  Future<void> addApartment(Apartment apartment) async {
+    if (state.floorPlanData == null) return;
+
+    try {
+      final updatedApartments = [...state.floorPlanData!.apartments, apartment];
+      final updatedData = state.floorPlanData!.copyWith(apartments: updatedApartments);
+
+      state = state.copyWith(floorPlanData: updatedData);
+      await saveFloorPlanData();
+      AppLogger.debug('Apartamento adicionado: ${apartment.number}', tag: 'FloorPlan');
+    } catch (e) {
+      state = state.copyWith(error: 'Erro ao adicionar apartamento: $e');
+      AppLogger.error('Erro ao adicionar apartamento: $e', tag: 'FloorPlan');
+    }
+  }
+
+  /// Atualiza apartamento existente
+  Future<void> updateApartment(Apartment updatedApartment) async {
+    if (state.floorPlanData == null) return;
+
+    try {
+      final updatedApartments = state.floorPlanData!.apartments.map((apt) =>
+          apt.id == updatedApartment.id ? updatedApartment : apt).toList();
+      final updatedData = state.floorPlanData!.copyWith(apartments: updatedApartments);
+
+      state = state.copyWith(floorPlanData: updatedData);
+      await saveFloorPlanData();
+      AppLogger.debug('Apartamento atualizado: ${updatedApartment.number}', tag: 'FloorPlan');
+    } catch (e) {
+      state = state.copyWith(error: 'Erro ao atualizar apartamento: $e');
+      AppLogger.error('Erro ao atualizar apartamento: $e', tag: 'FloorPlan');
+    }
+  }
+
   /// Limpa erro
   void clearError() {
     state = state.copyWith(error: null);
