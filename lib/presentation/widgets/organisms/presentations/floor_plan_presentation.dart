@@ -22,7 +22,7 @@ import '../../../../infra/storage/floor_plan_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../notification/snackbar_notification.dart';
-import '../../molecules/permission_wrapper.dart';
+import '../../../providers/permission_provider.dart';
 import 'providers/floor_plan_notifier.dart';
 
 /// Apresentação de plantas de pavimento com gerenciamento completo
@@ -282,21 +282,36 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
           SizedBox(width: LayoutConstants.marginSm),
 
-          // Adicionar pavimento
-          IconButton(
-            onPressed: _addFloor,
-            icon: Icon(Icons.add, color: AppTheme.primaryColor),
-            tooltip: 'Adicionar Pavimento',
+          // Adicionar pavimento - apenas admins online
+          Consumer(
+            builder: (context, ref, child) {
+              final canCreate = ref.watch(canCreateProvider);
+              return IconButton(
+                onPressed: canCreate ? _addFloor : null,
+                icon: Icon(
+                  Icons.add, 
+                  color: canCreate ? AppTheme.primaryColor : Colors.grey,
+                ),
+                tooltip: canCreate ? 'Adicionar Pavimento' : 'Requer admin online',
+              );
+            },
           ),
 
-          // Excluir pavimento
-          IconButton(
-            onPressed: _floorPlanData!.floors.length > 1 ? _deleteCurrentFloor : null,
-            icon: Icon(
-              Icons.delete_outline,
-              color: _floorPlanData!.floors.length > 1 ? Colors.red : Colors.grey,
-            ),
-            tooltip: 'Excluir Pavimento',
+          // Excluir pavimento - apenas admins online
+          Consumer(
+            builder: (context, ref, child) {
+              final canDelete = ref.watch(canDeleteProvider);
+              return IconButton(
+                onPressed: canDelete && _floorPlanData!.floors.length > 1 ? _deleteCurrentFloor : null,
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: canDelete && _floorPlanData!.floors.length > 1 ? Colors.red : Colors.grey,
+                ),
+                tooltip: canDelete 
+                    ? (_floorPlanData!.floors.length > 1 ? 'Excluir Pavimento' : 'Mínimo 1 pavimento')
+                    : 'Requer admin online',
+              );
+            },
           ),
         ],
       ),
@@ -464,33 +479,37 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     return Positioned(
       top: LayoutConstants.paddingMd,
       right: LayoutConstants.paddingMd,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Editar imagem - apenas para admins
-          AdminOnlyWidget(
-            child: _buildFloatingButton(
-              icon: Icons.edit_outlined,
-              onPressed: _editFloorPlanImage,
-              tooltip: 'Editar Imagem',
-              backgroundColor: AppTheme.primaryColor,
-            ),
-          ),
+      child: Consumer(
+        builder: (context, ref, child) {
+          final canUpdate = ref.watch(canUpdateProvider);
+          final canCreate = ref.watch(canCreateProvider);
+          
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Editar imagem - apenas admins online
+              if (canUpdate)
+                _buildFloatingButton(
+                  icon: Icons.edit_outlined,
+                  onPressed: _editFloorPlanImage,
+                  tooltip: 'Editar Imagem',
+                  backgroundColor: AppTheme.primaryColor,
+                ),
 
-          AdminOnlyWidget(
-            child: SizedBox(height: LayoutConstants.marginSm),
-          ),
+              if (canUpdate && canCreate)
+                SizedBox(height: LayoutConstants.marginSm),
 
-          // Adicionar marcador - apenas para admins
-          AdminOnlyWidget(
-            child: _buildFloatingButton(
-              icon: _isEditingMarkers ? Icons.check : Icons.add_location_alt,
-              onPressed: _toggleMarkerEditing,
-              tooltip: _isEditingMarkers ? 'Finalizar Edição' : 'Adicionar Marcador',
-              backgroundColor: _isEditingMarkers ? Colors.green : AppTheme.secondaryColor,
-            ),
-          ),
-        ],
+              // Adicionar marcador - apenas admins online
+              if (canCreate)
+                _buildFloatingButton(
+                  icon: _isEditingMarkers ? Icons.check : Icons.add_location_alt,
+                  onPressed: _toggleMarkerEditing,
+                  tooltip: _isEditingMarkers ? 'Finalizar Edição' : 'Adicionar Marcador',
+                  backgroundColor: _isEditingMarkers ? Colors.green : AppTheme.secondaryColor,
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1163,59 +1182,69 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
 
               SizedBox(height: LayoutConstants.marginLg),
 
-              Row(
-                children: [
-                  // Botão editar/criar apartamento - apenas para admins
-                  UpdatePermission(
-                    child: Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          if (marker.apartmentId != null) {
-                            _editApartment(marker.apartmentId!);
-                          } else {
-                            _createNewApartment(marker);
-                          }
-                        },
-                        icon: const Icon(Icons.edit),
-                        label: Text(
-                          marker.apartmentId != null ? 'Editar Apartamento' : 'Criar Apartamento',
+              Consumer(
+                builder: (context, ref, child) {
+                  final canUpdate = ref.watch(canUpdateProvider);
+                  final canCreate = ref.watch(canCreateProvider);
+                  final canDelete = ref.watch(canDeleteProvider);
+                  
+                  return Row(
+                    children: [
+                      // Botão editar/criar apartamento - apenas admins online
+                      if (canUpdate || canCreate)
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: (marker.apartmentId != null && canUpdate) || 
+                                      (marker.apartmentId == null && canCreate)
+                                ? () {
+                                    Navigator.of(context).pop();
+                                    if (marker.apartmentId != null) {
+                                      _editApartment(marker.apartmentId!);
+                                    } else {
+                                      _createNewApartment(marker);
+                                    }
+                                  }
+                                : null,
+                            icon: const Icon(Icons.edit),
+                            label: Text(
+                              marker.apartmentId != null ? 'Editar Apartamento' : 'Criar Apartamento',
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
 
-                  SizedBox(width: LayoutConstants.marginSm),
+                      if ((canUpdate || canCreate) && (canUpdate || canDelete))
+                        SizedBox(width: LayoutConstants.marginSm),
 
-                  // Botão editar posição - apenas para admins
-                  UpdatePermission(
-                    child: Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _editMarkerPosition(marker);
-                        },
-                        icon: const Icon(Icons.edit_location),
-                        label: const Text('Editar Posição'),
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor),
-                      ),
-                    ),
-                  ),
+                      // Botão editar posição - apenas admins online
+                      if (canUpdate)
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              _editMarkerPosition(marker);
+                            },
+                            icon: const Icon(Icons.edit_location),
+                            label: const Text('Editar Posição'),
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor),
+                          ),
+                        ),
 
-                  SizedBox(width: LayoutConstants.marginSm),
+                      if (canUpdate && canDelete)
+                        SizedBox(width: LayoutConstants.marginSm),
 
-                  // Botão excluir - apenas para admins
-                  DeletePermission(
-                    child: IconButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _deleteMarker(marker);
-                      },
-                      icon: Icon(Icons.delete, color: Colors.red),
-                      tooltip: 'Excluir Marcador',
-                    ),
-                  ),
-                ],
+                      // Botão excluir - apenas admins online
+                      if (canDelete)
+                        IconButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _deleteMarker(marker);
+                          },
+                          icon: Icon(Icons.delete, color: Colors.red),
+                          tooltip: 'Excluir Marcador',
+                        ),
+                    ],
+                  );
+                },
               ),
             ],
           ),

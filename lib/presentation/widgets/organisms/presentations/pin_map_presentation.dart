@@ -20,7 +20,7 @@ import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../../notification/snackbar_notification.dart';
 import '../../molecules/offline_image.dart';
-import '../../molecules/permission_wrapper.dart';
+import '../../../providers/permission_provider.dart';
 import 'providers/pin_map_notifier.dart';
 
 /// Apresentação de mapa interativo com pins editáveis
@@ -290,15 +290,19 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
             ),
           ),
 
-          // Controles superiores esquerdos (minimizados) - apenas para admins
-          if (_isEditMode)
-            AdminOnlyWidget(
-              child: Positioned(
-                top: MediaQuery.of(context).padding.top + LayoutConstants.paddingMd,
-                left: LayoutConstants.paddingMd,
-                child: _buildTopLeftControls(),
-              ),
-            ),
+          // Controles superiores esquerdos (minimizados) - apenas admins online
+          Consumer(
+            builder: (context, ref, child) {
+              final canUpdate = ref.watch(canUpdateProvider);
+              return (canUpdate && _isEditMode)
+                  ? Positioned(
+                      top: MediaQuery.of(context).padding.top + LayoutConstants.paddingMd,
+                      left: LayoutConstants.paddingMd,
+                      child: _buildTopLeftControls(),
+                    )
+                  : SizedBox.shrink();
+            },
+          ),
 
           // Botões fixos
           _buildFloatingButtons(),
@@ -540,14 +544,19 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
           if (_mapData!.videoUrl != null || _mapData!.videoPath != null)
             SizedBox(height: LayoutConstants.marginMd),
 
-          // Botão Editar - apenas para admins
-          AdminOnlyWidget(
-            child: FloatingActionButton(
-              heroTag: 'edit',
-              onPressed: _toggleEditMode,
-              backgroundColor: _isEditMode ? Colors.green : AppTheme.secondaryColor,
-              child: Icon(_isEditMode ? Icons.check : Icons.edit, color: Colors.white),
-            ),
+          // Botão Editar - apenas admins online
+          Consumer(
+            builder: (context, ref, child) {
+              final canUpdate = ref.watch(canUpdateProvider);
+              return canUpdate
+                  ? FloatingActionButton(
+                      heroTag: 'edit',
+                      onPressed: _toggleEditMode,
+                      backgroundColor: _isEditMode ? Colors.green : AppTheme.secondaryColor,
+                      child: Icon(_isEditMode ? Icons.check : Icons.edit, color: Colors.white),
+                    )
+                  : SizedBox.shrink();
+            },
           ),
         ],
       ),
@@ -725,48 +734,53 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
             SizedBox(height: LayoutConstants.marginMd),
 
             // Botões de ação
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showPinImages(pin),
-                    icon: const Icon(Icons.visibility),
-                    label: const Text('Visualizar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-
-                SizedBox(width: LayoutConstants.marginSm),
-
-                // Botão editar - apenas para admins
-                UpdatePermission(
-                  child: Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _editPin(pin),
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Editar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.secondaryColor,
-                        foregroundColor: Colors.white,
+            Consumer(
+              builder: (context, ref, child) {
+                final canUpdate = ref.watch(canUpdateProvider);
+                final canDelete = ref.watch(canDeleteProvider);
+                
+                return Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showPinImages(pin),
+                        icon: const Icon(Icons.visibility),
+                        label: const Text('Visualizar'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                ),
 
-                SizedBox(width: LayoutConstants.marginSm),
+                    // Botão editar - apenas admins online
+                    if (canUpdate) ...[
+                      SizedBox(width: LayoutConstants.marginSm),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _editPin(pin),
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Editar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
 
-                // Botão excluir - apenas para admins
-                DeletePermission(
-                  child: IconButton(
-                    onPressed: () => _deletePin(pin),
-                    icon: Icon(Icons.delete, color: Colors.red),
-                    tooltip: 'Excluir',
-                  ),
-                ),
-              ],
+                    // Botão excluir - apenas admins online
+                    if (canDelete) ...[
+                      SizedBox(width: LayoutConstants.marginSm),
+                      IconButton(
+                        onPressed: () => _deletePin(pin),
+                        icon: Icon(Icons.delete, color: Colors.red),
+                        tooltip: 'Excluir',
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -839,20 +853,25 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                   SizedBox(height: LayoutConstants.marginXl),
 
                   // Botão de ação principal - apenas para admins
-                  AdminOnlyWidget(
-                    child: ElevatedButton.icon(
-                      onPressed: _toggleEditMode,
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Começar a Editar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: LayoutConstants.paddingXl,
-                          vertical: LayoutConstants.paddingMd,
-                        ),
-                      ),
-                    ),
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final canUpdate = ref.watch(canUpdateProvider);
+                      return canUpdate
+                          ? ElevatedButton.icon(
+                              onPressed: _toggleEditMode,
+                              icon: const Icon(Icons.edit),
+                              label: const Text('Começar a Editar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: LayoutConstants.paddingXl,
+                                  vertical: LayoutConstants.paddingMd,
+                                ),
+                              ),
+                            )
+                          : SizedBox.shrink();
+                    },
                   ),
 
                   SizedBox(height: LayoutConstants.marginMd),
