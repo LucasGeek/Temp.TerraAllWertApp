@@ -2,15 +2,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../domain/entities/navigation_item.dart';
 import '../../../../infra/storage/menu_storage_service.dart';
+import '../../../../infra/graphql/menu_service.dart';
+import '../../../../infra/logging/app_logger.dart';
 
 final navigationItemsProvider = StateNotifierProvider<NavigationNotifier, List<NavigationItem>>(
-  (ref) => NavigationNotifier(ref.read(menuStorageServiceProvider)),
+  (ref) => NavigationNotifier(
+    ref.read(menuStorageServiceProvider),
+    ref.read(menuGraphQLServiceProvider),
+  ),
 );
 
 class NavigationNotifier extends StateNotifier<List<NavigationItem>> {
   final MenuStorageService _storageService;
+  final MenuGraphQLService _graphQLService;
   
-  NavigationNotifier(this._storageService) : super([]) {
+  NavigationNotifier(this._storageService, this._graphQLService) : super([]) {
     _loadItemsFromStorage();
   }
 
@@ -33,10 +39,23 @@ class NavigationNotifier extends StateNotifier<List<NavigationItem>> {
   /// Adiciona um novo item de navegação
   Future<void> addNavigationItem(NavigationItem item) async {
     try {
-      await _storageService.addNavigationItem(item);
-      state = [...state, item]..sort((a, b) => a.order.compareTo(b.order));
+      // Tentar enviar via GraphQL primeiro
+      final createdItem = await _graphQLService.createMenu(item);
+      
+      if (createdItem != null) {
+        // Se GraphQL funcionou, usar o item retornado
+        await _storageService.addNavigationItem(createdItem);
+        state = [...state, createdItem]..sort((a, b) => a.order.compareTo(b.order));
+        AppLogger.info('Menu created successfully via GraphQL: ${createdItem.label}');
+      } else {
+        // Fallback para apenas storage local
+        AppLogger.warning('GraphQL create failed, falling back to local storage only');
+        await _storageService.addNavigationItem(item);
+        state = [...state, item]..sort((a, b) => a.order.compareTo(b.order));
+      }
     } catch (e) {
       // Fallback para state apenas se storage falhar
+      AppLogger.error('Failed to add navigation item: $e');
       state = [...state, item]..sort((a, b) => a.order.compareTo(b.order));
       rethrow;
     }

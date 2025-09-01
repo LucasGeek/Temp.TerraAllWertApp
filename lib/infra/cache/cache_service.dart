@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -31,6 +31,21 @@ class CacheService {
   /// Inicializa o serviço de cache
   Future<void> initialize() async {
     try {
+      // Para Flutter Web, usar um diretório virtual
+      if (kIsWeb) {
+        AppLogger.info('Cache service initialized for Web (in-memory)', tag: 'Cache');
+        // Para web, usar apenas índice em memória sem arquivos físicos
+        _cacheIndex = {};
+        _metadata = CacheMetadata(
+          version: '1.0.0',
+          lastSync: DateTime.now(),
+          itemTimestamps: {},
+          totalFiles: 0,
+          totalSize: 0,
+        );
+        return;
+      }
+      
       final appDir = await getApplicationSupportDirectory();
       _cacheDir = Directory(path.join(appDir.path, _cacheSubDir));
       
@@ -47,7 +62,16 @@ class CacheService {
       AppLogger.info('Cache service initialized at: ${_cacheDir.path}', tag: 'Cache');
     } catch (e) {
       AppLogger.error('Failed to initialize cache service: $e', tag: 'Cache');
-      rethrow;
+      // Para web ou caso de erro, usar fallback em memória
+      _cacheIndex = {};
+      _metadata = CacheMetadata(
+        version: '1.0.0',
+        lastSync: DateTime.now(),
+        itemTimestamps: {},
+        totalFiles: 0,
+        totalSize: 0,
+      );
+      AppLogger.info('Using in-memory cache fallback', tag: 'Cache');
     }
   }
 
