@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' hide MapType;
 import 'package:image_picker/image_picker.dart';
@@ -183,6 +184,10 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             // Área principal do carrossel
             Positioned.fill(child: _buildMainContent()),
 
+            // NOVO: Setas de navegação (apenas se múltiplas imagens)
+            if (_showControls && _allImages.length > 1)
+              _buildNavigationArrows(),
+
             // Controles superiores esquerdos
             if (_showControls)
               Positioned(
@@ -240,17 +245,28 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       return _buildSingleImage(images.first);
     }
 
-    return PageView.builder(
-      controller: _pageController,
-      itemCount: images.length,
-      onPageChanged: (index) {
-        setState(() => _currentIndex = index);
-        _resetZoom();
-        // REMOVIDO: _startControlsTimer() - controles permanecem visíveis
+    return GestureDetector(
+      // NOVO: Gestos adicionais para navegação
+      onPanEnd: (details) {
+        // Swipe horizontal para navegar
+        if (details.velocity.pixelsPerSecond.dx > 500) {
+          _previousImage(); // Swipe para direita = imagem anterior
+        } else if (details.velocity.pixelsPerSecond.dx < -500) {
+          _nextImage(); // Swipe para esquerda = próxima imagem
+        }
       },
-      itemBuilder: (context, index) {
-        return _buildSingleImage(images[index]);
-      },
+      child: PageView.builder(
+        controller: _pageController,
+        itemCount: images.length,
+        onPageChanged: (index) {
+          setState(() => _currentIndex = index);
+          _resetZoom();
+          // REMOVIDO: _startControlsTimer() - controles permanecem visíveis
+        },
+        itemBuilder: (context, index) {
+          return _buildSingleImage(images[index]);
+        },
+      ),
     );
   }
 
@@ -288,7 +304,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             height: height,
             child: Image.memory(
               _imagesBytesMap[imageUrl]!,
-              fit: BoxFit.contain,
+              fit: BoxFit.fill,
               errorBuilder: (context, error, stackTrace) {
                 AppLogger.error('Erro ao carregar imagem da memória: $error', tag: 'ImageCarousel');
                 return _buildRobustErrorWidget();
@@ -305,7 +321,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             height: height,
             child: Image.network(
               imageUrl,
-              fit: BoxFit.contain,
+              fit: BoxFit.fill,
               errorBuilder: (context, error, stackTrace) {
                 AppLogger.error('Erro ao carregar imagem de rede: $error', tag: 'ImageCarousel');
                 return _buildRobustErrorWidget();
@@ -326,7 +342,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             height: height,
             child: Image.file(
               File(imageUrl),
-              fit: BoxFit.contain,
+              fit: BoxFit.fill,
               errorBuilder: (context, error, stackTrace) {
                 AppLogger.error('Erro ao carregar imagem local: $error', tag: 'ImageCarousel');
                 return _buildRobustErrorWidget();
@@ -343,7 +359,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           child: OfflineImage(
             networkUrl: imageUrl.startsWith('http') ? imageUrl : null,
             localPath: !imageUrl.startsWith('http') ? imageUrl : null,
-            fit: BoxFit.contain,
+            fit: BoxFit.fill,
             placeholder: _buildRobustPlaceholder(),
             errorWidget: _buildRobustErrorWidget(),
             enableCaching: true,
@@ -697,21 +713,64 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     );
   }
 
-  /// Indicadores de páginas
+  /// Indicadores de páginas aprimorados com contador
   Widget _buildPageIndicators() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(
-        _allImages.length,
-        (index) => Container(
-          width: 8,
-          height: 8,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: index == _currentIndex ? Colors.white : Colors.white.withValues(alpha: 0.4),
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: LayoutConstants.paddingMd,
+        vertical: LayoutConstants.paddingSm,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Indicadores de pontos
+          ...List.generate(
+            _allImages.length,
+            (index) => Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: index == _currentIndex 
+                    ? Colors.white 
+                    : Colors.white.withValues(alpha: 0.4),
+              ),
+            ),
           ),
-        ),
+          
+          // Contador de imagens
+          if (_allImages.length > 1) ...[
+            SizedBox(width: LayoutConstants.marginMd),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: LayoutConstants.paddingSm,
+                vertical: 2,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                '${_currentIndex + 1}/${_allImages.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -781,6 +840,132 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   // REMOVIDO: Método _startControlsTimer() - controles agora são sempre visíveis
   // exceto quando o usuário escolhe escondê-los manualmente
+  
+  /// NOVO: Constrói as setas de navegação laterais
+  Widget _buildNavigationArrows() {
+    return Stack(
+      children: [
+        // Seta Esquerda
+        if (_currentIndex > 0)
+          Positioned(
+            left: LayoutConstants.paddingMd,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _buildNavigationArrow(
+                icon: Icons.arrow_back_ios,
+                onPressed: _previousImage,
+                tooltip: 'Imagem Anterior',
+              ),
+            ),
+          ),
+        
+        // Seta Direita
+        if (_currentIndex < _allImages.length - 1)
+          Positioned(
+            right: LayoutConstants.paddingMd,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _buildNavigationArrow(
+                icon: Icons.arrow_forward_ios,
+                onPressed: _nextImage,
+                tooltip: 'Próxima Imagem',
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// NOVO: Constrói botão de seta de navegação
+  Widget _buildNavigationArrow({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required String tooltip,
+  }) {
+    return AnimatedOpacity(
+      opacity: _showControls ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: AnimatedScale(
+        scale: _showControls ? 1.0 : 0.8,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutBack,
+        child: Tooltip(
+          message: tooltip,
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  onPressed();
+                  // Feedback háptico
+                  HapticFeedback.lightImpact();
+                },
+                borderRadius: BorderRadius.circular(25),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.1),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 1.0],
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// NOVO: Navega para imagem anterior
+  void _previousImage() {
+    if (_currentIndex > 0 && _pageController != null) {
+      _pageController!.animateToPage(
+        _currentIndex - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  /// NOVO: Navega para próxima imagem
+  void _nextImage() {
+    if (_currentIndex < _allImages.length - 1 && _pageController != null) {
+      _pageController!.animateToPage(
+        _currentIndex + 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   /// Adiciona ou visualiza vídeo
   void _addOrViewVideo() async {
@@ -1547,7 +1732,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
   }
 
   // REMOVIDO: Timer automático dos controles do vídeo
-  
+
   void _toggleControls() {
     setState(() => _showControls = !_showControls);
     // REMOVIDO: Timer automático - toggle apenas manual
