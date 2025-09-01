@@ -827,6 +827,18 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   void _onMapTap(TapDownDetails details) {
     if (!_isEditMode) return;
 
+    // Verificar se há imagem de fundo customizada
+    final hasCustomBackgroundImage =
+        _mapData!.backgroundImageUrl != null &&
+        _mapData!.backgroundImageUrl!.isNotEmpty &&
+        _mapData!.backgroundImageUrl != _mockBackgroundImage;
+
+    // Se não há imagem customizada, abre modal para alterar imagem de fundo
+    if (!hasCustomBackgroundImage) {
+      _changeBackgroundImage();
+      return;
+    }
+
     final renderBox = context.findRenderObject() as RenderBox;
     final position = renderBox.globalToLocal(details.globalPosition);
 
