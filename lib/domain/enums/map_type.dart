@@ -17,4 +17,15 @@ enum MapType {
       orElse: () => MapType.openStreet, // OpenStreet como padrão
     );
   }
+
+  /// Serialização JSON - converte enum para string
+  String toJson() => name;
+
+  /// Desserialização JSON - converte string para enum
+  static MapType fromJson(String json) {
+    return MapType.values.firstWhere(
+      (type) => type.name == json,
+      orElse: () => MapType.openStreet,
+    );
+  }
 }

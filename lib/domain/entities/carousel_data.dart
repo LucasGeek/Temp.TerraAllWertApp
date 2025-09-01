@@ -4,6 +4,7 @@ import '../enums/map_type.dart';
 part 'carousel_data.freezed.dart';
 part 'carousel_data.g.dart';
 
+
 /// Entidade para caixa de texto personalizada
 @freezed
 abstract class TextBox with _$TextBox {

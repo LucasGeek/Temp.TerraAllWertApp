@@ -132,10 +132,16 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     try {
       final videoSource = _carouselData!.videoUrl ?? _carouselData!.videoPath!;
       
-      if (videoSource.startsWith('http')) {
+      if (videoSource.startsWith('http') || videoSource.startsWith('blob:')) {
         _videoController = VideoPlayerController.networkUrl(Uri.parse(videoSource));
       } else {
-        _videoController = VideoPlayerController.file(File(videoSource));
+        // Para Web, paths locais também devem usar networkUrl
+        try {
+          _videoController = VideoPlayerController.file(File(videoSource));
+        } catch (e) {
+          // Fallback para Web - tenta como URL
+          _videoController = VideoPlayerController.networkUrl(Uri.parse(videoSource));
+        }
       }
       
       await _videoController!.initialize();
@@ -161,7 +167,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     }
 
     // Estado vazio - incentiva adição de imagem
-    if (_carouselData!.imageUrls.isEmpty && 
+    if (_allImages.isEmpty && 
         _carouselData!.videoUrl == null && 
         _carouselData!.videoPath == null) {
       return _buildEmptyState();
