@@ -92,3 +92,31 @@ abstract class UploadProgress with _$UploadProgress {
 
   factory UploadProgress.fromJson(Map<String, dynamic> json) => _$UploadProgressFromJson(json);
 }
+
+/// Resultado de upload individual
+@freezed
+abstract class UploadResult with _$UploadResult {
+  const factory UploadResult({
+    required String fileId,
+    required bool success,
+    String? error,
+    String? minioPath,
+    DateTime? completedAt,
+  }) = _UploadResult;
+
+  factory UploadResult.fromJson(Map<String, dynamic> json) => _$UploadResultFromJson(json);
+}
+
+/// Progresso de batch upload
+@freezed 
+abstract class BatchUploadProgress with _$BatchUploadProgress {
+  const factory BatchUploadProgress({
+    required int totalFiles,
+    required int completedFiles,
+    required int failedFiles,
+    required double overallProgress,
+    required Map<String, UploadProgress> fileProgress,
+  }) = _BatchUploadProgress;
+
+  factory BatchUploadProgress.fromJson(Map<String, dynamic> json) => _$BatchUploadProgressFromJson(json);
+}

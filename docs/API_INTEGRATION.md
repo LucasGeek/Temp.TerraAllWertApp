@@ -1148,9 +1148,7 @@ input SearchPinsInput {
 ### Backend TODOs:
 - [ ] Compressão de imagens automática
 - [ ] Geração de thumbnails
-- [ ] CDN para arquivos estáticos
 - [ ] Cleanup de arquivos orfãos
-- [ ] Monitoramento de uso de storage
 
 ### App TODOs:
 - [ ] Implementar batch operations para múltiplos arquivos
@@ -1170,7 +1168,7 @@ input SearchPinsInput {
 ### 🔄 Pendente Backend:
 - [ ] Implementar todas as mutations/queries listadas
 - [ ] Sistema de signed URLs (MinIO/S3)
-- [ ] Geração e delivery de arquivos ZIP
+- [ ] Geração e delivery de arquivos ZIP (threads)
 - [ ] Resolução de conflitos para dados de negócio
 - [ ] Sistema de monitoramento e métricas
 
