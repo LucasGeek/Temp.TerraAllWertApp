@@ -65,6 +65,7 @@ dependencies:
   minio: ^3.0.11
   mime: ^1.0.6
   crypto: ^3.0.5
+  archive: ^3.6.1
   
   # --- Images & Cache ---
   cached_network_image: ^3.4.1

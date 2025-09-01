@@ -15,6 +15,7 @@ import '../../../../domain/enums/sun_position.dart';
 import '../../../../infra/cache/floor_plan_cache_adapter.dart';
 import '../../../../infra/cache/cache_service.dart';
 import '../../../../infra/upload/minio_upload_service.dart';
+import '../../../../infra/sync/offline_sync_service.dart';
 import '../../../../infra/graphql/graphql_client.dart';
 import '../../../../infra/logging/app_logger.dart';
 import '../../../../infra/storage/floor_plan_storage.dart';
@@ -52,6 +53,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
   // Cache services - serão inicializados no initState
   CacheService? _cacheService;
   MinIOUploadService? _uploadService;
+  OfflineSyncService? _syncService;
   FloorPlanCacheAdapter? _floorPlanCacheAdapter;
 
   // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
@@ -92,10 +94,18 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       );
       _uploadService = uploadService;
       
+      // Inicializar sync service para URLs baseadas na plataforma
+      final syncService = OfflineSyncService(
+        graphqlClient: graphqlClient,
+        cacheService: cacheService,
+      );
+      _syncService = syncService;
+      
       // Inicializar adapter específico para plantas
       _floorPlanCacheAdapter = FloorPlanCacheAdapter(
         cacheService: cacheService,
         uploadService: uploadService,
+        syncService: syncService,
       );
       
       AppLogger.info('FloorPlan cache services initialized successfully', tag: 'FloorPlan');

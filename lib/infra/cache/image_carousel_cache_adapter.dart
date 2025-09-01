@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 
 import 'cache_service.dart';
 import '../upload/minio_upload_service.dart';
+import '../sync/offline_sync_service.dart';
 import '../logging/app_logger.dart';
 
 /// Adaptador de cache específico para ImageCarouselPresentation  
@@ -11,13 +12,16 @@ import '../logging/app_logger.dart';
 class ImageCarouselCacheAdapter {
   final CacheService _cacheService;
   final MinIOUploadService _uploadService;
+  final OfflineSyncService _syncService;
   final ImagePicker _imagePicker = ImagePicker();
 
   ImageCarouselCacheAdapter({
     required CacheService cacheService,
     required MinIOUploadService uploadService,
+    required OfflineSyncService syncService,
   }) : _cacheService = cacheService,
-       _uploadService = uploadService;
+       _uploadService = uploadService,
+       _syncService = syncService;
 
   /// Seleciona e armazena múltiplas imagens para o carrossel
   Future<List<String>> selectAndCacheCarouselImages({
@@ -355,20 +359,52 @@ class ImageCarouselCacheAdapter {
     }
   }
 
-  /// Converte paths locais para URLs utilizáveis
-  List<String> convertCachedPathsToUrls(List<String> localPaths) {
-    return localPaths.map((path) {
-      // Para desenvolvimento, usar file:// URLs
-      // TODO: Quando MinIO estiver funcionando, converter para URLs públicas
-      return 'file://$path';
-    }).toList();
+  /// Converte paths locais para URLs da API ou ZIP offline
+  Future<List<String>> convertCachedPathsToUrls({
+    required List<String> localPaths,
+    required String routeId,
+  }) async {
+    final urls = <String>[];
+    
+    for (final localPath in localPaths) {
+      try {
+        // Extrair fileId do path local
+        final fileId = _extractFileIdFromPath(localPath);
+        if (fileId == null) {
+          AppLogger.warning('Could not extract fileId from path: $localPath', tag: 'CarouselCache');
+          continue;
+        }
+        
+        // Usar OfflineSyncService para obter URL correta baseada na plataforma
+        final url = await _syncService.getFileUrl(
+          fileId: fileId,
+          routeId: routeId,
+          originalFileName: localPath.split('/').last,
+        );
+        
+        if (url != null) {
+          urls.add(url);
+        } else {
+          AppLogger.warning('No URL available for file: $fileId', tag: 'CarouselCache');
+        }
+      } catch (e) {
+        AppLogger.error('Failed to convert path to URL: $localPath -> $e', tag: 'CarouselCache');
+      }
+    }
+    
+    return urls;
   }
 
-  /// Converte path único para URL utilizável
-  String? convertCachedPathToUrl(String? localPath) {
-    if (localPath == null) return null;
-    // TODO: Quando MinIO estiver funcionando, converter para URL pública
-    return 'file://$localPath';
+  /// Converte path único para URL da API ou ZIP offline
+  Future<String?> convertCachedPathToUrl({
+    required String localPath,
+    required String routeId,
+  }) async {
+    final urls = await convertCachedPathsToUrls(
+      localPaths: [localPath],
+      routeId: routeId,
+    );
+    return urls.isNotEmpty ? urls.first : null;
   }
 
   /// Extrai fileId do path local

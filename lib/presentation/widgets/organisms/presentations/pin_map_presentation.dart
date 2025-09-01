@@ -11,6 +11,7 @@ import '../../../../domain/enums/pin_content_type.dart';
 import '../../../../infra/cache/pin_cache_adapter.dart';
 import '../../../../infra/cache/cache_service.dart';
 import '../../../../infra/upload/minio_upload_service.dart';
+import '../../../../infra/sync/offline_sync_service.dart';
 import '../../../../infra/graphql/graphql_client.dart';
 import '../../../../infra/logging/app_logger.dart';
 import '../../../../infra/platform/platform_service.dart';
@@ -50,6 +51,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   // Cache services - serão inicializados no initState
   CacheService? _cacheService;
   MinIOUploadService? _uploadService;
+  OfflineSyncService? _syncService;
   PinCacheAdapter? _pinCacheAdapter;
 
   // Variáveis de compatibilidade (serão atualizadas pelo provider no build)
@@ -94,10 +96,18 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
       );
       _uploadService = uploadService;
       
+      // Inicializar sync service
+      final syncService = OfflineSyncService(
+        graphqlClient: graphqlClient,
+        cacheService: cacheService,
+      );
+      _syncService = syncService;
+      
       // Inicializar adapter
       _pinCacheAdapter = PinCacheAdapter(
         cacheService: cacheService,
         uploadService: uploadService,
+        syncService: syncService,
       );
       
       AppLogger.info('Cache services initialized successfully', tag: 'PinMap');
@@ -1501,7 +1511,10 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         
         if (cachedPaths.isNotEmpty) {
           // Converter paths locais para URLs utilizáveis
-          final urls = _pinCacheAdapter!.convertCachedPathsToUrls(cachedPaths);
+          final urls = await _pinCacheAdapter!.convertCachedPathsToUrls(
+            localPaths: cachedPaths,
+            routeId: widget.route,
+          );
           AppLogger.info('Images cached successfully: ${urls.length} files', tag: 'PinMap');
           return urls;
         }
@@ -1538,7 +1551,10 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         );
         
         if (cachedPaths.isNotEmpty) {
-          final urls = _pinCacheAdapter!.convertCachedPathsToUrls(cachedPaths);
+          final urls = await _pinCacheAdapter!.convertCachedPathsToUrls(
+            localPaths: cachedPaths,
+            routeId: widget.route,
+          );
           imageUrl = urls.first;
           AppLogger.info('Background image cached successfully', tag: 'PinMap');
         }
@@ -1612,9 +1628,14 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
         
         if (cachedPath != null) {
           // Converter path local para URL utilizável
-          final url = _pinCacheAdapter!.convertCachedPathsToUrls([cachedPath]).first;
-          AppLogger.info('Video cached successfully', tag: 'PinMap');
-          return url;
+          final urls = await _pinCacheAdapter!.convertCachedPathsToUrls(
+            localPaths: [cachedPath],
+            routeId: widget.route,
+          );
+          if (urls.isNotEmpty) {
+            AppLogger.info('Video cached successfully', tag: 'PinMap');
+            return urls.first;
+          }
         }
       }
       

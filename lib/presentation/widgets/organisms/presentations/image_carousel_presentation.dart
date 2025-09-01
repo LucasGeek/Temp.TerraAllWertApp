@@ -16,6 +16,7 @@ import '../../../../domain/enums/map_type.dart';
 import '../../../../infra/cache/image_carousel_cache_adapter.dart';
 import '../../../../infra/cache/cache_service.dart';
 import '../../../../infra/upload/minio_upload_service.dart';
+import '../../../../infra/sync/offline_sync_service.dart';
 import '../../../../infra/graphql/graphql_client.dart';
 import '../../../../infra/logging/app_logger.dart';
 import '../../../../infra/storage/carousel_data_storage.dart';
@@ -64,6 +65,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   // Cache services - serão inicializados no initState
   CacheService? _cacheService;
   MinIOUploadService? _uploadService;
+  OfflineSyncService? _syncService;
   ImageCarouselCacheAdapter? _carouselCacheAdapter;
 
   PageController? _pageController;
@@ -111,10 +113,18 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       );
       _uploadService = uploadService;
       
+      // Inicializar sync service para URLs baseadas na plataforma
+      final syncService = OfflineSyncService(
+        graphqlClient: graphqlClient,
+        cacheService: cacheService,
+      );
+      _syncService = syncService;
+      
       // Inicializar adapter específico para carrossel
       _carouselCacheAdapter = ImageCarouselCacheAdapter(
         cacheService: cacheService,
         uploadService: uploadService,
+        syncService: syncService,
       );
       
       AppLogger.info('ImageCarousel cache services initialized successfully', tag: 'ImageCarousel');
@@ -1294,7 +1304,10 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         
         if (cachedPath != null) {
           // Converter path para URL utilizável
-          videoPath = _carouselCacheAdapter!.convertCachedPathToUrl(cachedPath);
+          videoPath = await _carouselCacheAdapter!.convertCachedPathToUrl(
+            localPath: cachedPath,
+            routeId: widget.route,
+          );
           AppLogger.info('Video cached successfully', tag: 'ImageCarousel');
         }
       }
@@ -1396,7 +1409,10 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         
         if (cachedPaths.isNotEmpty) {
           // Converter paths para URLs utilizáveis
-          final urls = _carouselCacheAdapter!.convertCachedPathsToUrls(cachedPaths);
+          final urls = await _carouselCacheAdapter!.convertCachedPathsToUrls(
+            localPaths: cachedPaths,
+            routeId: widget.route,
+          );
           imagePaths.addAll(urls);
           
           AppLogger.info('Images cached successfully: ${imagePaths.length} files', tag: 'ImageCarousel');

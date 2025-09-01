@@ -3,8 +3,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'cache_service.dart';
-import 'models/cache_metadata.dart';
 import '../upload/minio_upload_service.dart';
+import '../sync/offline_sync_service.dart';
 import '../logging/app_logger.dart';
 
 /// Adaptador de cache específico para PinMapPresentation
@@ -12,13 +12,16 @@ import '../logging/app_logger.dart';
 class PinCacheAdapter {
   final CacheService _cacheService;
   final MinIOUploadService _uploadService;
+  final OfflineSyncService _syncService;
   final ImagePicker _imagePicker = ImagePicker();
 
   PinCacheAdapter({
     required CacheService cacheService,
     required MinIOUploadService uploadService,
+    required OfflineSyncService syncService,
   }) : _cacheService = cacheService,
-       _uploadService = uploadService;
+       _uploadService = uploadService,
+       _syncService = syncService;
 
   /// Seleciona e processa imagens para pins
   Future<List<String>> selectAndCacheImages({
@@ -345,14 +348,52 @@ class PinCacheAdapter {
     return false;
   }
 
-  /// Converte paths locais para URLs que podem ser usadas no PinMapPresentation
-  List<String> convertCachedPathsToUrls(List<String> localPaths) {
-    // Para desenvolvimento, retornar os paths locais
-    // TODO: Quando MinIO estiver funcionando, converter para URLs públicas ou blob URLs
-    return localPaths.map((path) {
-      // Por enquanto, usar file:// URLs para desenvolvimento local
-      return 'file://$path';
-    }).toList();
+  /// Converte paths locais para URLs da API ou ZIP offline
+  Future<List<String>> convertCachedPathsToUrls({
+    required List<String> localPaths,
+    required String routeId,
+  }) async {
+    final urls = <String>[];
+    
+    for (final localPath in localPaths) {
+      try {
+        // Extrair fileId do path local
+        final fileId = _extractFileIdFromPath(localPath);
+        if (fileId == null) {
+          AppLogger.warning('Could not extract fileId from path: $localPath', tag: 'PinCache');
+          continue;
+        }
+        
+        // Usar OfflineSyncService para obter URL correta baseada na plataforma
+        final url = await _syncService.getFileUrl(
+          fileId: fileId,
+          routeId: routeId,
+          originalFileName: localPath.split('/').last,
+        );
+        
+        if (url != null) {
+          urls.add(url);
+        } else {
+          AppLogger.warning('No URL available for file: $fileId', tag: 'PinCache');
+        }
+      } catch (e) {
+        AppLogger.error('Failed to convert path to URL: $localPath -> $e', tag: 'PinCache');
+      }
+    }
+    
+    return urls;
+  }
+
+  /// Converte path único para URL da API ou ZIP offline
+  Future<String?> convertCachedPathToUrl({
+    required String localPath,
+    required String routeId,
+  }) async {
+    final urls = await convertCachedPathsToUrls(
+      localPaths: [localPath],
+      routeId: routeId,
+    );
+    return urls.isNotEmpty ? urls.first : null;
   }
 
   /// Força sincronização de um arquivo específico
