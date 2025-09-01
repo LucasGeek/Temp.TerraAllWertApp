@@ -1,17 +1,17 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:video_player/video_player.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' hide MapType;
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../domain/entities/carousel_data.dart';
 import '../../../../domain/enums/map_type.dart';
 import '../../../../infra/logging/app_logger.dart';
-import '../../../../infra/platform/platform_service.dart';
 import '../../../../infra/storage/carousel_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
@@ -42,20 +42,20 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   final CarouselDataStorage _carouselStorage = CarouselDataStorage();
   final ImagePicker _imagePicker = ImagePicker();
   final Uuid _uuid = const Uuid();
-  
+
   PageController? _pageController;
   TransformationController? _transformationController;
   VideoPlayerController? _videoController;
   GoogleMapController? _mapController;
-  
+
   CarouselData? _carouselData;
   int _currentIndex = 0;
   bool _isLoading = false;
   bool _showControls = true; // Sempre visível agora
-  
+
   // Mapa para armazenar bytes de imagem por path (para Web)
   final Map<String, Uint8List> _imagesBytesMap = {};
-  
+
   // Mock removido - foco em estado vazio incentivando adição
 
   @override
@@ -64,7 +64,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     _pageController = PageController();
     _transformationController = TransformationController();
     _loadCarouselData();
-    
+
     // Controles sempre visíveis - removido timer
   }
 
@@ -80,10 +80,10 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Carrega os dados do carrossel do storage local
   Future<void> _loadCarouselData() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final carouselData = await _carouselStorage.loadCarouselData(widget.route);
-      
+
       if (carouselData == null) {
         // Cria dados iniciais vazios se não existir - promove adição manual
         final initialImages = widget.images ?? <String>[];
@@ -96,7 +96,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       } else {
         _carouselData = carouselData;
       }
-      
+
       // Inicializa controlador de vídeo se houver
       if (_carouselData!.videoUrl != null || _carouselData!.videoPath != null) {
         _initializeVideoController();
@@ -119,15 +119,13 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Salva os dados no storage local
   Future<void> _saveCarouselData() async {
     if (_carouselData == null) return;
-    
+
     try {
-      final updatedData = _carouselData!.copyWith(
-        updatedAt: DateTime.now(),
-      );
-      
+      final updatedData = _carouselData!.copyWith(updatedAt: DateTime.now());
+
       await _carouselStorage.saveCarouselData(updatedData);
       _carouselData = updatedData;
-      
+
       _showSuccessSnackBar('Dados salvos com sucesso!');
     } catch (e) {
       _showErrorSnackBar('Erro ao salvar dados: $e');
@@ -138,7 +136,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   Future<void> _initializeVideoController() async {
     try {
       final videoSource = _carouselData!.videoUrl ?? _carouselData!.videoPath!;
-      
+
       if (videoSource.startsWith('http') || videoSource.startsWith('blob:')) {
         _videoController = VideoPlayerController.networkUrl(Uri.parse(videoSource));
       } else {
@@ -150,7 +148,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           _videoController = VideoPlayerController.networkUrl(Uri.parse(videoSource));
         }
       }
-      
+
       await _videoController!.initialize();
       setState(() {});
     } catch (e) {
@@ -163,9 +161,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.black,
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
@@ -174,9 +170,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     }
 
     // Estado vazio - incentiva adição de imagem
-    if (_allImages.isEmpty && 
-        _carouselData!.videoUrl == null && 
-        _carouselData!.videoPath == null) {
+    if (_allImages.isEmpty && _carouselData!.videoUrl == null && _carouselData!.videoPath == null) {
       return _buildEmptyState();
     }
 
@@ -187,9 +181,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         child: Stack(
           children: [
             // Área principal do carrossel
-            Positioned.fill(
-              child: _buildMainContent(),
-            ),
+            Positioned.fill(child: _buildMainContent()),
 
             // Controles superiores esquerdos
             if (_showControls)
@@ -207,7 +199,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 child: _buildBottomRightControls(),
               ),
 
-
             // Indicadores do carrossel (se múltiplas imagens)
             if (_showControls && _allImages.length > 1)
               Positioned(
@@ -218,8 +209,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               ),
 
             // Overlay da caixa de texto
-            if (_carouselData!.textBox != null)
-              _buildTextBoxOverlay(_carouselData!.textBox!),
+            if (_carouselData!.textBox != null) _buildTextBoxOverlay(_carouselData!.textBox!),
           ],
         ),
       ),
@@ -228,20 +218,20 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Combina URLs online e paths locais das imagens
   List<String> get _allImages {
-    final images = [
-      ..._carouselData!.imageUrls,
-      ..._carouselData!.imagePaths,
-    ];
-    AppLogger.debug('_allImages: total=${images.length}, urls=${_carouselData!.imageUrls.length}, paths=${_carouselData!.imagePaths.length}', tag: 'ImageCarousel');
+    final images = [..._carouselData!.imageUrls, ..._carouselData!.imagePaths];
+    AppLogger.debug(
+      '_allImages: total=${images.length}, urls=${_carouselData!.imageUrls.length}, paths=${_carouselData!.imagePaths.length}',
+      tag: 'ImageCarousel',
+    );
     return images;
   }
 
   /// Constrói o conteúdo principal do carrossel
   Widget _buildMainContent() {
     final images = _allImages;
-    
+
     AppLogger.debug('_buildMainContent: images.length=${images.length}', tag: 'ImageCarousel');
-    
+
     if (images.isEmpty) {
       return _buildEmptyState();
     }
@@ -256,7 +246,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       onPageChanged: (index) {
         setState(() => _currentIndex = index);
         _resetZoom();
-        _startControlsTimer();
+        // REMOVIDO: _startControlsTimer() - controles permanecem visíveis
       },
       itemBuilder: (context, index) {
         return _buildSingleImage(images[index]);
@@ -280,12 +270,16 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Widget de imagem com tratamento de erro e loading robusto
   Widget _buildImageWidget(String imageUrl) {
     AppLogger.debug('Renderizando imagem: $imageUrl', tag: 'ImageCarousel');
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width;
-        final height = constraints.maxHeight.isFinite ? constraints.maxHeight : MediaQuery.of(context).size.height;
-        
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : MediaQuery.of(context).size.height;
+
         // Para Web com bytes em memória
         if (kIsWeb && _imagesBytesMap.containsKey(imageUrl)) {
           AppLogger.debug('Usando Image.memory para: $imageUrl', tag: 'ImageCarousel');
@@ -302,7 +296,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             ),
           );
         }
-        
+
         // Para URLs de rede
         if (imageUrl.startsWith('http') || imageUrl.startsWith('blob:')) {
           AppLogger.debug('Usando Image.network para: $imageUrl', tag: 'ImageCarousel');
@@ -323,7 +317,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             ),
           );
         }
-        
+
         // Para arquivos locais (não-Web)
         if (!kIsWeb) {
           AppLogger.debug('Usando Image.file para: $imageUrl', tag: 'ImageCarousel');
@@ -340,7 +334,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             ),
           );
         }
-        
+
         // Fallback - tenta OfflineImage
         AppLogger.debug('Usando OfflineImage como fallback para: $imageUrl', tag: 'ImageCarousel');
         return SizedBox(
@@ -364,16 +358,17 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
-          width: constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width,
-          height: constraints.maxHeight.isFinite ? constraints.maxHeight : MediaQuery.of(context).size.height,
+          width: constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : MediaQuery.of(context).size.width,
+          height: constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : MediaQuery.of(context).size.height,
           color: AppTheme.surfaceColor,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(
-                color: AppTheme.primaryColor,
-                strokeWidth: 3,
-              ),
+              CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 3),
               SizedBox(height: LayoutConstants.marginMd),
               Text(
                 'Carregando imagem...',
@@ -403,17 +398,17 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
-          width: constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width,
-          height: constraints.maxHeight.isFinite ? constraints.maxHeight : MediaQuery.of(context).size.height,
+          width: constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : MediaQuery.of(context).size.width,
+          height: constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : MediaQuery.of(context).size.height,
           color: AppTheme.surfaceColor,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.broken_image_outlined,
-                size: 80,
-                color: AppTheme.textSecondary,
-              ),
+              Icon(Icons.broken_image_outlined, size: 80, color: AppTheme.textSecondary),
               SizedBox(height: LayoutConstants.marginMd),
               Text(
                 'Imagem não disponível',
@@ -467,15 +462,11 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.photo_library_outlined,
-              size: 80,
-              color: AppTheme.primaryColor,
-            ),
+            child: Icon(Icons.photo_library_outlined, size: 80, color: AppTheme.primaryColor),
           ),
-          
+
           SizedBox(height: LayoutConstants.marginXl),
-          
+
           // Título
           Text(
             'Menu "${widget.title}" criado com sucesso!',
@@ -486,9 +477,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               fontWeight: FontWeight.w600,
             ),
           ),
-          
+
           SizedBox(height: LayoutConstants.marginMd),
-          
+
           // Subtítulo explicativo incentivando ação
           Text(
             '👆 Clique aqui e adicione suas primeiras imagens!\n\n'
@@ -504,9 +495,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               height: 1.5,
             ),
           ),
-          
+
           SizedBox(height: LayoutConstants.marginXl),
-          
+
           // Botões de ação
           Wrap(
             alignment: WrapAlignment.center,
@@ -526,7 +517,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                   ),
                 ),
               ),
-              
+
               OutlinedButton.icon(
                 onPressed: _addOrViewVideo,
                 icon: const Icon(Icons.videocam_outlined),
@@ -538,7 +529,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                   ),
                 ),
               ),
-              
+
               OutlinedButton.icon(
                 onPressed: _addOrEditMap,
                 icon: const Icon(Icons.map_outlined),
@@ -552,19 +543,16 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               ),
             ],
           ),
-          
+
           SizedBox(height: LayoutConstants.marginXl),
-          
+
           // Dica informativa
           Container(
             padding: EdgeInsets.all(LayoutConstants.paddingMd),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
-              border: Border.all(
-                color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                width: 1,
-              ),
+              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2), width: 1),
             ),
             child: Row(
               children: [
@@ -599,11 +587,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.white,
-            ),
+            Icon(Icons.error_outline, size: 64, color: Colors.white),
             SizedBox(height: LayoutConstants.marginMd),
             Text(
               'Erro ao carregar dados',
@@ -614,10 +598,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               ),
             ),
             SizedBox(height: LayoutConstants.marginMd),
-            ElevatedButton(
-              onPressed: _loadCarouselData,
-              child: const Text('Tentar Novamente'),
-            ),
+            ElevatedButton(onPressed: _loadCarouselData, child: const Text('Tentar Novamente')),
           ],
         ),
       ),
@@ -642,41 +623,41 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 ? 'Ver Vídeo'
                 : 'Adicionar Vídeo',
           ),
-          
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           _buildControlButton(
             icon: Icons.add_photo_alternate,
             onPressed: _addImages,
             tooltip: 'Adicionar Imagem',
           ),
-          
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           _buildControlButton(
             icon: Icons.reorder,
             onPressed: _reorderImages,
             tooltip: 'Reordenar Imagens',
           ),
-          
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           _buildControlButton(
             icon: Icons.text_fields,
             onPressed: _addOrEditTextBox,
             tooltip: _carouselData!.textBox != null ? 'Editar Texto' : 'Adicionar Texto',
           ),
-          
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           _buildControlButton(
             icon: Icons.map_outlined,
             onPressed: _addOrEditMap,
             tooltip: _carouselData!.mapConfig != null ? 'Editar Mapa' : 'Adicionar Mapa',
           ),
-          
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           _buildControlButton(
             icon: Icons.delete_outline,
             onPressed: _deleteCurrentImage,
@@ -698,22 +679,14 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildControlButton(
-            icon: Icons.zoom_in,
-            onPressed: _zoomIn,
-            tooltip: 'Aumentar Zoom',
-          ),
-          
+          _buildControlButton(icon: Icons.zoom_in, onPressed: _zoomIn, tooltip: 'Aumentar Zoom'),
+
           SizedBox(height: LayoutConstants.marginSm),
-          
-          _buildControlButton(
-            icon: Icons.zoom_out,
-            onPressed: _zoomOut,
-            tooltip: 'Diminuir Zoom',
-          ),
-          
+
+          _buildControlButton(icon: Icons.zoom_out, onPressed: _zoomOut, tooltip: 'Diminuir Zoom'),
+
           SizedBox(height: LayoutConstants.marginSm),
-          
+
           _buildControlButton(
             icon: Icons.fit_screen,
             onPressed: _resetZoom,
@@ -723,7 +696,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       ),
     );
   }
-
 
   /// Indicadores de páginas
   Widget _buildPageIndicators() {
@@ -737,9 +709,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: index == _currentIndex 
-                ? Colors.white 
-                : Colors.white.withValues(alpha: 0.4),
+            color: index == _currentIndex ? Colors.white : Colors.white.withValues(alpha: 0.4),
           ),
         ),
       ),
@@ -790,18 +760,11 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.3),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
         ),
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: Icon(icon, color: Colors.white, size: 20),
           padding: EdgeInsets.zero,
         ),
       ),
@@ -813,31 +776,23 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Alterna visibilidade dos controles
   void _toggleControls() {
     setState(() => _showControls = !_showControls);
-    if (_showControls) {
-      _startControlsTimer();
-    }
+    // REMOVIDO: Timer automático - controles só mudam com interação do usuário
   }
 
-  /// Timer para esconder controles
-  void _startControlsTimer() {
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() => _showControls = false);
-      }
-    });
-  }
+  // REMOVIDO: Método _startControlsTimer() - controles agora são sempre visíveis
+  // exceto quando o usuário escolhe escondê-los manualmente
 
   /// Adiciona ou visualiza vídeo
   void _addOrViewVideo() async {
     _showVideoConfigDialog();
   }
-  
+
   /// Modal para configuração de vídeo com título e opção de remover (mesma lógica do PinMapPresentation)
   void _showVideoConfigDialog() {
     final hasExistingVideo = _carouselData?.videoUrl != null || _carouselData?.videoPath != null;
     final titleController = TextEditingController(text: _carouselData?.videoTitle ?? '');
     final urlController = TextEditingController(text: _carouselData?.videoUrl ?? '');
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -858,7 +813,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 ),
               ),
               SizedBox(height: 16),
-              
+
               // Campo de URL
               TextField(
                 controller: urlController,
@@ -869,7 +824,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 ),
                 maxLines: 3,
               ),
-              
+
               if (hasExistingVideo) ...[
                 SizedBox(height: 16),
                 Container(
@@ -898,10 +853,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               icon: Icon(Icons.delete, color: Colors.red),
               label: Text('Remover Vídeo', style: TextStyle(color: Colors.red)),
             ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text('Cancelar')),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -912,7 +864,8 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
               ),
               SizedBox(width: 8),
               ElevatedButton.icon(
-                onPressed: () => _saveVideoFromUrl(context, titleController.text, urlController.text),
+                onPressed: () =>
+                    _saveVideoFromUrl(context, titleController.text, urlController.text),
                 icon: Icon(Icons.link),
                 label: Text('Salvar URL'),
               ),
@@ -922,7 +875,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       ),
     );
   }
-  
+
   /// Remove o vídeo configurado
   void _removeVideo(BuildContext dialogContext) async {
     if (_carouselData != null) {
@@ -932,7 +885,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         videoTitle: null,
         updatedAt: DateTime.now(),
       );
-      
+
       await _saveCarouselData();
       if (mounted) {
         setState(() {});
@@ -941,7 +894,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       }
     }
   }
-  
+
   /// Seleciona vídeo da galeria
   void _pickVideoFromGallery(BuildContext dialogContext, String title) async {
     try {
@@ -949,7 +902,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5),
       );
-      
+
       if (video != null && _carouselData != null && mounted) {
         _carouselData = _carouselData!.copyWith(
           videoPath: video.path,
@@ -957,7 +910,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           videoTitle: title.trim().isEmpty ? 'Vídeo do carrossel' : title.trim(),
           updatedAt: DateTime.now(),
         );
-        
+
         await _saveCarouselData();
         if (mounted) {
           setState(() {});
@@ -971,7 +924,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       }
     }
   }
-  
+
   /// Salva vídeo através de URL
   void _saveVideoFromUrl(BuildContext dialogContext, String title, String url) async {
     if (url.trim().isEmpty) {
@@ -980,22 +933,22 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       }
       return;
     }
-    
+
     if (_carouselData != null && mounted) {
       try {
         AppLogger.info('Salvando vídeo da URL: $url com título: $title');
-        
+
         _carouselData = _carouselData!.copyWith(
           videoUrl: url.trim(),
           videoPath: null,
           videoTitle: title.trim().isEmpty ? 'Vídeo do carrossel' : title.trim(),
           updatedAt: DateTime.now(),
         );
-        
+
         await _saveCarouselData();
-        
+
         AppLogger.info('Vídeo salvo com sucesso, forçando atualização da tela');
-        
+
         // Delay e setState explícito para garantir atualização da tela
         await Future.delayed(const Duration(milliseconds: 100));
         if (mounted) {
@@ -1020,11 +973,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       final video = await _imagePicker.pickVideo(source: ImageSource.gallery);
       if (video != null) {
         setState(() {
-          _carouselData = _carouselData!.copyWith(
-            videoPath: video.path,
-          );
+          _carouselData = _carouselData!.copyWith(videoPath: video.path);
         });
-        
+
         await _initializeVideoController();
         await _saveCarouselData();
       }
@@ -1036,7 +987,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Mostra o vídeo
   void _showVideo() {
     if (_videoController == null) return;
-    
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => _VideoPlayerScreen(
@@ -1055,18 +1006,21 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       AppLogger.debug('${images.length} imagens selecionadas', tag: 'ImageCarousel');
       if (images.isNotEmpty && _carouselData != null) {
         final imagePaths = <String>[];
-        
+
         // Verificar cada imagem individualmente
         for (final image in images) {
           AppLogger.debug('Processando imagem: ${image.path}', tag: 'ImageCarousel');
-          
+
           if (kIsWeb) {
             // Para Web, tentar obter bytes da imagem
             try {
               final bytes = await image.readAsBytes();
               _imagesBytesMap[image.path] = bytes;
               imagePaths.add(image.path);
-              AppLogger.debug('Imagem Web processada e armazenada em memória: ${image.path}', tag: 'ImageCarousel');
+              AppLogger.debug(
+                'Imagem Web processada e armazenada em memória: ${image.path}',
+                tag: 'ImageCarousel',
+              );
             } catch (e) {
               AppLogger.error('Erro ao processar imagem Web: $e', tag: 'ImageCarousel');
             }
@@ -1075,7 +1029,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             final file = File(image.path);
             final exists = await file.exists();
             AppLogger.debug('Arquivo existe: $exists para ${image.path}', tag: 'ImageCarousel');
-            
+
             if (exists) {
               imagePaths.add(image.path);
             } else {
@@ -1083,20 +1037,26 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             }
           }
         }
-        
+
         if (imagePaths.isNotEmpty) {
           // Atualizar dados do carrossel
           _carouselData = _carouselData!.copyWith(
             imagePaths: [..._carouselData!.imagePaths, ...imagePaths],
             updatedAt: DateTime.now(),
           );
-          
-          AppLogger.debug('_carouselData atualizado. Total de imagePaths: ${_carouselData!.imagePaths.length}', tag: 'ImageCarousel');
-          AppLogger.debug('_allImages após atualização: ${_allImages.length}', tag: 'ImageCarousel');
-          
+
+          AppLogger.debug(
+            '_carouselData atualizado. Total de imagePaths: ${_carouselData!.imagePaths.length}',
+            tag: 'ImageCarousel',
+          );
+          AppLogger.debug(
+            '_allImages após atualização: ${_allImages.length}',
+            tag: 'ImageCarousel',
+          );
+
           // Salvar os dados atualizados
           await _saveCarouselData();
-          
+
           if (mounted) {
             setState(() {});
             _showSuccessSnackBar('${imagePaths.length} imagem(ns) adicionada(s)!');
@@ -1131,7 +1091,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             // Separar URLs e paths após reordenação
             final urls = <String>[];
             final paths = <String>[];
-            
+
             for (final image in reorderedImages) {
               if (image.startsWith('http')) {
                 urls.add(image);
@@ -1139,7 +1099,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 paths.add(image);
               }
             }
-            
+
             setState(() {
               _carouselData = _carouselData!.copyWith(
                 imageUrls: urls,
@@ -1164,7 +1124,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     final textController = TextEditingController(text: existingTextBox?.text ?? '');
     double fontSize = existingTextBox?.fontSize ?? 16.0;
     Color fontColor = existingTextBox != null ? Color(existingTextBox.fontColor) : Colors.black;
-    Color backgroundColor = existingTextBox != null ? Color(existingTextBox.backgroundColor) : Colors.white;
+    Color backgroundColor = existingTextBox != null
+        ? Color(existingTextBox.backgroundColor)
+        : Colors.white;
 
     showDialog<void>(
       context: context,
@@ -1172,7 +1134,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text(existingTextBox != null ? 'Editar Caixa de Texto' : 'Adicionar Caixa de Texto'),
+              title: Text(
+                existingTextBox != null ? 'Editar Caixa de Texto' : 'Adicionar Caixa de Texto',
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1185,9 +1149,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                       ),
                       maxLines: 3,
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     Text('Tamanho da Fonte: ${fontSize.toInt()}'),
                     Slider(
                       value: fontSize,
@@ -1196,9 +1160,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                       divisions: 20,
                       onChanged: (value) => setState(() => fontSize = value),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     Row(
                       children: [
                         Expanded(
@@ -1206,7 +1170,10 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                             children: [
                               const Text('Cor da Fonte'),
                               SizedBox(height: LayoutConstants.marginSm),
-                              _buildColorPicker(fontColor, (color) => setState(() => fontColor = color)),
+                              _buildColorPicker(
+                                fontColor,
+                                (color) => setState(() => fontColor = color),
+                              ),
                             ],
                           ),
                         ),
@@ -1216,7 +1183,10 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                             children: [
                               const Text('Cor de Fundo'),
                               SizedBox(height: LayoutConstants.marginSm),
-                              _buildColorPicker(backgroundColor, (color) => setState(() => backgroundColor = color)),
+                              _buildColorPicker(
+                                backgroundColor,
+                                (color) => setState(() => backgroundColor = color),
+                              ),
                             ],
                           ),
                         ),
@@ -1252,7 +1222,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                             createdAt: existingTextBox?.createdAt ?? DateTime.now(),
                             updatedAt: DateTime.now(),
                           );
-                          
+
                           Navigator.of(context).pop();
                           _saveTextBox(textBox);
                         }
@@ -1270,8 +1240,14 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Color picker simples
   Widget _buildColorPicker(Color currentColor, Function(Color) onColorChanged) {
     final colors = [
-      Colors.black, Colors.white, Colors.red, Colors.green, 
-      Colors.blue, Colors.yellow, Colors.orange, Colors.purple,
+      Colors.black,
+      Colors.white,
+      Colors.red,
+      Colors.green,
+      Colors.blue,
+      Colors.yellow,
+      Colors.orange,
+      Colors.purple,
     ];
 
     return Wrap(
@@ -1347,9 +1323,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                       ),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     TextField(
                       controller: lngController,
                       decoration: const InputDecoration(
@@ -1358,9 +1334,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                       ),
                       keyboardType: TextInputType.numberWithOptions(decimal: true),
                     ),
-                    
+
                     SizedBox(height: LayoutConstants.marginMd),
-                    
+
                     DropdownButtonFormField<MapType>(
                       value: mapType,
                       onChanged: (value) => setState(() => mapType = value!),
@@ -1369,10 +1345,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                         border: OutlineInputBorder(),
                       ),
                       items: MapType.values.map((type) {
-                        return DropdownMenuItem(
-                          value: type,
-                          child: Text(type.displayName),
-                        );
+                        return DropdownMenuItem(value: type, child: Text(type.displayName));
                       }).toList(),
                     ),
                   ],
@@ -1395,12 +1368,12 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                   onPressed: () {
                     final lat = double.tryParse(latController.text);
                     final lng = double.tryParse(lngController.text);
-                    
+
                     if (lat == null || lng == null) {
                       _showErrorSnackBar('Coordenadas inválidas');
                       return;
                     }
-                    
+
                     final mapConfig = MapConfig(
                       id: existingMap?.id ?? _uuid.v4(),
                       latitude: lat,
@@ -1409,7 +1382,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                       createdAt: existingMap?.createdAt ?? DateTime.now(),
                       updatedAt: DateTime.now(),
                     );
-                    
+
                     Navigator.of(context).pop();
                     _saveMap(mapConfig);
                   },
@@ -1426,15 +1399,17 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Salva configuração do mapa
   Future<void> _saveMap(MapConfig mapConfig) async {
     try {
-      AppLogger.info('Salvando configuração do mapa: ${mapConfig.mapType.displayName} em ${mapConfig.latitude}, ${mapConfig.longitude}');
-      
+      AppLogger.info(
+        'Salvando configuração do mapa: ${mapConfig.mapType.displayName} em ${mapConfig.latitude}, ${mapConfig.longitude}',
+      );
+
       setState(() {
         _carouselData = _carouselData!.copyWith(mapConfig: mapConfig);
       });
       await _saveCarouselData();
-      
+
       AppLogger.info('Mapa salvo com sucesso, forçando atualização da tela');
-      
+
       // Delay e setState explícito para garantir atualização da tela
       await Future.delayed(const Duration(milliseconds: 100));
       if (mounted) {
@@ -1442,7 +1417,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           AppLogger.info('Estado atualizado após salvar mapa');
         });
       }
-      
+
       if (mounted) {
         _showSuccessSnackBar('Mapa adicionado com sucesso');
       }
@@ -1465,7 +1440,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   /// Apaga imagem atual
   void _deleteCurrentImage() {
     if (_carouselData!.imageUrls.isEmpty) return;
-    
+
     showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -1473,10 +1448,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           title: const Text('Apagar Imagem'),
           content: const Text('Tem certeza que deseja apagar esta imagem?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
@@ -1495,20 +1467,20 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   Future<void> _removeCurrentImage() async {
     final images = List<String>.from(_carouselData!.imageUrls);
     if (images.isEmpty) return;
-    
+
     images.removeAt(_currentIndex);
-    
+
     // Ajusta índice se necessário
     if (_currentIndex >= images.length && images.isNotEmpty) {
       _currentIndex = images.length - 1;
     } else if (images.isEmpty) {
       _currentIndex = 0;
     }
-    
+
     setState(() {
       _carouselData = _carouselData!.copyWith(imageUrls: images);
     });
-    
+
     await _saveCarouselData();
   }
 
@@ -1540,22 +1512,16 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Mostra snackbar de erro
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
   }
 
   /// Mostra snackbar de sucesso
   void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green));
   }
 }
 
@@ -1564,10 +1530,7 @@ class _VideoPlayerScreen extends StatefulWidget {
   final VideoPlayerController videoController;
   final String title;
 
-  const _VideoPlayerScreen({
-    required this.videoController,
-    required this.title,
-  });
+  const _VideoPlayerScreen({required this.videoController, required this.title});
 
   @override
   State<_VideoPlayerScreen> createState() => _VideoPlayerScreenState();
@@ -1580,22 +1543,14 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
   void initState() {
     super.initState();
     widget.videoController.play();
-    _startControlsTimer();
+    // REMOVIDO: _startControlsTimer() - controles ficam visíveis
   }
 
-  void _startControlsTimer() {
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() => _showControls = false);
-      }
-    });
-  }
-
+  // REMOVIDO: Timer automático dos controles do vídeo
+  
   void _toggleControls() {
     setState(() => _showControls = !_showControls);
-    if (_showControls) {
-      _startControlsTimer();
-    }
+    // REMOVIDO: Timer automático - toggle apenas manual
   }
 
   @override
@@ -1612,7 +1567,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                 child: VideoPlayer(widget.videoController),
               ),
             ),
-            
+
             if (_showControls) ...[
               // AppBar
               Positioned(
@@ -1625,7 +1580,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                   title: Text(widget.title),
                 ),
               ),
-              
+
               // Controles de reprodução
               Positioned(
                 bottom: MediaQuery.of(context).padding.bottom + LayoutConstants.paddingMd,
@@ -1648,13 +1603,11 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                           });
                         },
                         icon: Icon(
-                          widget.videoController.value.isPlaying
-                              ? Icons.pause
-                              : Icons.play_arrow,
+                          widget.videoController.value.isPlaying ? Icons.pause : Icons.play_arrow,
                           color: Colors.white,
                         ),
                       ),
-                      
+
                       Expanded(
                         child: VideoProgressIndicator(
                           widget.videoController,
@@ -1683,10 +1636,7 @@ class _ReorderImagesScreen extends StatefulWidget {
   final List<String> images;
   final Function(List<String>) onReorder;
 
-  const _ReorderImagesScreen({
-    required this.images,
-    required this.onReorder,
-  });
+  const _ReorderImagesScreen({required this.images, required this.onReorder});
 
   @override
   State<_ReorderImagesScreen> createState() => _ReorderImagesScreenState();
@@ -1721,7 +1671,7 @@ class _ReorderImagesScreenState extends State<_ReorderImagesScreen> {
         itemCount: _images.length,
         itemBuilder: (context, index) {
           final imageUrl = _images[index];
-          
+
           return Card(
             key: ValueKey(imageUrl),
             margin: EdgeInsets.only(bottom: LayoutConstants.marginSm),
@@ -1797,10 +1747,7 @@ class _ReorderImagesScreenState extends State<_ReorderImagesScreen> {
                   ),
                   SizedBox(width: LayoutConstants.marginSm),
                   // Handle de arrastar
-                  Icon(
-                    Icons.drag_handle,
-                    color: AppTheme.textSecondary,
-                  ),
+                  Icon(Icons.drag_handle, color: AppTheme.textSecondary),
                 ],
               ),
             ),
