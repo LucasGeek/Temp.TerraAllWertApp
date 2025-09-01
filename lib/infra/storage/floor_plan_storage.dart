@@ -200,4 +200,79 @@ class FloorPlanStorage {
       throw Exception('Erro ao remover arquivo local: $e');
     }
   }
+  
+  /// Salva bytes de imagem para Web (base64 em SharedPreferences)
+  Future<void> saveImageBytes(String routeId, String floorId, Uint8List bytes) async {
+    try {
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final key = 'floor_image_${routeId}_$floorId';
+        final base64String = base64Encode(bytes);
+        await prefs.setString(key, base64String);
+      }
+      // Para plataformas nativas, os bytes não precisam ser salvos separadamente
+      // pois o path da imagem já é persistido
+    } catch (e) {
+      throw Exception('Erro ao salvar bytes da imagem: $e');
+    }
+  }
+  
+  /// Carrega bytes de imagem para Web (base64 de SharedPreferences)
+  Future<Uint8List?> loadImageBytes(String routeId, String floorId) async {
+    try {
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final key = 'floor_image_${routeId}_$floorId';
+        final base64String = prefs.getString(key);
+        
+        if (base64String != null) {
+          return base64Decode(base64String);
+        }
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Erro ao carregar bytes da imagem: $e');
+    }
+  }
+  
+  /// Remove bytes de imagem salvos
+  Future<void> removeImageBytes(String routeId, String floorId) async {
+    try {
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final key = 'floor_image_${routeId}_$floorId';
+        await prefs.remove(key);
+      }
+    } catch (e) {
+      throw Exception('Erro ao remover bytes da imagem: $e');
+    }
+  }
+  
+  /// Carrega todos os bytes de imagem para uma rota
+  Future<Map<String, Uint8List>> loadAllImageBytes(String routeId) async {
+    try {
+      final imageBytes = <String, Uint8List>{};
+      
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final keys = prefs.getKeys();
+        final prefix = 'floor_image_${routeId}_';
+        
+        for (final key in keys) {
+          if (key.startsWith(prefix)) {
+            final floorId = key.replaceFirst(prefix, '');
+            final base64String = prefs.getString(key);
+            
+            if (base64String != null) {
+              imageBytes[floorId] = base64Decode(base64String);
+            }
+          }
+        }
+      }
+      
+      return imageBytes;
+    } catch (e) {
+      throw Exception('Erro ao carregar todos os bytes de imagem: $e');
+    }
+  }
 }

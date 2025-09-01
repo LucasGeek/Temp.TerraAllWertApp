@@ -92,6 +92,10 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
       } else {
         _floorPlanData = floorPlanData;
         _currentFloor = floorPlanData.floors.isNotEmpty ? floorPlanData.floors.first : null;
+        
+        // Carregar bytes de imagem salvos (para Web)
+        final savedImageBytes = await _floorPlanStorage.loadAllImageBytes(widget.route);
+        _floorImageBytesMap.addAll(savedImageBytes);
       }
     } catch (e) {
       // Em caso de erro, ainda cria dados iniciais para menus novos
@@ -583,6 +587,9 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
                   // Remove a imagem do mapa se existir
                   _floorImageBytesMap.remove(floorIdToDelete);
                   
+                  // Remove bytes salvos no storage
+                  _floorPlanStorage.removeImageBytes(widget.route, floorIdToDelete);
+                  
                   _floorPlanData = _floorPlanData!.copyWith(floors: floors);
                   _currentFloor = floors.first;
                 });
@@ -639,6 +646,13 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
             setState(() {
               _floorImageBytesMap[_currentFloor!.id] = file.bytes!;
             });
+
+            // Persistir bytes no storage (para Web)
+            await _floorPlanStorage.saveImageBytes(
+              widget.route, 
+              _currentFloor!.id, 
+              file.bytes!
+            );
 
             // Salva uma referência ou indicador de que há uma imagem customizada
             final updatedFloors = _floorPlanData!.floors.map((floor) {
