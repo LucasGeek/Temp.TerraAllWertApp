@@ -1,11 +1,11 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' hide MapType;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
@@ -17,6 +17,17 @@ import '../../../../infra/storage/carousel_data_storage.dart';
 import '../../../design_system/app_theme.dart';
 import '../../../design_system/layout_constants.dart';
 import '../../molecules/offline_image.dart';
+
+/// Tipos de item no carrossel
+enum CarouselItemType { image, map }
+
+/// Item do carrossel (imagem ou mapa)
+class CarouselItem {
+  final CarouselItemType type;
+  final dynamic data;
+
+  CarouselItem(this.type, this.data);
+}
 
 /// Apresentação de carrossel de imagens com funcionalidades avançadas
 /// Suporta imagens, vídeo, mapa, caixa de texto e zoom
@@ -47,12 +58,12 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   PageController? _pageController;
   TransformationController? _transformationController;
   VideoPlayerController? _videoController;
-  GoogleMapController? _mapController;
+  MapController? _mapController;
 
   CarouselData? _carouselData;
   int _currentIndex = 0;
   bool _isLoading = false;
-  bool _showControls = true; // Sempre visível agora
+  bool _showControls = true;
 
   // Mapa para armazenar bytes de imagem por path (para Web)
   final Map<String, Uint8List> _imagesBytesMap = {};
@@ -65,8 +76,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     _pageController = PageController();
     _transformationController = TransformationController();
     _loadCarouselData();
-
-    // Controles sempre visíveis - removido timer
   }
 
   @override
@@ -170,8 +179,11 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       return _buildErrorState();
     }
 
-    // Estado vazio - incentiva adição de imagem
-    if (_allImages.isEmpty && _carouselData!.videoUrl == null && _carouselData!.videoPath == null) {
+    // Estado vazio - incentiva adição de conteúdo
+    if (_allImages.isEmpty &&
+        _carouselData!.mapConfig == null &&
+        _carouselData!.videoUrl == null &&
+        _carouselData!.videoPath == null) {
       return _buildEmptyState();
     }
 
@@ -184,9 +196,8 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             // Área principal do carrossel
             Positioned.fill(child: _buildMainContent()),
 
-            // NOVO: Setas de navegação (apenas se múltiplas imagens)
-            if (_showControls && _allImages.length > 1)
-              _buildNavigationArrows(),
+            // NOVO: Setas de navegação (apenas se múltiplos itens)
+            if (_showControls && _allItems.length > 1) _buildNavigationArrows(),
 
             // Controles superiores esquerdos
             if (_showControls)
@@ -204,8 +215,8 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 child: _buildBottomRightControls(),
               ),
 
-            // Indicadores do carrossel (se múltiplas imagens)
-            if (_showControls && _allImages.length > 1)
+            // Indicadores do carrossel (se múltiplos itens)
+            if (_showControls && _allItems.length > 1)
               Positioned(
                 bottom: MediaQuery.of(context).padding.bottom + LayoutConstants.paddingXl,
                 left: 0,
@@ -231,18 +242,40 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     return images;
   }
 
+  /// Combina imagens e mapa (se existir) como itens do carrossel
+  List<CarouselItem> get _allItems {
+    final items = <CarouselItem>[];
+
+    // Adicionar imagens
+    for (final imageUrl in _allImages) {
+      items.add(CarouselItem(CarouselItemType.image, imageUrl));
+    }
+
+    // Adicionar mapa se configurado
+    if (_carouselData?.mapConfig != null) {
+      items.add(CarouselItem(CarouselItemType.map, _carouselData!.mapConfig!));
+    }
+
+    AppLogger.debug(
+      '_allItems: total=${items.length}, images=${_allImages.length}, hasMap=${_carouselData?.mapConfig != null}',
+      tag: 'ImageCarousel',
+    );
+
+    return items;
+  }
+
   /// Constrói o conteúdo principal do carrossel
   Widget _buildMainContent() {
-    final images = _allImages;
+    final items = _allItems;
 
-    AppLogger.debug('_buildMainContent: images.length=${images.length}', tag: 'ImageCarousel');
+    AppLogger.debug('_buildMainContent: items.length=${items.length}', tag: 'ImageCarousel');
 
-    if (images.isEmpty) {
+    if (items.isEmpty) {
       return _buildEmptyState();
     }
 
-    if (images.length == 1) {
-      return _buildSingleImage(images.first);
+    if (items.length == 1) {
+      return _buildSingleItem(items.first);
     }
 
     return GestureDetector(
@@ -250,24 +283,34 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       onPanEnd: (details) {
         // Swipe horizontal para navegar
         if (details.velocity.pixelsPerSecond.dx > 500) {
-          _previousImage(); // Swipe para direita = imagem anterior
+          _previousItem(); // Swipe para direita = item anterior
         } else if (details.velocity.pixelsPerSecond.dx < -500) {
-          _nextImage(); // Swipe para esquerda = próxima imagem
+          _nextItem(); // Swipe para esquerda = próximo item
         }
       },
       child: PageView.builder(
         controller: _pageController,
-        itemCount: images.length,
+        itemCount: items.length,
         onPageChanged: (index) {
           setState(() => _currentIndex = index);
           _resetZoom();
           // REMOVIDO: _startControlsTimer() - controles permanecem visíveis
         },
         itemBuilder: (context, index) {
-          return _buildSingleImage(images[index]);
+          return _buildSingleItem(items[index]);
         },
       ),
     );
+  }
+
+  /// Constrói um único item do carrossel (imagem ou mapa)
+  Widget _buildSingleItem(CarouselItem item) {
+    switch (item.type) {
+      case CarouselItemType.image:
+        return _buildSingleImage(item.data as String);
+      case CarouselItemType.map:
+        return _buildMapWidget(item.data as MapConfig);
+    }
   }
 
   /// Constrói uma única imagem com zoom
@@ -281,6 +324,63 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       },
       child: _buildImageWidget(imageUrl),
     );
+  }
+
+  /// Constrói widget do OpenStreetMap
+  Widget _buildMapWidget(MapConfig mapConfig) {
+    return SizedBox(
+      height: double.infinity,
+      width: double.infinity,
+      child: FlutterMap(
+        mapController: _mapController ??= MapController(),
+        options: MapOptions(
+          initialCenter: LatLng(mapConfig.latitude, mapConfig.longitude),
+          initialZoom: 15.0,
+          minZoom: 5.0,
+          maxZoom: 18.0,
+        ),
+        children: [
+          TileLayer(
+            urlTemplate: _getTileUrlTemplate(mapConfig.mapType),
+            userAgentPackageName: 'com.terra.allwert.app',
+            maxZoom: 18,
+          ),
+          MarkerLayer(
+            markers: [
+              Marker(
+                width: 40.0,
+                height: 40.0,
+                point: LatLng(mapConfig.latitude, mapConfig.longitude),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Retorna template de URL para diferentes tipos de mapa
+  String _getTileUrlTemplate(MapType mapType) {
+    switch (mapType) {
+      case MapType.openStreet:
+        return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      case MapType.satellite:
+        return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      case MapType.terrain:
+        return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
+    }
   }
 
   /// Widget de imagem com tratamento de erro e loading robusto
@@ -501,7 +601,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             '👆 Clique aqui e adicione suas primeiras imagens!\n\n'
             'Você pode adicionar:\n'
             '📷 Imagens da galeria\n'
-            '🎥 Vídeos com título personalizado\n'
             '🗺️ Mapas interativos\n'
             '🎨 E muito mais!',
             textAlign: TextAlign.center,
@@ -527,18 +626,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: LayoutConstants.paddingLg,
-                    vertical: LayoutConstants.paddingMd,
-                  ),
-                ),
-              ),
-
-              OutlinedButton.icon(
-                onPressed: _addOrViewVideo,
-                icon: const Icon(Icons.videocam_outlined),
-                label: const Text('Adicionar Vídeo'),
-                style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.symmetric(
                     horizontal: LayoutConstants.paddingLg,
                     vertical: LayoutConstants.paddingMd,
@@ -632,15 +719,19 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildControlButton(
-            icon: Icons.videocam_outlined,
-            onPressed: _addOrViewVideo,
-            tooltip: _carouselData!.videoUrl != null || _carouselData!.videoPath != null
-                ? 'Ver Vídeo'
-                : 'Adicionar Vídeo',
-          ),
+          // Vídeo como recurso complementar (apenas quando há conteúdo principal)
+          if (_allImages.isNotEmpty || _carouselData!.mapConfig != null)
+            _buildControlButton(
+              icon: Icons.videocam_outlined,
+              onPressed: _addOrViewVideo,
+              tooltip: _carouselData!.videoUrl != null || _carouselData!.videoPath != null
+                  ? 'Gerenciar Vídeo'
+                  : 'Adicionar Vídeo',
+              hasContent: _carouselData!.videoUrl != null || _carouselData!.videoPath != null,
+            ),
 
-          SizedBox(height: LayoutConstants.marginSm),
+          if (_allImages.isNotEmpty || _carouselData!.mapConfig != null)
+            SizedBox(height: LayoutConstants.marginSm),
 
           _buildControlButton(
             icon: Icons.add_photo_alternate,
@@ -662,6 +753,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             icon: Icons.text_fields,
             onPressed: _addOrEditTextBox,
             tooltip: _carouselData!.textBox != null ? 'Editar Texto' : 'Adicionar Texto',
+            hasContent: _carouselData!.textBox != null,
           ),
 
           SizedBox(height: LayoutConstants.marginSm),
@@ -670,6 +762,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             icon: Icons.map_outlined,
             onPressed: _addOrEditMap,
             tooltip: _carouselData!.mapConfig != null ? 'Editar Mapa' : 'Adicionar Mapa',
+            hasContent: _carouselData!.mapConfig != null,
           ),
 
           SizedBox(height: LayoutConstants.marginSm),
@@ -715,63 +808,58 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Indicadores de páginas aprimorados com contador
   Widget _buildPageIndicators() {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: LayoutConstants.paddingMd,
-        vertical: LayoutConstants.paddingSm,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(LayoutConstants.radiusLarge),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Indicadores de pontos
-          ...List.generate(
-            _allImages.length,
-            (index) => Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: index == _currentIndex 
-                    ? Colors.white 
-                    : Colors.white.withValues(alpha: 0.4),
+    final items = _allItems;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Indicadores de pontos com ícones diferenciados
+        ...List.generate(items.length, (index) {
+          final isActive = index == _currentIndex;
+          final item = items[index];
+
+          return Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.3),
+              border: Border.all(
+                color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              item.type == CarouselItemType.image ? Icons.image : Icons.map,
+              size: 12,
+              color: isActive ? Colors.black : Colors.white.withValues(alpha: 0.8),
+            ),
+          );
+        }),
+
+        // Contador de itens
+        if (items.length > 1) ...[
+          SizedBox(width: LayoutConstants.marginMd),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: LayoutConstants.paddingSm, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+            ),
+            child: Text(
+              '${_currentIndex + 1}/${items.length}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          
-          // Contador de imagens
-          if (_allImages.length > 1) ...[
-            SizedBox(width: LayoutConstants.marginMd),
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: LayoutConstants.paddingSm,
-                vertical: 2,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                '${_currentIndex + 1}/${_allImages.length}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 
@@ -806,10 +894,12 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
   }
 
   /// Botão de controle padrão
+  /// Botão de controle customizado com feedback visual aprimorado
   Widget _buildControlButton({
     required IconData icon,
     required VoidCallback onPressed,
     required String tooltip,
+    bool hasContent = false, // Novo parâmetro para indicar conteúdo
   }) {
     return Tooltip(
       message: tooltip,
@@ -817,14 +907,38 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: hasContent
+              ? AppTheme.primaryColor.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+          border: Border.all(
+            color: hasContent ? AppTheme.primaryColor : Colors.white.withValues(alpha: 0.3),
+            width: hasContent ? 2 : 1,
+          ),
         ),
-        child: IconButton(
-          onPressed: onPressed,
-          icon: Icon(icon, color: Colors.white, size: 20),
-          padding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            IconButton(
+              onPressed: onPressed,
+              icon: Icon(icon, color: Colors.white, size: 20),
+              padding: EdgeInsets.zero,
+            ),
+            // Indicador de conteúdo ativo
+            if (hasContent)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -840,7 +954,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   // REMOVIDO: Método _startControlsTimer() - controles agora são sempre visíveis
   // exceto quando o usuário escolhe escondê-los manualmente
-  
+
   /// NOVO: Constrói as setas de navegação laterais
   Widget _buildNavigationArrows() {
     return Stack(
@@ -854,14 +968,14 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             child: Center(
               child: _buildNavigationArrow(
                 icon: Icons.arrow_back_ios,
-                onPressed: _previousImage,
-                tooltip: 'Imagem Anterior',
+                onPressed: _previousItem,
+                tooltip: 'Item Anterior',
               ),
             ),
           ),
-        
+
         // Seta Direita
-        if (_currentIndex < _allImages.length - 1)
+        if (_currentIndex < _allItems.length - 1)
           Positioned(
             right: LayoutConstants.paddingMd,
             top: 0,
@@ -869,8 +983,8 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             child: Center(
               child: _buildNavigationArrow(
                 icon: Icons.arrow_forward_ios,
-                onPressed: _nextImage,
-                tooltip: 'Próxima Imagem',
+                onPressed: _nextItem,
+                tooltip: 'Próximo Item',
               ),
             ),
           ),
@@ -899,10 +1013,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.6),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 1.5,
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.4),
@@ -924,18 +1035,11 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
-                      colors: [
-                        Colors.white.withValues(alpha: 0.1),
-                        Colors.transparent,
-                      ],
+                      colors: [Colors.white.withValues(alpha: 0.1), Colors.transparent],
                       stops: const [0.0, 1.0],
                     ),
                   ),
-                  child: Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: Colors.white, size: 24),
                 ),
               ),
             ),
@@ -945,8 +1049,8 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     );
   }
 
-  /// NOVO: Navega para imagem anterior
-  void _previousImage() {
+  /// NOVO: Navega para item anterior
+  void _previousItem() {
     if (_currentIndex > 0 && _pageController != null) {
       _pageController!.animateToPage(
         _currentIndex - 1,
@@ -956,9 +1060,9 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     }
   }
 
-  /// NOVO: Navega para próxima imagem
-  void _nextImage() {
-    if (_currentIndex < _allImages.length - 1 && _pageController != null) {
+  /// NOVO: Navega para próximo item
+  void _nextItem() {
+    if (_currentIndex < _allItems.length - 1 && _pageController != null) {
       _pageController!.animateToPage(
         _currentIndex + 1,
         duration: const Duration(milliseconds: 300),
@@ -969,7 +1073,43 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Adiciona ou visualiza vídeo
   void _addOrViewVideo() async {
-    _showVideoConfigDialog();
+    final hasVideo = _carouselData?.videoUrl != null || _carouselData?.videoPath != null;
+    
+    if (hasVideo) {
+      // Se já tem vídeo, mostrar opções: visualizar ou configurar
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Vídeo Configurado'),
+          content: Text('O que você gostaria de fazer?'),
+          actions: [
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _playVideo();
+              },
+              icon: Icon(Icons.play_circle_outline),
+              label: Text('Visualizar'),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showVideoConfigDialog();
+              },
+              icon: Icon(Icons.settings),
+              label: Text('Configurar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancelar'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Se não tem vídeo, ir direto para configuração
+      _showVideoConfigDialog();
+    }
   }
 
   /// Modal para configuração de vídeo com título e opção de remover (mesma lógica do PinMapPresentation)
@@ -1032,12 +1172,21 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
           ),
         ),
         actions: [
-          if (hasExistingVideo)
+          if (hasExistingVideo) ...[
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _playVideo();
+              },
+              icon: Icon(Icons.play_circle_outline),
+              label: Text('Visualizar Vídeo'),
+            ),
             TextButton.icon(
               onPressed: () => _removeVideo(context),
               icon: Icon(Icons.delete, color: Colors.red),
               label: Text('Remover Vídeo', style: TextStyle(color: Colors.red)),
             ),
+          ],
           TextButton(onPressed: () => Navigator.of(context).pop(), child: Text('Cancelar')),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -1072,7 +1221,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
       );
 
       await _saveCarouselData();
-      if (mounted) {
+      if (mounted && context.mounted) {
         setState(() {});
         Navigator.of(dialogContext).pop();
         _showSuccessSnackBar('Vídeo removido com sucesso!');
@@ -1097,7 +1246,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         );
 
         await _saveCarouselData();
-        if (mounted) {
+        if (mounted && context.mounted) {
           setState(() {});
           Navigator.of(dialogContext).pop();
           _showSuccessSnackBar('Vídeo adicionado com sucesso!');
@@ -1136,7 +1285,7 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
         // Delay e setState explícito para garantir atualização da tela
         await Future.delayed(const Duration(milliseconds: 100));
-        if (mounted) {
+        if (mounted && context.mounted) {
           setState(() {
             AppLogger.info('Estado atualizado após salvar vídeo');
           });
@@ -1150,37 +1299,6 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
         }
       }
     }
-  }
-
-  /// Seleciona vídeo da galeria
-  Future<void> _pickVideo() async {
-    try {
-      final video = await _imagePicker.pickVideo(source: ImageSource.gallery);
-      if (video != null) {
-        setState(() {
-          _carouselData = _carouselData!.copyWith(videoPath: video.path);
-        });
-
-        await _initializeVideoController();
-        await _saveCarouselData();
-      }
-    } catch (e) {
-      _showErrorSnackBar('Erro ao selecionar vídeo: $e');
-    }
-  }
-
-  /// Mostra o vídeo
-  void _showVideo() {
-    if (_videoController == null) return;
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => _VideoPlayerScreen(
-          videoController: _videoController!,
-          title: 'Vídeo - ${widget.title}',
-        ),
-      ),
-    );
   }
 
   /// Adiciona imagens ao carrossel (usando lógica do PinMapPresentation)
@@ -1624,20 +1742,35 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
 
   /// Apaga imagem atual
   void _deleteCurrentImage() {
-    if (_carouselData!.imageUrls.isEmpty) return;
-
+    final allItems = _allItems;
+    if (allItems.isEmpty) {
+      _showErrorSnackBar('Nenhum item para remover');
+      return;
+    }
+    
+    if (_currentIndex >= allItems.length) {
+      _showErrorSnackBar('Índice inválido');
+      return;
+    }
+    
+    final currentItem = allItems[_currentIndex];
+    final itemType = currentItem.type == CarouselItemType.image ? 'Imagem' : 'Mapa';
+    
     showDialog<void>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Apagar Imagem'),
-          content: const Text('Tem certeza que deseja apagar esta imagem?'),
+          title: Text('Apagar $itemType'),
+          content: Text('Tem certeza que deseja apagar este $itemType?'),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(), 
+              child: const Text('Cancelar')
+            ),
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _removeCurrentImage();
+                _removeCurrentItem();
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text('Apagar', style: TextStyle(color: Colors.white)),
@@ -1648,49 +1781,190 @@ class _ImageCarouselPresentationState extends ConsumerState<ImageCarouselPresent
     );
   }
 
-  /// Remove imagem atual
-  Future<void> _removeCurrentImage() async {
-    final images = List<String>.from(_carouselData!.imageUrls);
-    if (images.isEmpty) return;
-
-    images.removeAt(_currentIndex);
-
-    // Ajusta índice se necessário
-    if (_currentIndex >= images.length && images.isNotEmpty) {
-      _currentIndex = images.length - 1;
-    } else if (images.isEmpty) {
-      _currentIndex = 0;
+  /// Remove item atual (imagem ou mapa)
+  Future<void> _removeCurrentItem() async {
+    if (_carouselData == null) return;
+    
+    final allItems = _allItems;
+    if (allItems.isEmpty || _currentIndex >= allItems.length) {
+      _showErrorSnackBar('Nenhum item para remover');
+      return;
     }
 
-    setState(() {
-      _carouselData = _carouselData!.copyWith(imageUrls: images);
-    });
+    final currentItem = allItems[_currentIndex];
+    final oldIndex = _currentIndex;
 
-    await _saveCarouselData();
+    try {
+      bool itemRemoved = false;
+      
+      if (currentItem.type == CarouselItemType.image) {
+        // Remover imagem
+        final imageToRemove = currentItem.data as String;
+        final newImageUrls = List<String>.from(_carouselData!.imageUrls);
+        final newImagePaths = List<String>.from(_carouselData!.imagePaths);
+
+        // Busca inteligente em ambas as listas
+        if (newImageUrls.contains(imageToRemove)) {
+          newImageUrls.remove(imageToRemove);
+          itemRemoved = true;
+        } else if (newImagePaths.contains(imageToRemove)) {
+          newImagePaths.remove(imageToRemove);
+          itemRemoved = true;
+        }
+
+        if (itemRemoved) {
+          setState(() {
+            _carouselData = _carouselData!.copyWith(
+              imageUrls: newImageUrls,
+              imagePaths: newImagePaths,
+            );
+          });
+          AppLogger.debug('Imagem removida do carrossel', tag: 'ImageCarousel');
+        }
+      } else if (currentItem.type == CarouselItemType.map) {
+        // Remover mapa
+        setState(() {
+          _carouselData = _carouselData!.copyWith(mapConfig: null);
+        });
+        itemRemoved = true;
+        AppLogger.debug('Mapa removido do carrossel', tag: 'ImageCarousel');
+      }
+
+      if (!itemRemoved) {
+        _showErrorSnackBar('Não foi possível remover o item');
+        return;
+      }
+
+      // Implementar navegação segura após exclusão
+      final newItems = _allItems;
+      
+      if (newItems.isEmpty) {
+        // Todos os itens foram removidos - voltar para estado vazio
+        _currentIndex = 0;
+        AppLogger.debug('Todos os itens removidos - resetando para estado vazio', tag: 'ImageCarousel');
+      } else {
+        // Ainda há itens - ajustar índice
+        if (oldIndex >= newItems.length) {
+          // Índice estava no final, mover para o último item disponível
+          _currentIndex = newItems.length - 1;
+        } else {
+          // Manter no mesmo índice (o próximo item ocupará a posição atual)
+          _currentIndex = oldIndex;
+        }
+        
+        // Atualizar PageController para refletir mudanças
+        if (_pageController != null && _pageController!.hasClients) {
+          await _pageController!.animateToPage(
+            _currentIndex,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+        
+        AppLogger.debug(
+          'Item removido - novo índice: $_currentIndex, total de itens: ${newItems.length}',
+          tag: 'ImageCarousel',
+        );
+      }
+
+      await _saveCarouselData();
+      setState(() {}); // Forçar rebuild para atualizar indicadores
+    } catch (e) {
+      AppLogger.error('Erro ao remover item do carrossel: $e', tag: 'ImageCarousel');
+      _showErrorSnackBar('Erro ao remover item: $e');
+    }
+  }
+
+  /// Reproduz o vídeo configurado
+  Future<void> _playVideo() async {
+    if (_carouselData?.videoUrl == null && _carouselData?.videoPath == null) {
+      _showErrorSnackBar('Nenhum vídeo configurado');
+      return;
+    }
+
+    try {
+      // Inicializar controlador se não estiver inicializado
+      if (_videoController == null) {
+        await _initializeVideoController();
+      }
+
+      if (_videoController != null && mounted) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => _VideoPlayerScreen(
+              videoController: _videoController!,
+              title: _carouselData!.videoTitle ?? 'Vídeo do Carrossel',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Erro ao reproduzir vídeo: $e', tag: 'ImageCarousel');
+      _showErrorSnackBar('Erro ao reproduzir vídeo: $e');
+    }
   }
 
   // === CONTROLES DE ZOOM ===
 
   /// Aumenta o zoom
   void _zoomIn() {
-    final matrix = _transformationController!.value.clone();
-    matrix.scale(1.2);
-    _transformationController!.value = matrix;
+    final currentItem = _getCurrentItem();
+
+    if (currentItem?.type == CarouselItemType.map && _mapController != null) {
+      // Zoom do mapa via Flutter Map Controller
+      final currentZoom = _mapController!.camera.zoom;
+      _mapController!.move(_mapController!.camera.center, currentZoom + 1);
+    } else {
+      // Zoom de imagem via InteractiveViewer
+      final matrix = _transformationController!.value.clone();
+      matrix.scale(1.2);
+      _transformationController!.value = matrix;
+    }
     setState(() {});
   }
 
   /// Diminui o zoom
   void _zoomOut() {
-    final matrix = _transformationController!.value.clone();
-    matrix.scale(0.8);
-    _transformationController!.value = matrix;
+    final currentItem = _getCurrentItem();
+
+    if (currentItem?.type == CarouselItemType.map && _mapController != null) {
+      // Zoom do mapa via Flutter Map Controller
+      final currentZoom = _mapController!.camera.zoom;
+      _mapController!.move(_mapController!.camera.center, currentZoom - 1);
+    } else {
+      // Zoom de imagem via InteractiveViewer
+      final matrix = _transformationController!.value.clone();
+      matrix.scale(0.8);
+      _transformationController!.value = matrix;
+    }
     setState(() {});
   }
 
   /// Reseta o zoom
   void _resetZoom() {
-    _transformationController!.value = Matrix4.identity();
+    final currentItem = _getCurrentItem();
+
+    if (currentItem?.type == CarouselItemType.map && _mapController != null) {
+      // Reset do mapa para posição inicial
+      final mapConfig = currentItem!.data as MapConfig;
+      _mapController!.move(
+        LatLng(mapConfig.latitude, mapConfig.longitude),
+        15.0,
+      );
+    } else {
+      // Reset do zoom de imagem
+      _transformationController!.value = Matrix4.identity();
+    }
     setState(() {});
+  }
+
+  /// Obtém o item atual do carrossel
+  CarouselItem? _getCurrentItem() {
+    final items = _allItems;
+    if (_currentIndex < 0 || _currentIndex >= items.length) {
+      return null;
+    }
+    return items[_currentIndex];
   }
 
   // === UTILITÁRIOS ===

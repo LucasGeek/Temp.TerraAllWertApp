@@ -1,9 +1,8 @@
-/// Enum para tipos de mapa
+/// Enum para tipos de mapa do OpenStreetMap
 enum MapType {
   openStreet('OpenStreet', 'Mapa OpenStreet colaborativo (padrão)'),
-  normal('Rua', 'Visualização padrão com ruas e nomes'),
   satellite('Satélite', 'Vista de satélite'),
-  hybrid('Híbrido', 'Combinação de satélite com ruas e nomes');
+  terrain('Terreno', 'Vista topográfica do terreno');
 
   const MapType(this.displayName, this.description);
   
