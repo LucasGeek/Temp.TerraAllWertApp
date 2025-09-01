@@ -140,6 +140,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
     // Usar o provider para obter o estado atual
     final pinMapState = ref.watch(pinMapStateProvider(widget.route));
 
+    // Debug log para verificar estado do provider
+    AppLogger.debug(
+      'BUILD pinMapState: selectedPin=${pinMapState.selectedPin?.title}, isEditMode=${pinMapState.isEditMode}',
+      tag: 'PinMap',
+    );
+
     // Atualizar variáveis locais para compatibilidade com o resto do código existente
     _mapData = pinMapState.mapData;
     _selectedPin = pinMapState.selectedPin;
@@ -248,8 +254,9 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
           // Botões fixos
           _buildFloatingButtons(),
 
-          // Detalhes do pin selecionado
-          if (_selectedPin != null && !_isEditMode) _buildPinDetails(_selectedPin!),
+          // Detalhes do pin selecionado - usar diretamente o provider para garantir reatividade
+          if (pinMapState.selectedPin != null && !pinMapState.isEditMode)
+            _buildPinDetails(pinMapState.selectedPin!),
         ],
       ),
     );
@@ -631,10 +638,25 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: () =>
-                      ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection(),
-                  icon: Icon(Icons.close, color: AppTheme.textSecondary),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      AppLogger.debug('Close button tapped', tag: 'PinMap');
+                      ref.read(pinMapNotifierProvider(widget.route).notifier).clearSelection();
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppTheme.outline.withValues(alpha: 0.3)),
+                      ),
+                      child: Icon(Icons.close, color: AppTheme.textSecondary, size: 20),
+                    ),
+                  ),
                 ),
               ],
             ),
