@@ -108,6 +108,7 @@ class _FloorPlanPresentationState extends ConsumerState<FloorPlanPresentation> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: Column(
+        mainAxisSize: MainAxisSize.min, // CRÍTICO: Previne RenderFlex overflow
         children: [
           // Header com dropdown e controles
           _buildHeader(),
