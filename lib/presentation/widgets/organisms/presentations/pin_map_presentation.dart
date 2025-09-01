@@ -46,6 +46,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   bool _isEditMode = false;
   bool _isLoading = false;
   bool _hasError = false;
+  bool _isZoomed = false;
   VideoPlayerController? _videoController;
 
   // Mock data para demonstração
@@ -56,10 +57,26 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
   void initState() {
     super.initState();
     _loadMapData();
+    
+    // Listener para detectar zoom
+    _transformationController.addListener(_onTransformationChanged);
+  }
+  
+  void _onTransformationChanged() {
+    final matrix = _transformationController.value;
+    final currentScale = matrix.getMaxScaleOnAxis();
+    final isCurrentlyZoomed = currentScale > 1.0;
+    
+    if (isCurrentlyZoomed != _isZoomed) {
+      setState(() {
+        _isZoomed = isCurrentlyZoomed;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _transformationController.removeListener(_onTransformationChanged);
     _transformationController.dispose();
     _videoController?.dispose();
     super.dispose();
@@ -170,7 +187,7 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                 child: InteractiveViewer(
                   transformationController: _transformationController,
                   minScale: 1.0,
-                  maxScale: 1.0, // Desabilita zoom - tamanho fixo
+                  maxScale: 4.0, // Permite zoom até 4x
                   constrained: true, // Usa constraints do pai
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -189,11 +206,12 @@ class _PinMapPresentationState extends ConsumerState<PinMapPresentation> {
                           children: [
                             // Imagem de fundo
                             Positioned.fill(child: _buildBackgroundImage()),
-                            // Pins
-                            ..._mapData!.pins.map(
-                              (pin) =>
-                                  _buildPin(pin, BoxConstraints.tight(Size(safeWidth, safeHeight))),
-                            ),
+                            // Pins (ocultos durante zoom)
+                            if (!_isZoomed)
+                              ..._mapData!.pins.map(
+                                (pin) =>
+                                    _buildPin(pin, BoxConstraints.tight(Size(safeWidth, safeHeight))),
+                              ),
                           ],
                         ),
                       );
@@ -1544,7 +1562,7 @@ class _VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
 
   @override
@@ -1561,9 +1579,9 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
         _controller = VideoPlayerController.file(File(widget.videoSource));
       }
 
-      await _controller.initialize();
+      await _controller!.initialize();
       setState(() => _isInitialized = true);
-      _controller.play();
+      _controller!.play();
     } catch (e) {
       // Handle error
     }
@@ -1571,7 +1589,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -1581,21 +1599,21 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(backgroundColor: Colors.transparent, foregroundColor: Colors.white),
       body: Center(
-        child: _isInitialized
+        child: _isInitialized && _controller != null
             ? AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
+                aspectRatio: _controller!.value.aspectRatio,
+                child: VideoPlayer(_controller!),
               )
             : const CircularProgressIndicator(),
       ),
-      floatingActionButton: _isInitialized
+      floatingActionButton: _isInitialized && _controller != null
           ? FloatingActionButton(
               onPressed: () {
                 setState(() {
-                  _controller.value.isPlaying ? _controller.pause() : _controller.play();
+                  _controller!.value.isPlaying ? _controller!.pause() : _controller!.play();
                 });
               },
-              child: Icon(_controller.value.isPlaying ? Icons.pause : Icons.play_arrow),
+              child: Icon(_controller!.value.isPlaying ? Icons.pause : Icons.play_arrow),
             )
           : null,
     );
