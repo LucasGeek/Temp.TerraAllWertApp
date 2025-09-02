@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../infra/download/background_downloader.dart';
+import '../../../infra/downloads/background_download_service.dart';
 
 /// Widget que mostra o progresso de download em tempo real
 class DownloadProgressIndicator extends StatelessWidget {
   final Stream<DownloadProgress> progressStream;
+  final Stream<DownloadStatus>? statusStream;
   final VoidCallback? onCancel;
   final bool showDetails;
   final Color? primaryColor;
@@ -12,6 +13,7 @@ class DownloadProgressIndicator extends StatelessWidget {
   const DownloadProgressIndicator({
     super.key,
     required this.progressStream,
+    this.statusStream,
     this.onCancel,
     this.showDetails = true,
     this.primaryColor,
@@ -24,132 +26,140 @@ class DownloadProgressIndicator extends StatelessWidget {
 
     return StreamBuilder<DownloadProgress>(
       stream: progressStream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+      builder: (context, progressSnapshot) {
+        if (!progressSnapshot.hasData) {
           return const SizedBox.shrink();
         }
 
-        final progress = snapshot.data!;
+        final progress = progressSnapshot.data!;
         
-        return Card(
-          margin: const EdgeInsets.all(8.0),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header com título e botão cancelar
-                Row(
+        return StreamBuilder<DownloadStatus?>(
+          stream: statusStream,
+          initialData: null,
+          builder: (context, statusSnapshot) {
+            final status = statusSnapshot.data ?? DownloadStatus.running;
+            
+            return Card(
+              margin: const EdgeInsets.all(8.0),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      _getStatusIcon(progress.status),
-                      color: _getStatusColor(progress.status),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _getStatusText(progress.status),
-                        style: theme.textTheme.titleSmall,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (onCancel != null && progress.status == DownloadStatus.downloading)
-                      IconButton(
-                        icon: const Icon(Icons.cancel_outlined),
-                        onPressed: onCancel,
-                        tooltip: 'Cancelar download',
-                        iconSize: 20,
-                      ),
-                  ],
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Barra de progresso
-                LinearProgressIndicator(
-                  value: progress.progress,
-                  backgroundColor: color.withValues(alpha: 0.2),
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                ),
-                
-                if (showDetails) ...[
-                  const SizedBox(height: 8),
-                  
-                  // Detalhes do progresso
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${(progress.progress * 100).toInt()}%',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      Text(
-                        _formatBytes(progress.bytesDownloaded, progress.totalBytes),
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  
-                  if (progress.speed != null && progress.estimatedTimeLeft != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${_formatSpeed(progress.speed!)}/s',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                            ),
-                          ),
-                          Text(
-                            'ETA: ${_formatDuration(progress.estimatedTimeLeft!)}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-                
-                // Mostrar erro se houver
-                if (progress.error != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8.0),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4.0),
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
+                    // Header com título e botão cancelar
+                    Row(
                       children: [
                         Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 16,
+                          _getStatusIcon(status),
+                          color: _getStatusColor(status),
+                          size: 20,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            progress.error!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.red,
-                            ),
-                            maxLines: 2,
+                            _getStatusText(status),
+                            style: theme.textTheme.titleSmall,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (onCancel != null && status == DownloadStatus.running)
+                          IconButton(
+                            icon: const Icon(Icons.cancel_outlined),
+                            onPressed: onCancel,
+                            tooltip: 'Cancelar download',
+                            iconSize: 20,
+                          ),
                       ],
                     ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Barra de progresso
+                    LinearProgressIndicator(
+                      value: progress.progress,
+                      backgroundColor: color.withValues(alpha: 0.2),
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                    
+                    if (showDetails) ...[
+                      const SizedBox(height: 8),
+                      
+                      // Detalhes do progresso
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            progress.formattedProgress,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          Text(
+                            progress.formattedFileSize,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      
+                      if (progress.networkSpeed > 0 && progress.timeRemaining != Duration.zero)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                progress.formattedNetworkSpeed,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                                ),
+                              ),
+                              Text(
+                                'ETA: ${progress.formattedTimeRemaining}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    
+                    // Mostrar erro se status for failed
+                    if (status == DownloadStatus.failed) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8.0),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4.0),
+                          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Falha no download',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.red,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -157,9 +167,9 @@ class DownloadProgressIndicator extends StatelessWidget {
 
   IconData _getStatusIcon(DownloadStatus status) {
     switch (status) {
-      case DownloadStatus.pending:
+      case DownloadStatus.enqueued:
         return Icons.pending_outlined;
-      case DownloadStatus.downloading:
+      case DownloadStatus.running:
         return Icons.file_download_outlined;
       case DownloadStatus.completed:
         return Icons.check_circle_outline;
@@ -169,14 +179,16 @@ class DownloadProgressIndicator extends StatelessWidget {
         return Icons.cancel_outlined;
       case DownloadStatus.paused:
         return Icons.pause_circle_outline;
+      case DownloadStatus.retrying:
+        return Icons.refresh_outlined;
     }
   }
 
   Color _getStatusColor(DownloadStatus status) {
     switch (status) {
-      case DownloadStatus.pending:
+      case DownloadStatus.enqueued:
         return Colors.orange;
-      case DownloadStatus.downloading:
+      case DownloadStatus.running:
         return Colors.blue;
       case DownloadStatus.completed:
         return Colors.green;
@@ -186,14 +198,16 @@ class DownloadProgressIndicator extends StatelessWidget {
         return Colors.grey;
       case DownloadStatus.paused:
         return Colors.amber;
+      case DownloadStatus.retrying:
+        return Colors.orange;
     }
   }
 
   String _getStatusText(DownloadStatus status) {
     switch (status) {
-      case DownloadStatus.pending:
+      case DownloadStatus.enqueued:
         return 'Preparando download...';
-      case DownloadStatus.downloading:
+      case DownloadStatus.running:
         return 'Baixando arquivo...';
       case DownloadStatus.completed:
         return 'Download concluído';
@@ -203,34 +217,9 @@ class DownloadProgressIndicator extends StatelessWidget {
         return 'Download cancelado';
       case DownloadStatus.paused:
         return 'Download pausado';
+      case DownloadStatus.retrying:
+        return 'Tentando novamente...';
     }
-  }
-
-  String _formatBytes(int current, int total) {
-    if (total == 0) return '-- / --';
-    
-    return '${_formatFileSize(current)} / ${_formatFileSize(total)}';
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '${bytes}B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
-  }
-
-  String _formatSpeed(double bytesPerSecond) {
-    return _formatFileSize(bytesPerSecond.round());
-  }
-
-  String _formatDuration(Duration duration) {
-    if (duration.inHours > 0) {
-      return '${duration.inHours}h${duration.inMinutes.remainder(60)}m';
-    }
-    if (duration.inMinutes > 0) {
-      return '${duration.inMinutes}m${duration.inSeconds.remainder(60)}s';
-    }
-    return '${duration.inSeconds}s';
   }
 }
 
@@ -260,8 +249,8 @@ class CompactDownloadIndicator extends StatelessWidget {
 
         final progress = snapshot.data!;
         
-        if (progress.status == DownloadStatus.completed || 
-            progress.status == DownloadStatus.cancelled) {
+        // Assumir que se progress >= 1, está completo
+        if (progress.progress >= 1.0) {
           return SizedBox(height: height);
         }
 

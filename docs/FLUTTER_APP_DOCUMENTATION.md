@@ -48,7 +48,7 @@ Manter **100% das funcionalidades** da aplicação Flutter original:
 ┌─────────────────────────────────────────────────────────────┐
 │                    Flutter Frontend                         │
 │  • GraphQL Client (graphql_flutter)                         │
-│  • Offline Storage (drift + hive)                           │
+│  • Offline Storage (get_storage + shared_preferences)       │
 │  • State Management (riverpod)                              │
 │  • File Caching (cached_network_image)                      │
 └─────────────────────┬───────────────────────────────────────┘
@@ -304,7 +304,7 @@ class GraphQLConfig {
     
     return GraphQLClient(
       cache: GraphQLCache(
-        store: HiveStore(),
+        store: GetStorageStore(),
       ),
       link: link,
       defaultPolicies: DefaultPolicies(
@@ -674,13 +674,14 @@ class ImageCacheService {
 ```dart
 // lib/core/storage/cache/query_cache.dart
 class QueryCacheService {
-  final HiveInterface _hive;
+  final GetStorage _storage;
   late final Box<String> _queryCache;
   
-  QueryCacheService(this._hive);
+  QueryCacheService(this._storage);
   
   Future<void> initialize() async {
-    _queryCache = await _hive.openBox<String>('query_cache');
+    // GetStorage is already initialized, no need to open boxes
+    // _storage.read/write methods handle the cache directly
   }
   
   Future<void> cacheQuery(String queryKey, Map<String, dynamic> data) async {

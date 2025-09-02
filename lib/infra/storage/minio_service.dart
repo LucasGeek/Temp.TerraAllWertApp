@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:minio/minio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/env_config.dart';
 
 abstract class MinIOService {
   Future<String> uploadFile({
@@ -110,10 +111,12 @@ class MinIOServiceImpl implements MinIOService {
 }
 
 final minioServiceProvider = Provider<MinIOService>((ref) {
+  final config = ref.watch(envConfigProvider);
+  
   return MinIOServiceImpl(
-    endpoint: 'localhost:9000', // TODO: Mover para config
-    accessKey: 'minioadmin', // TODO: Usar variável de ambiente
-    secretKey: 'minioadmin', // TODO: Usar variável de ambiente
-    useSSL: false,
+    endpoint: config.minioEndpoint,
+    accessKey: config.minioAccessKey,
+    secretKey: config.minioSecretKey,
+    useSSL: config.minioUseSSL,
   );
 });

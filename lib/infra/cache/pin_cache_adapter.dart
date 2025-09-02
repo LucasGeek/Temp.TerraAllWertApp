@@ -443,12 +443,12 @@ class PinCacheAdapter {
         onProgress: onProgress,
       );
       
-      if (result.success && result.filePath != null) {
-        AppLogger.info('File downloaded for offline: ${result.filePath}', tag: 'PinCache');
-        return 'file://${result.filePath}';
+      if (result['success'] == true && result['filePath'] != null) {
+        AppLogger.info('File downloaded for offline: ${result['filePath']}', tag: 'PinCache');
+        return 'file://${result['filePath']}';
       }
       
-      AppLogger.warning('Failed to download file for offline: ${result.error}', tag: 'PinCache');
+      AppLogger.warning('Failed to download file for offline: ${result['error']}', tag: 'PinCache');
       return null;
       
     } catch (e) {
@@ -468,7 +468,7 @@ class PinCacheAdapter {
   }
 
   /// Verifica se arquivo está sendo baixado
-  bool isDownloading(String fileId) {
-    return _syncService.isDownloading(fileId);
+  Future<bool> isDownloading(String fileId) async {
+    return await _syncService.isDownloading(fileId);
   }
 }

@@ -111,19 +111,19 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
       if (isAuthenticated) {
         // Try to get user data if we have valid tokens
         if (kDebugMode) {
-          print('[AUTH] Valid tokens found during init, attempting to get user data');
+          debugPrint('[AUTH] Valid tokens found during init, attempting to get user data');
         }
         try {
           final user = await _repository.getCurrentUser();
           if (user != null) {
             if (kDebugMode) {
-              print('[AUTH] User data retrieved successfully during init');
+              debugPrint('[AUTH] User data retrieved successfully during init');
             }
             state = AsyncValue.data(user);
             return;
           } else {
             if (kDebugMode) {
-              print('[AUTH] getCurrentUser returned null during init');
+              debugPrint('[AUTH] getCurrentUser returned null during init');
             }
             
             // If we have valid tokens but no user data, create minimal user
@@ -137,7 +137,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
             );
             
             if (kDebugMode) {
-              print('[AUTH] Created minimal user for null user data during init');
+              debugPrint('[AUTH] Created minimal user for null user data during init');
             }
             
             state = AsyncValue.data(minimalUser);
@@ -146,7 +146,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
         } catch (userError) {
           // If user fetch fails but we have valid tokens, create minimal user
           if (kDebugMode) {
-            print('[AUTH] Valid token found but user fetch failed during init: $userError');
+            debugPrint('[AUTH] Valid token found but user fetch failed during init: $userError');
           }
           
           // Create minimal user for valid tokens
@@ -160,7 +160,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
           );
           
           if (kDebugMode) {
-            print('[AUTH] Created minimal user for valid token during init');
+            debugPrint('[AUTH] Created minimal user for valid token during init');
           }
           
           state = AsyncValue.data(minimalUser);
@@ -189,7 +189,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
       final user = await _repository.getCurrentUser();
       if (user != null) {
         if (kDebugMode) {
-          print('[AUTH] Login succeeded and user data retrieved');
+          debugPrint('[AUTH] Login succeeded and user data retrieved');
         }
         state = AsyncValue.data(user);
         
@@ -199,7 +199,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
       } else {
         // If user data is null, create minimal user for successful login
         if (kDebugMode) {
-          print('[AUTH] Login succeeded but getCurrentUser returned null');
+          debugPrint('[AUTH] Login succeeded but getCurrentUser returned null');
         }
         
         final minimalUser = User(
@@ -212,7 +212,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
         );
         
         if (kDebugMode) {
-          print('[AUTH] Created minimal user for successful login with null user data');
+          debugPrint('[AUTH] Created minimal user for successful login with null user data');
         }
         
         state = AsyncValue.data(minimalUser);
@@ -227,7 +227,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
       
       // Log apenas em modo debug, sem stack trace para erros de autenticação
       if (kDebugMode) {
-        print('[AUTH] Login failed: $friendlyMessage');
+        debugPrint('[AUTH] Login failed: $friendlyMessage');
       }
       
       state = AsyncValue.error(friendlyError, StackTrace.empty);
@@ -260,7 +260,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
     Future.microtask(() {
       try {
         if (kDebugMode) {
-          print('[AUTH] Starting post-login sync for user: ${user.email}');
+          debugPrint('[AUTH] Starting post-login sync for user: ${user.email}');
         }
         
         // Disparar sincronização através do provider
@@ -276,29 +276,29 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
               final navigationNotifier = _ref.read(navigationItemsProvider.notifier);
               navigationNotifier.reloadFromStorage().catchError((e) {
                 if (kDebugMode) {
-                  print('[AUTH] Failed to reload navigation after sync: $e');
+                  debugPrint('[AUTH] Failed to reload navigation after sync: $e');
                 }
               });
               
               if (kDebugMode) {
-                print('[AUTH] Post-login sync completed successfully, navigation reloaded');
+                debugPrint('[AUTH] Post-login sync completed successfully, navigation reloaded');
               }
             } catch (e) {
               if (kDebugMode) {
-                print('[AUTH] Failed to trigger navigation reload: $e');
+                debugPrint('[AUTH] Failed to trigger navigation reload: $e');
               }
             }
           }
         }).catchError((e) {
           if (kDebugMode) {
-            print('[AUTH] Post-login sync failed: $e');
+            debugPrint('[AUTH] Post-login sync failed: $e');
           }
           // Não falhar o login se a sincronização falhar
         });
         
       } catch (e) {
         if (kDebugMode) {
-          print('[AUTH] Failed to start post-login sync: $e');
+          debugPrint('[AUTH] Failed to start post-login sync: $e');
         }
         // Não falhar o login se não conseguir iniciar a sincronização
       }

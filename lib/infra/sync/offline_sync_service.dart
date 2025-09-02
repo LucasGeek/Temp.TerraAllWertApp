@@ -6,18 +6,21 @@ import 'package:path/path.dart' as path;
 import '../graphql/graphql_client.dart';
 import '../graphql/mutations/file_upload_mutations.dart';
 import '../logging/app_logger.dart';
-import '../download/background_downloader.dart';
+import '../downloads/background_download_service.dart';
 import 'zip_manager.dart';
 import 'package:graphql/client.dart';
 
 /// Serviço de sincronização offline que gerencia URLs da API e fallback ZIP
 class OfflineSyncService {
   final GraphQLClientService _graphqlClient;
-  final BackgroundDownloader _downloader = BackgroundDownloader();
+  final BackgroundDownloadService _downloader = BackgroundDownloadService();
   final ZipManager _zipManager = ZipManager();
 
   // Cache de URLs da API para evitar chamadas desnecessárias
   final Map<String, _UrlCacheEntry> _urlCache = {};
+  
+  // Mapeamento de fileId para taskId para tracking de downloads
+  final Map<String, String> _fileIdToTaskId = {};
   static const Duration _urlCacheExpiry = Duration(hours: 1);
 
   OfflineSyncService({
@@ -30,7 +33,7 @@ class OfflineSyncService {
     required String fileId,
     required String routeId,
     String? originalFileName,
-    Function(DownloadProgress)? onDownloadProgress,
+    Function(dynamic)? onDownloadProgress,
   }) async {
     try {
       // Web: SEMPRE usar URLs da API (sem download)
@@ -336,40 +339,51 @@ class OfflineSyncService {
       String effectiveVersion = version ?? DateTime.now().millisecondsSinceEpoch.toString();
 
       if (effectiveZipUrl == null) {
-        // TODO: Implementar busca de URL do ZIP via GraphQL quando API estiver pronta
-        /*
-        final result = await _graphqlClient.mutate(
-          MutationOptions(
-            document: gql(requestFullSyncMutation),
-            variables: {
-              'input': {
-                'routeId': routeId,
-                'includeTypes': ['image', 'video', 'document'],
-                'compressionLevel': 6,
-              }
-            },
-          ),
-        );
-
-        if (result.hasException) {
-          AppLogger.error('GraphQL error requesting ZIP: ${result.exception}', tag: 'OfflineSync');
-          return ZipDownloadResult(
-            success: false,
-            error: 'GraphQL error: ${result.exception}',
+        // Buscar URL do ZIP via GraphQL API real
+        try {
+          AppLogger.debug('Requesting bulk download ZIP from API for route: $routeId', tag: 'OfflineSync');
+          
+          final result = await _graphqlClient.query(
+            QueryOptions(
+              document: gql(generateBulkDownloadQuery),
+              variables: {
+                'towerId': routeId, // Usando routeId como towerId
+              },
+            ),
           );
+
+          if (result.hasException) {
+            AppLogger.error('GraphQL error requesting ZIP: ${result.exception}', tag: 'OfflineSync');
+            // Fallback para mock em caso de erro da API
+            AppLogger.warning('Falling back to mock ZIP URL due to API error', tag: 'OfflineSync');
+            effectiveZipUrl = 'https://api.example.com/routes/$routeId/download.zip';
+          } else {
+            final bulkDownload = result.data?['generateBulkDownload'];
+            if (bulkDownload != null) {
+              effectiveZipUrl = bulkDownload['downloadUrl'] as String?;
+              effectiveVersion = bulkDownload['createdAt'] as String? ?? effectiveVersion;
+              
+              AppLogger.info('Successfully obtained ZIP URL from API: ${effectiveZipUrl?.substring(0, 50)}...', tag: 'OfflineSync');
+            } else {
+              AppLogger.warning('No bulk download data returned from API, using mock', tag: 'OfflineSync');
+              effectiveZipUrl = 'https://api.example.com/routes/$routeId/download.zip';
+            }
+          }
+        } catch (e) {
+          AppLogger.error('Exception while requesting ZIP URL: $e', tag: 'OfflineSync');
+          // Fallback para mock em caso de exception
+          effectiveZipUrl = 'https://api.example.com/routes/$routeId/download.zip';
         }
-
-        effectiveZipUrl = result.data?['requestFullSync']?['zipUrl'] as String?;
-        effectiveVersion = result.data?['requestFullSync']?['version'] as String? ?? effectiveVersion;
-        */
-
-        // Mock para desenvolvimento
-        AppLogger.debug('TODO: Using mock ZIP URL for development', tag: 'OfflineSync');
-        effectiveZipUrl = 'https://api.example.com/routes/$routeId/download.zip';
       }
 
-      // effectiveZipUrl sempre terá valor aqui (mock ou API)
-      // Verificação removida pois sempre será não-null
+      // Garantir que effectiveZipUrl sempre tenha valor
+      if (effectiveZipUrl == null) {
+        AppLogger.error('No ZIP URL available after all attempts', tag: 'OfflineSync');
+        return ZipDownloadResult(
+          success: false,
+          error: 'No ZIP URL available',
+        );
+      }
 
       // Usar ZipManager para download, extração e versionamento
       final result = await _zipManager.downloadAndExtractZip(
@@ -514,44 +528,51 @@ class OfflineSyncService {
     required String routeId,
     required String apiUrl,
     required String originalFileName,
-    Function(DownloadProgress)? onProgress,
+    Function(dynamic)? onProgress,
   }) async {
     try {
       AppLogger.info('Starting background download for offline cache: $fileId', tag: 'OfflineSync');
       
-      final config = DownloadConfig(
-        url: apiUrl,
-        fileName: originalFileName,
-        routeId: routeId,
-        fileId: fileId,
-        timeout: const Duration(minutes: 10),
-      );
+      // Inicializar serviço se necessário
+      await _downloader.initialize();
 
       // Iniciar download assíncrono em background
-      _downloader.downloadFile(
-        config: config,
-        onProgress: (progress) {
+      final taskId = await _downloader.startDownload(
+        url: apiUrl,
+        filename: originalFileName,
+        directory: 'offline_files/$routeId',
+        metadata: fileId,
+        allowPause: true,
+        requiresWiFi: false,
+        retries: 3,
+      );
+
+      // Mapear fileId para taskId
+      _fileIdToTaskId[fileId] = taskId;
+
+      // Configurar streams de progresso e status se callback fornecido
+      if (onProgress != null) {
+        final progressStream = _downloader.getProgressStream(taskId);
+        final statusStream = _downloader.getStatusStream(taskId);
+
+        // Escutar progresso
+        progressStream?.listen((progress) {
           AppLogger.debug(
-            'Downloading $fileId: ${(progress.progress * 100).toInt()}%',
+            'Downloading $fileId: ${progress.formattedProgress}',
             tag: 'OfflineSync',
           );
-          onProgress?.call(progress);
-        },
-      ).then((result) {
-        if (result.success) {
-          AppLogger.info(
-            'Background download completed: $fileId -> ${result.filePath}',
-            tag: 'OfflineSync',
-          );
-        } else {
-          AppLogger.error(
-            'Background download failed: $fileId -> ${result.error}',
-            tag: 'OfflineSync',
-          );
-        }
-      }).catchError((error) {
-        AppLogger.error('Background download error: $fileId -> $error', tag: 'OfflineSync');
-      });
+          onProgress.call(progress);
+        });
+
+        // Escutar status final
+        statusStream?.listen((status) {
+          if (status == DownloadStatus.completed) {
+            AppLogger.info('Background download completed: $fileId', tag: 'OfflineSync');
+          } else if (status == DownloadStatus.failed) {
+            AppLogger.error('Background download failed: $fileId', tag: 'OfflineSync');
+          }
+        });
+      }
 
     } catch (e) {
       AppLogger.error('Failed to start background download: $fileId -> $e', tag: 'OfflineSync');
@@ -559,73 +580,139 @@ class OfflineSyncService {
   }
 
   /// Força download de arquivo específico com progresso
-  Future<DownloadResult> downloadFileForOffline({
+  Future<Map<String, dynamic>> downloadFileForOffline({
     required String fileId,
     required String routeId,
     String? originalFileName,
-    Function(DownloadProgress)? onProgress,
+    Function(dynamic)? onProgress,
   }) async {
     if (kIsWeb) {
       AppLogger.warning('Offline download not supported on web', tag: 'OfflineSync');
-      return const DownloadResult(
-        success: false,
-        error: 'Offline downloads not supported on web platform',
-      );
+      return {
+        'success': false,
+        'error': 'Offline downloads not supported on web platform',
+      };
     }
 
     try {
       // Obter URL da API
       final apiUrl = await _getApiUrl(fileId: fileId, routeId: routeId);
       if (apiUrl == null) {
-        return const DownloadResult(
-          success: false,
-          error: 'Could not obtain API URL for download',
-        );
+        return {
+          'success': false,
+          'error': 'Could not obtain API URL for download',
+        };
       }
 
-      final config = DownloadConfig(
-        url: apiUrl,
-        fileName: originalFileName ?? '$fileId.dat',
-        routeId: routeId,
-        fileId: fileId,
-        timeout: const Duration(minutes: 15),
-      );
+      // Inicializar serviço se necessário
+      await _downloader.initialize();
 
       AppLogger.info('Starting forced download for offline: $fileId', tag: 'OfflineSync');
 
-      final result = await _downloader.downloadFile(
-        config: config,
-        onProgress: onProgress,
+      // Iniciar download
+      final taskId = await _downloader.startDownload(
+        url: apiUrl,
+        filename: originalFileName ?? '$fileId.dat',
+        directory: 'offline_files/$routeId',
+        metadata: fileId,
+        allowPause: true,
+        requiresWiFi: false,
+        retries: 3,
       );
 
-      if (result.success) {
-        AppLogger.info('Forced download completed: $fileId', tag: 'OfflineSync');
+      // Mapear fileId para taskId
+      _fileIdToTaskId[fileId] = taskId;
+
+      // Configurar streams de progresso e status se callback fornecido
+      if (onProgress != null) {
+        final progressStream = _downloader.getProgressStream(taskId);
+        progressStream?.listen((progress) {
+          onProgress.call(progress);
+        });
       }
 
-      return result;
+      // Aguardar conclusão do download
+      final statusStream = _downloader.getStatusStream(taskId);
+      
+      await for (final status in statusStream ?? const Stream.empty()) {
+        if (status == DownloadStatus.completed) {
+          AppLogger.info('Forced download completed: $fileId', tag: 'OfflineSync');
+          final filePath = await _downloader.getDownloadedFilePath(taskId);
+          return {
+            'success': true,
+            'filePath': filePath,
+            'taskId': taskId,
+          };
+        } else if (status == DownloadStatus.failed) {
+          return {
+            'success': false,
+            'error': 'Download failed for $fileId',
+          };
+        } else if (status == DownloadStatus.cancelled) {
+          return {
+            'success': false,
+            'error': 'Download was cancelled for $fileId',
+          };
+        }
+      }
+
+      // Timeout ou stream vazio
+      return {
+        'success': false,
+        'error': 'Download status unknown for $fileId',
+      };
 
     } catch (e) {
       AppLogger.error('Forced download failed: $fileId -> $e', tag: 'OfflineSync');
-      return DownloadResult(
-        success: false,
-        error: e.toString(),
-      );
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
     }
   }
 
   /// Obtém stream de progresso de download
-  Stream<DownloadProgress>? getDownloadProgressStream(String fileId) {
-    return _downloader.getProgressStream(fileId);
+  Stream<dynamic>? getDownloadProgressStream(String fileId) {
+    final taskId = _fileIdToTaskId[fileId];
+    if (taskId == null) {
+      AppLogger.warning('No taskId found for fileId: $fileId', tag: 'OfflineSync');
+      return null;
+    }
+    return _downloader.getProgressStream(taskId);
   }
 
   /// Cancela download em progresso
   Future<bool> cancelDownload(String fileId) async {
-    return await _downloader.cancelDownload(fileId);
+    final taskId = _fileIdToTaskId[fileId];
+    if (taskId == null) {
+      AppLogger.warning('No taskId found for fileId: $fileId', tag: 'OfflineSync');
+      return false;
+    }
+    
+    final success = await _downloader.cancelDownload(taskId);
+    if (success) {
+      _fileIdToTaskId.remove(fileId);
+    }
+    return success;
   }
 
   /// Verifica se arquivo está sendo baixado
-  bool isDownloading(String fileId) {
-    return _downloader.isDownloading(fileId);
+  Future<bool> isDownloading(String fileId) async {
+    final taskId = _fileIdToTaskId[fileId];
+    if (taskId == null) {
+      return false;
+    }
+    
+    try {
+      final info = await _downloader.getDownloadInfo(taskId);
+      return info != null && 
+             (info.status == DownloadStatus.running || 
+              info.status == DownloadStatus.enqueued ||
+              info.status == DownloadStatus.retrying);
+    } catch (e) {
+      AppLogger.error('Error checking download status for $fileId: $e', tag: 'OfflineSync');
+      return false;
+    }
   }
 
 
@@ -650,9 +737,41 @@ class OfflineSyncService {
   }
 
   /// Obtém estatísticas do sync offline
-  Map<String, dynamic> getSyncStats() {
+  Future<Map<String, dynamic>> getSyncStats() async {
     final zipStats = _zipManager.getStats();
-    final downloadStats = _downloader.getDownloadStats();
+    
+    // Coletar stats dos downloads ativos
+    Map<String, dynamic> downloadStats = {
+      'activeDownloads': _fileIdToTaskId.length,
+      'fileIdToTaskIdMappings': _fileIdToTaskId.length,
+    };
+    
+    try {
+      final activeDownloads = await _downloader.getActiveDownloads();
+      downloadStats['totalActiveDownloads'] = activeDownloads.length;
+      
+      // Estatísticas detalhadas dos downloads ativos
+      final downloadDetails = <String, dynamic>{};
+      for (final taskId in activeDownloads) {
+        try {
+          final info = await _downloader.getDownloadInfo(taskId);
+          if (info != null) {
+            downloadDetails[taskId] = {
+              'filename': info.filename,
+              'status': info.status.toString(),
+              'progress': info.progress,
+              'expectedFileSize': info.expectedFileSize,
+            };
+          }
+        } catch (e) {
+          downloadDetails[taskId] = {'error': 'Failed to get info: $e'};
+        }
+      }
+      downloadStats['downloadDetails'] = downloadDetails;
+      
+    } catch (e) {
+      downloadStats['error'] = 'Failed to get download stats: $e';
+    }
     
     return {
       'cachedUrls': _urlCache.length,
@@ -682,8 +801,9 @@ class OfflineSyncService {
         await zipDir.delete(recursive: true);
       }
       
-      // Limpar cache de URLs
+      // Limpar cache de URLs e mapeamento de downloads
       _urlCache.clear();
+      _fileIdToTaskId.clear();
       
       AppLogger.info('Offline data cleared', tag: 'OfflineSync');
     } catch (e) {
@@ -693,7 +813,8 @@ class OfflineSyncService {
 
   Future<void> dispose() async {
     _urlCache.clear();
-    await _downloader.dispose();
+    _fileIdToTaskId.clear();
+    _downloader.dispose(); // BackgroundDownloadService.dispose() returns void
     await _zipManager.dispose();
   }
 }

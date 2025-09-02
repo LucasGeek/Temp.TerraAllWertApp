@@ -250,7 +250,7 @@ class DownloadManagerImpl implements DownloadManager {
     // usando dart:html ou js interop para trigger do download
     // Por enquanto apenas registramos no debug
     if (kDebugMode) {
-      print('Web download triggered for: $fileName (${data.length} bytes)');
+      debugPrint('Web download triggered for: $fileName (${data.length} bytes)');
     }
   }
 

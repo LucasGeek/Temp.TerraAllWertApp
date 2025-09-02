@@ -11,6 +11,7 @@ import '../graphql/graphql_client.dart';
 import '../graphql/mutations/file_upload_mutations.dart';
 import 'package:graphql/client.dart';
 import 'package:dio/dio.dart';
+import 'package:crypto/crypto.dart';
 
 /// Serviço de upload para MinIO com URLs assinadas
 class MinIOUploadService {
@@ -161,11 +162,14 @@ class MinIOUploadService {
           );
         }
         
+        // Calculate file checksum
+        final checksum = _calculateSHA256(fileBytes);
+        
         // Confirm upload with the API
         await _confirmFileUpload(
           fileId: signedUrl.fileId,
           minioPath: signedUrl.minioPath,
-          checksum: 'TODO_CALCULATE_CHECKSUM', // TODO: Calculate actual file checksum
+          checksum: checksum,
           fileSize: fileBytes.length,
         );
         
@@ -497,6 +501,12 @@ class MinIOUploadService {
       default:
         return 'application/octet-stream';
     }
+  }
+
+  /// Calcula checksum SHA-256 de um array de bytes
+  String _calculateSHA256(Uint8List bytes) {
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   /// Confirma upload com a API

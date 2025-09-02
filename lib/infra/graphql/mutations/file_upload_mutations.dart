@@ -150,6 +150,19 @@ query GetSyncMetadata($routeId: String!) {
 }
 ''';
 
+/// Query para gerar download em lote (ZIP)
+const String generateBulkDownloadQuery = r'''
+query GenerateBulkDownload($towerId: ID) {
+  generateBulkDownload(towerId: $towerId) {
+    downloadUrl
+    fileName
+    fileSize
+    expiresIn
+    createdAt
+  }
+}
+''';
+
 /// Tipos de input esperados pela API (documentação)
 /*
 

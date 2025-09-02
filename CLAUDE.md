@@ -58,7 +58,7 @@ Aplicação multiplataforma (Web, iOS, Android, Desktop) para visualização e g
 - **FVM**: Gerenciador de versões Flutter
 - **Provider/Riverpod**: Gerenciamento de estado
 - **GraphQL Client**: Comunicação com API
-- **Hive/Isar**: Banco de dados local
+- **GetStorage/SharedPreferences**: Armazenamento local
 - **Cached Network Image**: Cache de imagens
 - **GetIt**: Injeção de dependências
 
@@ -83,7 +83,7 @@ app/
 │   ├── infra/                        # Infrastructure Layer (Uncle Bob Layer 4)
 │   │   ├── platform/                # Platform services (iOS/Android/Web)
 │   │   ├── network/                 # HTTP client, API config
-│   │   ├── storage/                 # Local storage (Hive/SQLite)
+│   │   ├── storage/                 # Local storage (GetStorage/SharedPreferences)
 │   │   ├── cache/                   # Cache management
 │   │   ├── downloads/               # Download management
 │   │   └── graphql/                 # GraphQL mutations/queries
@@ -328,7 +328,7 @@ class ApiConstants {
 4. Informações de apartamentos
 
 ### Armazenamento Local
-- Hive para dados estruturados
+- GetStorage para dados estruturados
 - Cache de imagens otimizado
 - Compressão de dados
 - Limpeza automática de cache antigo

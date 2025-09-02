@@ -55,6 +55,22 @@ abstract class UserDto with _$UserDto {
   }
 }
 
+extension UserDtoExtension on UserDto {
+  Map<String, dynamic> toStorageJson() {
+    return {
+      'id': id,
+      'email': email,
+      'name': name,
+      'username': name, // API expects username
+      'avatar': avatar,
+      'role': role.toJson(),
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
+      'active': isActive, // API expects active
+    };
+  }
+}
+
 @freezed
 abstract class UserRoleDto with _$UserRoleDto {
   const factory UserRoleDto({

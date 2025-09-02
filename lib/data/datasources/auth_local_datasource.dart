@@ -23,7 +23,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> storeAuthToken(AuthResponse authResponse) async {
-    final jsonString = json.encode(authResponse.toJson());
+    final jsonString = json.encode(authResponse.toStorageJson());
     await _secureStorage.write(key: _authTokenKey, value: jsonString);
   }
 
@@ -48,7 +48,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> storeUser(UserDto user) async {
-    final jsonString = json.encode(user.toJson());
+    final jsonString = json.encode(user.toStorageJson());
     await _secureStorage.write(key: _userKey, value: jsonString);
   }
 

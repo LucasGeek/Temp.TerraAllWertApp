@@ -5,26 +5,28 @@ import 'package:video_player/video_player.dart';
 import '../../../../../domain/entities/map_pin.dart';
 import '../../../../../domain/enums/pin_content_type.dart';
 import '../../../../../infra/logging/app_logger.dart';
-import '../../../../../infra/storage/map_data_storage.dart';
+import '../../../../../infra/graphql/presentation_sync_service.dart';
+import '../../../../providers/presentation_sync_provider.dart';
 import 'pin_map_state.dart';
 
 /// StateNotifier para gerenciar estado do PinMapPresentation
 class PinMapNotifier extends StateNotifier<PinMapState> {
-  final MapDataStorage _mapStorage;
+  final PresentationSyncService _syncService;
   final String _route;
   final Uuid _uuid = const Uuid();
 
   PinMapNotifier(
-    this._mapStorage,
+    this._syncService,
     this._route,
   ) : super(PinMapState.initial());
 
-  /// Carrega dados do mapa do storage
+  /// Carrega dados do mapa do storage com sync da API
   Future<void> loadMapData() async {
     try {
       state = state.copyWith(isLoading: true, error: null);
       
-      final data = await _mapStorage.loadMapData(_route);
+      // Tentar buscar da API primeiro, com fallback para cache local
+      var data = await _syncService.fetchPinMapData(_route);
       
       // Se não há dados salvos, cria estrutura básica
       final mapData = data ?? InteractiveMapData(
@@ -54,13 +56,17 @@ class PinMapNotifier extends StateNotifier<PinMapState> {
     }
   }
 
-  /// Salva dados no storage
+  /// Salva dados no storage e sincroniza com API
   Future<void> saveMapData() async {
     if (state.mapData == null) return;
 
     try {
-      await _mapStorage.saveMapData(state.mapData!);
-      AppLogger.debug('Dados do mapa salvos com sucesso', tag: 'PinMap');
+      // Salva localmente e sincroniza com API
+      final updatedData = await _syncService.savePinMapData(state.mapData!);
+      if (updatedData != null) {
+        state = state.copyWith(mapData: updatedData);
+      }
+      AppLogger.debug('Dados do mapa salvos e sincronizados', tag: 'PinMap');
     } catch (e) {
       state = state.copyWith(error: 'Erro ao salvar dados: $e');
       AppLogger.error('Erro ao salvar MapData: $e', tag: 'PinMap');
@@ -116,11 +122,14 @@ class PinMapNotifier extends StateNotifier<PinMapState> {
         createdAt: DateTime.now(),
       );
 
-      final updatedPins = [...state.mapData!.pins, newPin];
-      final updatedData = state.mapData!.copyWith(pins: updatedPins);
-
-      state = state.copyWith(mapData: updatedData);
-      await saveMapData();
+      // Usar sync service para adicionar o pin
+      final syncedPin = await _syncService.upsertMapPin(state.mapData!.routeId, newPin);
+      
+      if (syncedPin != null) {
+        final updatedPins = [...state.mapData!.pins, syncedPin];
+        final updatedData = state.mapData!.copyWith(pins: updatedPins);
+        state = state.copyWith(mapData: updatedData);
+      }
       
       AppLogger.debug('Pin adicionado: $title', tag: 'PinMap');
     } catch (e) {
@@ -134,16 +143,22 @@ class PinMapNotifier extends StateNotifier<PinMapState> {
     if (state.mapData == null) return;
 
     try {
-      final updatedPins = state.mapData!.pins.where((p) => p.id != pinId).toList();
-      final updatedData = state.mapData!.copyWith(pins: updatedPins);
-
-      state = state.copyWith(
-        mapData: updatedData,
-        selectedPin: state.selectedPin?.id == pinId ? null : state.selectedPin,
-      );
+      // Usar sync service para deletar o pin
+      final success = await _syncService.deleteMapPin(state.mapData!.routeId, pinId);
       
-      await saveMapData();
-      AppLogger.debug('Pin removido: $pinId', tag: 'PinMap');
+      if (success) {
+        final updatedPins = state.mapData!.pins.where((p) => p.id != pinId).toList();
+        final updatedData = state.mapData!.copyWith(pins: updatedPins);
+
+        state = state.copyWith(
+          mapData: updatedData,
+          selectedPin: state.selectedPin?.id == pinId ? null : state.selectedPin,
+        );
+        
+        AppLogger.debug('Pin removido e sincronizado: $pinId', tag: 'PinMap');
+      } else {
+        throw Exception('Falha ao deletar pin');
+      }
     } catch (e) {
       state = state.copyWith(error: 'Erro ao remover pin: $e');
       AppLogger.error('Erro ao remover pin: $e', tag: 'PinMap');
@@ -222,8 +237,8 @@ class PinMapNotifier extends StateNotifier<PinMapState> {
 /// Provider do StateNotifier
 final pinMapNotifierProvider = StateNotifierProviderFamily<PinMapNotifier, PinMapState, String>(
   (ref, route) {
-    final mapStorage = MapDataStorage();
-    return PinMapNotifier(mapStorage, route);
+    final syncService = ref.watch(presentationSyncServiceProvider);
+    return PinMapNotifier(syncService, route);
   },
 );
 

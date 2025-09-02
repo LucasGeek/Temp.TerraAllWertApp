@@ -6,7 +6,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 import '../logging/app_logger.dart';
-import '../download/background_downloader.dart';
+import '../downloads/background_download_service.dart';
 
 /// Informações de versão do ZIP
 class ZipVersion {
@@ -93,7 +93,7 @@ class ZipManager {
   factory ZipManager() => _instance;
   ZipManager._internal();
 
-  final BackgroundDownloader _downloader = BackgroundDownloader();
+  final BackgroundDownloadService _downloader = BackgroundDownloadService();
   final Map<String, StreamController<ZipProgress>> _progressControllers = {};
   final Map<String, ZipVersion> _currentVersions = {};
 
@@ -167,10 +167,10 @@ class ZipManager {
         },
       );
 
-      if (!downloadResult.success) {
+      if (downloadResult['success'] != true) {
         return ZipDownloadResult(
           success: false,
-          error: 'Download failed: ${downloadResult.error}',
+          error: 'Download failed: ${downloadResult['error']}',
         );
       }
 
@@ -272,23 +272,76 @@ class ZipManager {
   }
 
   /// Baixa arquivo ZIP
-  Future<DownloadResult> _downloadZip({
+  Future<Map<String, dynamic>> _downloadZip({
     required String zipUrl,
     required String zipPath,
     required String routeId,
-    Function(DownloadProgress)? onProgress,
+    Function(dynamic)? onProgress,
   }) async {
-    final config = DownloadConfig(
-      url: zipUrl,
-      fileName: path.basename(zipPath),
-      routeId: routeId,
-      timeout: const Duration(minutes: 30),
-    );
+    try {
+      // Inicializar serviço se necessário
+      await _downloader.initialize();
 
-    return await _downloader.downloadFile(
-      config: config,
-      onProgress: onProgress,
-    );
+      // Iniciar download do ZIP
+      final taskId = await _downloader.startDownload(
+        url: zipUrl,
+        filename: path.basename(zipPath),
+        directory: 'offline_zips/$routeId',
+        metadata: 'zip_$routeId',
+        allowPause: true,
+        requiresWiFi: false,
+        retries: 3,
+      );
+
+      // Configurar stream de progresso se callback fornecido
+      if (onProgress != null) {
+        final progressStream = _downloader.getProgressStream(taskId);
+        progressStream?.listen((progress) {
+          onProgress.call(progress);
+        });
+      }
+
+      // Aguardar conclusão do download
+      final statusStream = _downloader.getStatusStream(taskId);
+      
+      await for (final status in statusStream ?? const Stream.empty()) {
+        if (status == DownloadStatus.completed) {
+          final filePath = await _downloader.getDownloadedFilePath(taskId);
+          AppLogger.info('ZIP download completed: $routeId -> $filePath', tag: 'ZipManager');
+          return {
+            'success': true,
+            'filePath': filePath,
+            'taskId': taskId,
+          };
+        } else if (status == DownloadStatus.failed) {
+          AppLogger.error('ZIP download failed: $routeId', tag: 'ZipManager');
+          return {
+            'success': false,
+            'error': 'Download failed for ZIP: $routeId',
+          };
+        } else if (status == DownloadStatus.cancelled) {
+          AppLogger.warning('ZIP download cancelled: $routeId', tag: 'ZipManager');
+          return {
+            'success': false,
+            'error': 'Download was cancelled for ZIP: $routeId',
+          };
+        }
+      }
+
+      // Timeout ou stream vazio
+      AppLogger.warning('ZIP download status unknown: $routeId', tag: 'ZipManager');
+      return {
+        'success': false,
+        'error': 'Download status unknown for ZIP: $routeId',
+      };
+
+    } catch (e) {
+      AppLogger.error('Failed to download ZIP $routeId: $e', tag: 'ZipManager');
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
+    }
   }
 
   /// Extrai ZIP usando compute para não bloquear UI
@@ -615,7 +668,7 @@ class ZipManager {
     _progressControllers.clear();
     _currentVersions.clear();
     
-    await _downloader.dispose();
+    _downloader.dispose(); // BackgroundDownloadService.dispose() returns void
   }
 }
 

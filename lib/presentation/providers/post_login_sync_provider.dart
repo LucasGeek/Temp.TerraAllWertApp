@@ -24,6 +24,7 @@ final postLoginSyncServiceProvider = Provider<PostLoginSyncService>((ref) {
     menuService: menuService,
     syncService: syncService,
     menuStorageService: menuStorageService,
+    graphqlClient: graphqlClient,
   );
 });
 

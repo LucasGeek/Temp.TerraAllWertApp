@@ -7,18 +7,27 @@ import '../../infra/graphql/menu_service.dart';
 import '../../infra/sync/offline_sync_service.dart';
 import '../../infra/logging/app_logger.dart';
 import '../../infra/storage/menu_storage_service.dart';
+import '../../infra/graphql/graphql_client.dart';
+import '../../infra/graphql/mutations/file_upload_mutations.dart';
+import 'package:graphql/client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PostLoginSyncServiceImpl implements PostLoginSyncService {
   final MenuGraphQLService _menuService;
   final MenuStorageService _menuStorageService;
+  final GraphQLClientService _graphqlClient;
+  final OfflineSyncService _syncService;
 
   PostLoginSyncServiceImpl({
     required CacheService cacheService,
     required MenuGraphQLService menuService,
     required OfflineSyncService syncService,
     required MenuStorageService menuStorageService,
+    required GraphQLClientService graphqlClient,
   }) : _menuService = menuService,
-       _menuStorageService = menuStorageService;
+       _menuStorageService = menuStorageService,
+       _graphqlClient = graphqlClient,
+       _syncService = syncService;
 
   @override
   Future<PostLoginSyncResult> executeSyncFlow({
@@ -99,34 +108,57 @@ class PostLoginSyncServiceImpl implements PostLoginSyncService {
         return FileUpdateInfo.empty();
       }
 
-      // Usar OfflineSyncService para verificar atualizações
-      AppLogger.debug('Checking for file updates via sync service', tag: 'PostLoginSync');
+      // Verificar atualizações via GraphQL API
+      AppLogger.debug('Checking for file updates via GraphQL API', tag: 'PostLoginSync');
       
-      // TODO: Implementar verificação real de atualizações
-      // Por enquanto, simular verificação básica
-      await Future.delayed(const Duration(milliseconds: 500)); // Simular network call
-      
-      // Verificar timestamp da última sincronização
-      final lastSyncTime = await _getLastSyncTime(userId);
-      final now = DateTime.now();
-      
-      // Se passou mais de 1 hora desde a última sync, assumir que há atualizações
-      final hasUpdates = lastSyncTime == null || 
-          now.difference(lastSyncTime).inHours >= 1;
-
-      if (hasUpdates) {
-        AppLogger.info('File updates available - last sync: $lastSyncTime', tag: 'PostLoginSync');
-        return FileUpdateInfo(
-          hasUpdates: true,
-          updatedFileIds: ['menu_assets', 'carousel_images'], // Exemplo
-          totalFiles: 2,
-          totalSizeBytes: 1024000, // 1MB exemplo
-          lastCheck: now,
+      try {
+        // Usar getSyncMetadataQuery para verificar atualizações
+        final result = await _graphqlClient.query(
+          QueryOptions(
+            document: gql(getSyncMetadataQuery),
+            variables: {
+              'routeId': userId, // Usar userId como routeId
+            },
+          ),
         );
-      }
 
-      AppLogger.debug('No file updates needed', tag: 'PostLoginSync');
-      return FileUpdateInfo.empty();
+        if (result.hasException) {
+          AppLogger.warning('GraphQL error checking updates, falling back to timestamp check: ${result.exception}', tag: 'PostLoginSync');
+          // Fallback para verificação por timestamp
+          return await _checkUpdatesByTimestamp(userId);
+        }
+
+        final syncMetadata = result.data?['getSyncMetadata'];
+        if (syncMetadata != null && syncMetadata['error'] == null) {
+          // Verificar se há atualizações baseado na versão
+          final lastSyncTime = await _getLastSyncTime(userId);
+          final remoteVersion = syncMetadata['version'] as String?;
+          final remoteLastModified = DateTime.tryParse(syncMetadata['lastModified'] as String? ?? '');
+          final fileCount = syncMetadata['fileCount'] as int? ?? 0;
+          final totalSize = syncMetadata['totalSize'] as int? ?? 0;
+          
+          final hasUpdates = lastSyncTime == null || 
+              (remoteLastModified != null && remoteLastModified.isAfter(lastSyncTime));
+
+          if (hasUpdates && fileCount > 0) {
+            AppLogger.info('File updates available from API - version: $remoteVersion, files: $fileCount', tag: 'PostLoginSync');
+            return FileUpdateInfo(
+              hasUpdates: true,
+              updatedFileIds: ['sync_metadata'], 
+              totalFiles: fileCount,
+              totalSizeBytes: totalSize,
+              lastCheck: DateTime.now(),
+            );
+          }
+        }
+
+        AppLogger.debug('No file updates needed from API', tag: 'PostLoginSync');
+        return FileUpdateInfo.empty();
+        
+      } catch (e) {
+        AppLogger.warning('Exception checking updates via API, falling back to timestamp: $e', tag: 'PostLoginSync');
+        return await _checkUpdatesByTimestamp(userId);
+      }
 
     } catch (e) {
       AppLogger.warning('Failed to check file updates: $e', tag: 'PostLoginSync');
@@ -151,11 +183,22 @@ class PostLoginSyncServiceImpl implements PostLoginSyncService {
         try {
           AppLogger.debug('Downloading file: $fileId', tag: 'PostLoginSync');
           
-          // TODO: Implementar download real via sync service
-          await Future.delayed(const Duration(milliseconds: 200)); // Simular download
+          // Download real via sync service
+          final downloadResult = await _syncService.downloadFileForOffline(
+            fileId: fileId,
+            routeId: userId,
+            originalFileName: '$fileId.dat',
+            onProgress: (progress) {
+              AppLogger.debug('Download progress for $fileId: ${((progress?.progress ?? 0.0) * 100).toInt()}%', tag: 'PostLoginSync');
+            },
+          );
           
-          downloadedFiles++;
-          AppLogger.debug('Downloaded file: $fileId', tag: 'PostLoginSync');
+          if (downloadResult['success'] == true) {
+            downloadedFiles++;
+            AppLogger.debug('Downloaded file: $fileId', tag: 'PostLoginSync');
+          } else {
+            throw Exception(downloadResult['error'] ?? 'Unknown download error');
+          }
           
         } catch (e) {
           failedFiles++;
@@ -293,9 +336,20 @@ class PostLoginSyncServiceImpl implements PostLoginSyncService {
   /// Obtém timestamp da última sincronização
   Future<DateTime?> _getLastSyncTime(String userId) async {
     try {
-      // TODO: Implementar busca real do timestamp no cache/storage
-      // Por enquanto, simular
-      await Future.delayed(const Duration(milliseconds: 50));
+      final prefs = await SharedPreferences.getInstance();
+      final syncKey = 'post_login_sync_timestamp_$userId';
+      
+      final timestampString = prefs.getString(syncKey);
+      
+      if (timestampString != null) {
+        final timestamp = DateTime.tryParse(timestampString);
+        if (timestamp != null) {
+          AppLogger.debug('Retrieved last sync time for user $userId: $timestamp', tag: 'PostLoginSync');
+          return timestamp;
+        }
+      }
+      
+      AppLogger.debug('No sync timestamp found for user: $userId', tag: 'PostLoginSync');
       return null; // Primeira vez
     } catch (e) {
       AppLogger.warning('Failed to get last sync time: $e', tag: 'PostLoginSync');
@@ -306,11 +360,44 @@ class PostLoginSyncServiceImpl implements PostLoginSyncService {
   /// Atualiza timestamp da última sincronização
   Future<void> _updateLastSyncTime(String userId) async {
     try {
-      // TODO: Implementar persistência real do timestamp
-      await Future.delayed(const Duration(milliseconds: 50));
-      AppLogger.debug('Updated last sync time for user: $userId', tag: 'PostLoginSync');
+      final prefs = await SharedPreferences.getInstance();
+      final syncKey = 'post_login_sync_timestamp_$userId';
+      final currentTime = DateTime.now();
+      
+      await prefs.setString(syncKey, currentTime.toIso8601String());
+      
+      AppLogger.debug('Updated last sync time for user $userId: $currentTime', tag: 'PostLoginSync');
     } catch (e) {
       AppLogger.warning('Failed to update last sync time: $e', tag: 'PostLoginSync');
+    }
+  }
+
+  /// Fallback: verifica atualizações por timestamp
+  Future<FileUpdateInfo> _checkUpdatesByTimestamp(String userId) async {
+    try {
+      final lastSyncTime = await _getLastSyncTime(userId);
+      final now = DateTime.now();
+      
+      // Se passou mais de 1 hora desde a última sync, assumir que há atualizações
+      final hasUpdates = lastSyncTime == null || 
+          now.difference(lastSyncTime).inHours >= 1;
+
+      if (hasUpdates) {
+        AppLogger.info('File updates detected by timestamp - last sync: $lastSyncTime', tag: 'PostLoginSync');
+        return FileUpdateInfo(
+          hasUpdates: true,
+          updatedFileIds: ['timestamp_check'], 
+          totalFiles: 1,
+          totalSizeBytes: 102400, // 100KB estimado
+          lastCheck: now,
+        );
+      }
+
+      AppLogger.debug('No updates needed by timestamp check', tag: 'PostLoginSync');
+      return FileUpdateInfo.empty();
+    } catch (e) {
+      AppLogger.error('Failed timestamp check: $e', tag: 'PostLoginSync');
+      return FileUpdateInfo.empty();
     }
   }
 }

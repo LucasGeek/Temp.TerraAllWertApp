@@ -123,7 +123,7 @@ class MenuGraphQLService {
 
       final result = await _client.query(
         QueryOptions(
-          document: gql(getMenusQuery),
+          document: gql(getAllMenusQuery),
           variables: {'routeId': routeId ?? 'main'},
           errorPolicy: ErrorPolicy.all,
           cacheRereadPolicy: CacheRereadPolicy.ignoreAll,
