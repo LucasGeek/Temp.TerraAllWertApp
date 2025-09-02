@@ -233,7 +233,7 @@ class MenuGraphQLService {
   String _menuTypeToString(MenuPresentationType type) {
     // Schema define: MAIN, SUB, ACTION, DIVIDER
     switch (type) {
-      case MenuPresentationType.standard:
+      case MenuPresentationType.padrao:
         return 'MAIN';
       default:
         return 'MAIN';
@@ -730,19 +730,19 @@ class MenuGraphQLService {
   
   /// Parse menu type string para enum
   MenuPresentationType _parseMenuType(String? typeStr) {
-    if (typeStr == null) return MenuPresentationType.standard;
+    if (typeStr == null) return MenuPresentationType.padrao;
     
     switch (typeStr.toUpperCase()) {
       case 'MAIN':
-        return MenuPresentationType.standard;
+        return MenuPresentationType.padrao;
       case 'SUB':
-        return MenuPresentationType.standard;
+        return MenuPresentationType.padrao;
       case 'ACTION':
-        return MenuPresentationType.standard;
+        return MenuPresentationType.padrao;
       case 'DIVIDER':
-        return MenuPresentationType.standard;
+        return MenuPresentationType.padrao;
       default:
-        return MenuPresentationType.standard;
+        return MenuPresentationType.padrao;
     }
   }
 }

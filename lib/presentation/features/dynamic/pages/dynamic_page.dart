@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../domain/enums/menu_presentation_type.dart';
+import '../../../../domain/enums/tipo_tela.dart';
 import '../../../design_system/app_theme.dart';
 import '../../navigation/providers/navigation_provider.dart';
 import '../../../widgets/organisms/presentations/image_carousel_presentation.dart';
@@ -31,26 +32,36 @@ class DynamicPage extends ConsumerWidget {
     }
 
     final menuType = navigationItem.menuType;
+    final tipoTela = navigationItem.tipoTela;
     final itemTitle = title ?? navigationItem.label;
     final description = navigationItem.description;
 
-    // Determinar qual apresentação usar baseado no tipo de menu
-    switch (menuType) {
-      case MenuPresentationType.standard:
+    // REGRA: Menus "Com Submenu" não têm apresentação específica
+    if (menuType == MenuPresentationType.comSubmenu) {
+      return _buildDefaultPage(context);
+    }
+
+    // Determinar qual apresentação usar baseado no tipo de tela
+    if (tipoTela == null) {
+      return _buildDefaultPage(context);
+    }
+
+    switch (tipoTela) {
+      case TipoTela.standard:
         return ImageCarouselPresentation(
           title: itemTitle,
           route: route,
           description: description,
         );
       
-      case MenuPresentationType.pinMap:
+      case TipoTela.pinMap:
         return PinMapPresentation(
           title: itemTitle,
           route: route,
           description: description,
         );
       
-      case MenuPresentationType.floorPlan:
+      case TipoTela.floorPlan:
         return FloorPlanPresentation(
           title: itemTitle,
           route: route,

@@ -1,8 +1,7 @@
-/// Enum para tipos de apresentação de menu
+/// Enum para tipos de menu conforme novas regras
 enum MenuPresentationType {
-  standard('Menu Padrão', 'Apresentação padrão com carrossel de imagens'),
-  pinMap('Menu com Pins', 'Apresentação de mapa com pins interativos'),
-  floorPlan('Menu Pavimento', 'Apresentação de planta de pavimento');
+  padrao('Padrão', 'Menu padrão com apresentação de conteúdo'),
+  comSubmenu('Com Submenu', 'Menu que pode ter submenus aninhados');
 
   const MenuPresentationType(this.displayName, this.description);
   
@@ -13,7 +12,7 @@ enum MenuPresentationType {
   static MenuPresentationType fromString(String value) {
     return MenuPresentationType.values.firstWhere(
       (type) => type.displayName == value,
-      orElse: () => MenuPresentationType.standard,
+      orElse: () => MenuPresentationType.padrao,
     );
   }
 

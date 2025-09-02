@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/entities/navigation_item.dart';
 import '../../../domain/enums/menu_presentation_type.dart';
+import '../../../domain/enums/tipo_tela.dart';
 import '../../design_system/app_theme.dart';
 import '../../design_system/layout_constants.dart';
 import '../../features/navigation/providers/navigation_provider.dart';
@@ -33,7 +34,8 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   
-  MenuPresentationType _selectedMenuType = MenuPresentationType.standard;
+  MenuPresentationType _selectedMenuType = MenuPresentationType.padrao;
+  TipoTela? _selectedTipoTela; // Só para menus padrão
   String? _selectedParentId;
   IconData _selectedIcon = Icons.home_outlined;
   IconData _selectedSelectedIcon = Icons.home;
@@ -89,6 +91,7 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
     _selectedSelectedIcon = item.selectedIcon;
     _selectedParentId = item.parentId; // Carregar ID do menu pai
     _selectedMenuType = item.menuType; // Carregar tipo de menu
+    _selectedTipoTela = item.tipoTela; // Carregar tipo de tela
   }
 
   /// Gera rota automaticamente baseada no título usando regex
@@ -339,6 +342,11 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
           
           SizedBox(height: LayoutConstants.marginLg),
           
+          // Dropdown Tipo de Tela (só para menus padrão)
+          _buildTipoTelaDropdown(),
+          
+          if (_selectedMenuType == MenuPresentationType.padrao) SizedBox(height: LayoutConstants.marginLg),
+          
           // Dropdown Menu Pai
           _buildParentMenuDropdown(),
           
@@ -516,7 +524,21 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
         
         DropdownButtonFormField<MenuPresentationType>(
           value: _selectedMenuType,
-          onChanged: (value) => setState(() => _selectedMenuType = value!),
+          onChanged: (value) {
+            setState(() {
+              _selectedMenuType = value!;
+              
+              // REGRA: Quando tipo_menu = "Com Submenu", limpar tipoTela e parentId
+              if (_selectedMenuType == MenuPresentationType.comSubmenu) {
+                _selectedTipoTela = null;
+                _selectedParentId = null;
+              }
+              // REGRA: Quando muda para "Padrao" e não tinha tipoTela, definir padrão
+              else if (_selectedMenuType == MenuPresentationType.padrao && _selectedTipoTela == null) {
+                _selectedTipoTela = TipoTela.standard;
+              }
+            });
+          },
           decoration: InputDecoration(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
@@ -541,21 +563,91 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
     );
   }
 
+  /// Dropdown para tipo de tela
+  /// REGRA: Só aparece quando tipo_menu = "Padrao"
+  /// Para menus "Com Submenu", tipoTela fica null
+  Widget _buildTipoTelaDropdown() {
+    // REGRA: Campo só deve aparecer quando tipo_menu = "Padrao"
+    if (_selectedMenuType != MenuPresentationType.padrao) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RichText(
+          text: TextSpan(
+            text: 'Tipo de Tela',
+            style: TextStyle(
+              fontSize: LayoutConstants.fontSizeMedium,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.onSurface,
+            ),
+            children: const [
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppTheme.errorColor),
+              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: LayoutConstants.marginSm),
+        
+        DropdownButtonFormField<TipoTela>(
+          value: _selectedTipoTela,
+          onChanged: (value) => setState(() => _selectedTipoTela = value),
+          validator: (value) {
+            if (_selectedMenuType == MenuPresentationType.padrao && value == null) {
+              return 'Tipo de Tela é obrigatório para menus padrão';
+            }
+            return null;
+          },
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              borderSide: const BorderSide(color: AppTheme.outline),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              borderSide: const BorderSide(color: AppTheme.outline),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+            ),
+            contentPadding: EdgeInsets.all(LayoutConstants.paddingMd),
+          ),
+          items: TipoTela.values.map((type) => DropdownMenuItem(
+            value: type,
+            child: Text(type.displayName),
+          )).toList(),
+        ),
+      ],
+    );
+  }
+
   /// Dropdown para menu pai
+  /// REGRA: Só aparece quando tipo_menu = "Padrao"
+  /// Lista apenas menus do tipo "Com Submenu"
   Widget _buildParentMenuDropdown() {
+    // REGRA: Campo só deve aparecer quando tipo_menu = "Padrao"
+    if (_selectedMenuType != MenuPresentationType.padrao) {
+      return const SizedBox.shrink();
+    }
+    
     final navigationItems = ref.watch(navigationItemsProvider);
     
-    // Filtrar apenas items que podem ser pais (não incluir o item atual se editando)
-    // e que não sejam submenus (para limitar a 1 nível)
+    // REGRA: O campo Menu Pai só pode listar menus cujo tipo_menu = "Com Submenu"
     final availableParents = navigationItems.where((item) {
       // Não pode ser pai de si mesmo
       if (widget.isEditing && widget.itemToEdit?.id == item.id) {
         return false;
       }
       
-      // Apenas menus de nível raiz podem ser pais (parentId == null)
-      // Isso garante que só teremos 1 nível de profundidade
-      if (item.parentId != null) {
+      // REGRA: Apenas menus do tipo "Com Submenu" podem ser pais
+      if (item.menuType != MenuPresentationType.comSubmenu) {
         return false;
       }
       
@@ -815,7 +907,8 @@ class _MenuCrudDialogState extends ConsumerState<MenuCrudDialog> {
         route: route,
         order: newOrder,
         parentId: _selectedParentId, // Incluir ID do menu pai
-        menuType: _selectedMenuType, // Tipo de apresentação do menu
+        menuType: _selectedMenuType, // Tipo de menu (padrão ou com submenu)
+        tipoTela: _selectedMenuType == MenuPresentationType.padrao ? _selectedTipoTela : null, // REGRA: null para menus "Com Submenu"
         isVisible: true, // Sempre visível
         isEnabled: true, // Sempre habilitado
         description: _descriptionController.text.trim().isEmpty 

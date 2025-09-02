@@ -440,7 +440,7 @@ class _MenuManagementWidgetState extends ConsumerState<MenuManagementWidget> {
       description: _descriptionController.text.trim().isEmpty 
           ? null 
           : _descriptionController.text.trim(),
-      menuType: MenuPresentationType.standard,
+      menuType: MenuPresentationType.padrao,
     );
 
     bool success;

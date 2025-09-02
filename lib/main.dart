@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talker/talker.dart';
 
-import 'infra/logging/app_logger.dart';
 import 'infra/config/env_config.dart';
+import 'infra/logging/app_logger.dart';
 import 'infra/storage/secure_storage_service.dart';
 import 'presentation/design_system/app_theme.dart';
 import 'presentation/notification/snackbar_notification.dart';
@@ -45,7 +45,8 @@ class TerraAllwertApp extends ConsumerWidget {
       // darkTheme: AppTheme.darkTheme,
       darkTheme: AppTheme.lightTheme,
       routerConfig: router,
-      debugShowCheckedModeBanner: config.environment != 'production',
+      // debugShowCheckedModeBanner: config.environment != 'production',
+      debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: SnackbarNotification.messengerKey,
     );
   }

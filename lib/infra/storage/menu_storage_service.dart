@@ -87,13 +87,13 @@ class MenuStorageService {
 
       final items = serializedItems.map((itemData) {
         // Deserializar menuType enum
-        MenuPresentationType menuType = MenuPresentationType.standard;
+        MenuPresentationType menuType = MenuPresentationType.padrao;
         final menuTypeString = itemData['menuType'] as String?;
         if (menuTypeString != null) {
           try {
             menuType = MenuPresentationType.values.firstWhere(
               (type) => type.name == menuTypeString,
-              orElse: () => MenuPresentationType.standard,
+              orElse: () => MenuPresentationType.padrao,
             );
           } catch (e) {
             StorageLogger.warning('Unknown menu type: $menuTypeString, using default');
