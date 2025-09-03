@@ -204,8 +204,8 @@ class MainNavigationDrawer extends ConsumerWidget {
 
   void _handleNavigation(BuildContext context, String route) {
     try {
-      // Sempre fechar drawer em mobile/tablet quando clicar em item de navegação
-      if (context.isMobile || (context.isTablet && context.isXs)) {
+      // Sempre fechar drawer em não-desktop quando clicar em item de navegação
+      if (!context.isDesktop) {
         Navigator.of(context).pop();
       }
       context.go(route);

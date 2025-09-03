@@ -177,8 +177,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       
       AppLogger.debug('Router redirect check for: ${state.uri.path}, auth: ${authState.status}');
       
-      // Se está carregando, não redireciona
-      if (authState.isLoading) {
+      // Se está carregando ou no estado inicial, não redireciona para permitir verificação
+      if (authState.isLoading || authState.status == AuthStatus.initial) {
+        AppLogger.debug('Auth status loading or initial - allowing current route');
         return null;
       }
       
@@ -191,13 +192,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Se está autenticado e na rota de login ou root, redireciona para dashboard
       if (authState.isAuthenticated && (isLoginRoute || isRootRoute)) {
         // Verificar se há menus disponíveis primeiro
-        final navigationItems = ref.read(navigationItemsProvider);
-        if (navigationItems.isNotEmpty) {
-          final firstMenu = navigationItems.first;
-          AppLogger.debug('Redirecting to first menu: ${firstMenu.route}');
-          return firstMenu.route;
-        } else {
-          AppLogger.debug('Redirecting to dashboard - no menus available');
+        try {
+          final navigationItems = ref.read(navigationItemsProvider);
+          if (navigationItems.isNotEmpty) {
+            final firstMenu = navigationItems.first;
+            AppLogger.debug('Redirecting to first menu: ${firstMenu.route}');
+            return firstMenu.route;
+          } else {
+            AppLogger.debug('Redirecting to dashboard - no menus available');
+            return '/dashboard';
+          }
+        } catch (e) {
+          AppLogger.debug('Error accessing navigation items, redirecting to dashboard: $e');
           return '/dashboard';
         }
       }

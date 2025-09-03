@@ -6,25 +6,42 @@ import '../../../../../domain/entities/menu.dart';
 import '../../../../../domain/usecases/menu/create_menu_usecase.dart';
 import '../../../../layout/design_system/app_theme.dart';
 import '../../../../layout/design_system/layout_constants.dart';
-import '../../../../layout/responsive/breakpoints.dart';
 import '../../../../layout/widgets/atoms/primary_button.dart';
+import '../../../../layout/widgets/organisms/app_dialog.dart';
 import '../../../../providers/menu_provider.dart';
+import '../../../../utils/notification/snackbar_notification.dart';
 
-/// Organism: Dialog para criação de novo menu
-class CreateMenuDialog extends ConsumerStatefulWidget {
-  const CreateMenuDialog({super.key});
-
-  @override
-  ConsumerState<CreateMenuDialog> createState() => _CreateMenuDialogState();
+/// Organism: Dialog para criação de novo menu usando AppDialog
+class CreateMenuDialog {
+  /// Método estático para exibir o dialog usando AppDialog com footer
+  static Future<bool?> show(BuildContext context) {
+    return AppDialog.show<bool>(
+      context: context,
+      title: 'Criar Novo Menu',
+      titleIcon: Icons.add_circle_outline,
+      content: const _DialogContent(),
+      showCloseButton: true,
+      isDismissible: false, // Previne fechar sem salvar
+      maxHeight: MediaQuery.of(context).size.height * 0.85, // Garante espaço para scroll
+    );
+  }
 }
 
-class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
+/// Conteúdo separado do dialog para melhor organização
+class _DialogContent extends ConsumerStatefulWidget {
+  const _DialogContent();
+
+  @override
+  ConsumerState<_DialogContent> createState() => _DialogContentState();
+}
+
+class _DialogContentState extends ConsumerState<_DialogContent> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
 
   ScreenType _selectedScreenType = ScreenType.carousel;
   MenuType _selectedMenuType = MenuType.standard;
-  bool _isVisible = true;
+  final List<String> _selectedSubmenus = []; // IDs dos submenus vinculados
   bool _isSubmitting = false;
 
   @override
@@ -35,70 +52,20 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = context.isDesktop;
-
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(LayoutConstants.radiusMedium),
-      ),
-      child: Container(
-        width: isDesktop ? 500 : double.infinity,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
-          maxWidth: isDesktop ? 500 : MediaQuery.of(context).size.width * 0.9,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(context),
-            Flexible(child: SingleChildScrollView(child: _buildForm(context))),
-            _buildActions(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(LayoutConstants.paddingLg),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(LayoutConstants.radiusMedium),
-          topRight: Radius.circular(LayoutConstants.radiusMedium),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.add_circle_outline,
-            color: AppTheme.onPrimary,
-            size: LayoutConstants.iconLarge,
-          ),
-          SizedBox(width: LayoutConstants.marginSm),
-          Expanded(
-            child: Text(
-              'Criar Novo Menu',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppTheme.onPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close, color: AppTheme.onPrimary),
-          ),
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Formulário com scroll automático
+        Flexible(child: SingleChildScrollView(child: _buildForm(context))),
+        // Footer com botões
+        _buildFooter(context),
+      ],
     );
   }
 
   Widget _buildForm(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.all(LayoutConstants.paddingLg),
+      padding: EdgeInsets.symmetric(vertical: LayoutConstants.paddingMd),
       child: Form(
         key: _formKey,
         child: Column(
@@ -109,7 +76,7 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
             _buildTextField(
               controller: _titleController,
               label: 'Título do Menu',
-              hint: 'Digite o título do menu',
+              hint: 'Ex: Dashboard, Relatórios, Configurações',
               isRequired: true,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -122,22 +89,51 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
               },
             ),
 
-            SizedBox(height: LayoutConstants.marginMd),
+            SizedBox(height: LayoutConstants.marginLg),
 
             // Tipo de Menu
             _buildMenuTypeDropdown(),
 
-            SizedBox(height: LayoutConstants.marginMd),
+            // Tipo de Tela (apenas para Menu Principal)
+            if (_selectedMenuType == MenuType.standard) ...[
+              SizedBox(height: LayoutConstants.marginLg),
+              _buildScreenTypeSelector(),
+            ],
 
-            // Tipo de Tela
-            _buildScreenTypeSelector(),
-
-            SizedBox(height: LayoutConstants.marginMd),
-
-            // Visibilidade
-            _buildVisibilitySwitch(),
+            // Seleção de Submenus (apenas para Menu Principal)
+            if (_selectedMenuType == MenuType.standard) ...[
+              SizedBox(height: LayoutConstants.marginLg),
+              _buildSubmenuSelector(),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(LayoutConstants.paddingMd),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: AppTheme.outline.withValues(alpha: 0.2), width: 1)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: AppButton.secondary(
+              text: 'Cancelar',
+              onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
+            ),
+          ),
+          SizedBox(width: LayoutConstants.marginMd),
+          Expanded(
+            child: AppButton.primary(
+              text: 'Criar Menu',
+              isLoading: _isSubmitting,
+              onPressed: _isSubmitting ? null : _handleCreateMenu,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -157,12 +153,15 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
         RichText(
           text: TextSpan(
             text: label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+            ),
             children: [
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppTheme.errorColor),
                 ),
             ],
           ),
@@ -188,7 +187,7 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: BorderSide(color: AppTheme.errorColor),
             ),
             contentPadding: EdgeInsets.all(LayoutConstants.paddingMd),
           ),
@@ -201,28 +200,181 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Tipo de Tela *',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+        RichText(
+          text: TextSpan(
+            text: 'Tipo de Tela',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+            ),
+            children: const [
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppTheme.errorColor),
+              ),
+            ],
+          ),
         ),
         SizedBox(height: LayoutConstants.marginSm),
-        ...ScreenType.values.map((type) {
-          return RadioListTile<ScreenType>(
-            title: Text(_getScreenTypeLabel(type)),
-            subtitle: Text(_getScreenTypeDescription(type)),
-            value: type,
-            groupValue: _selectedScreenType,
-            onChanged: (ScreenType? value) {
-              if (value != null) {
-                setState(() {
-                  _selectedScreenType = value;
-                });
-              }
-            },
-            activeColor: AppTheme.primaryColor,
-            contentPadding: EdgeInsets.zero,
-          );
-        }),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.outline.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+          ),
+          child: Column(
+            children: ScreenType.values.map((type) {
+              final isLast = type == ScreenType.values.last;
+              return Column(
+                children: [
+                  RadioListTile<ScreenType>(
+                    title: Text(
+                      _getScreenTypeLabel(type),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(
+                      _getScreenTypeDescription(type),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+                    ),
+                    value: type,
+                    groupValue: _selectedScreenType,
+                    onChanged: (ScreenType? value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedScreenType = value;
+                        });
+                      }
+                    },
+                    activeColor: AppTheme.primaryColor,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: LayoutConstants.paddingMd,
+                      vertical: LayoutConstants.paddingXs,
+                    ),
+                    dense: true,
+                  ),
+                  if (!isLast) Divider(height: 1, color: AppTheme.outline.withValues(alpha: 0.2)),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubmenuSelector() {
+    // Obter lista de submenus existentes
+    final menuState = ref.watch(menuProvider);
+    final availableSubmenus = menuState.menus
+        .where((menu) => menu.menuType == MenuType.submenu)
+        .toList();
+
+    if (availableSubmenus.isEmpty) {
+      return Container(
+        padding: EdgeInsets.all(LayoutConstants.paddingMd),
+        decoration: BoxDecoration(
+          color: AppTheme.infoColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+          border: Border.all(color: AppTheme.infoColor.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline, size: 16, color: AppTheme.infoColor),
+            SizedBox(width: LayoutConstants.marginXs),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nenhum submenu disponível',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: LayoutConstants.marginXs),
+                  Text(
+                    'Crie primeiro alguns submenus para poder vinculá-los a este menu principal.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Submenus Vinculados (Opcional)',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w500,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        SizedBox(height: LayoutConstants.marginXs),
+        Text(
+          'Selecione os submenus que aparecerão dentro deste menu principal',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+        ),
+        SizedBox(height: LayoutConstants.marginSm),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.outline.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+          ),
+          child: Column(
+            children: availableSubmenus.map((submenu) {
+              final isSelected = _selectedSubmenus.contains(submenu.localId);
+              final isLast = submenu == availableSubmenus.last;
+
+              return Column(
+                children: [
+                  CheckboxListTile(
+                    title: Text(
+                      submenu.title,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(
+                      'Submenu • ${_getScreenTypeLabel(submenu.screenType)}',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+                    ),
+                    value: isSelected,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        if (value == true) {
+                          _selectedSubmenus.add(submenu.localId);
+                        } else {
+                          _selectedSubmenus.remove(submenu.localId);
+                        }
+                      });
+                    },
+                    activeColor: AppTheme.primaryColor,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: LayoutConstants.paddingMd,
+                      vertical: LayoutConstants.paddingXs,
+                    ),
+                    dense: true,
+                  ),
+                  if (!isLast) Divider(height: 1, color: AppTheme.outline.withValues(alpha: 0.2)),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
       ],
     );
   }
@@ -234,11 +386,14 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
         RichText(
           text: TextSpan(
             text: 'Tipo de Menu',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+            ),
             children: const [
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppTheme.errorColor),
               ),
             ],
           ),
@@ -279,78 +434,31 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
           },
         ),
         if (_selectedMenuType == MenuType.submenu)
-          Padding(
-            padding: EdgeInsets.only(top: LayoutConstants.marginXs),
-            child: Text(
-              'Submenus são organizados dentro de menus principais',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+          Container(
+            margin: EdgeInsets.only(top: LayoutConstants.marginSm),
+            padding: EdgeInsets.all(LayoutConstants.paddingMd),
+            decoration: BoxDecoration(
+              color: AppTheme.infoColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              border: Border.all(color: AppTheme.infoColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16, color: AppTheme.infoColor),
+                SizedBox(width: LayoutConstants.marginXs),
+                Expanded(
+                  child: Text(
+                    'Submenus são organizados dentro de menus principais',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppTheme.textPrimary),
+                  ),
+                ),
+              ],
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildVisibilitySwitch() {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Visibilidade',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
-              ),
-              SizedBox(height: LayoutConstants.marginXs),
-              Text(
-                'Controla se o menu aparecerá na navegação',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
-              ),
-            ],
-          ),
-        ),
-        Switch(
-          value: _isVisible,
-          onChanged: (bool value) {
-            setState(() {
-              _isVisible = value;
-            });
-          },
-          activeColor: AppTheme.primaryColor,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActions(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(LayoutConstants.paddingLg),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppTheme.outline.withValues(alpha: 0.3))),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: AppButton.secondary(
-              text: 'Cancelar',
-              onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-            ),
-          ),
-          SizedBox(width: LayoutConstants.marginMd),
-          Expanded(
-            child: AppButton.primary(
-              text: 'Criar Menu',
-              isLoading: _isSubmitting,
-              onPressed: _isSubmitting ? null : _handleCreateMenu,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -396,11 +504,12 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
 
     try {
       // Criar slug a partir do título
-      final slug = _titleController.text.trim()
+      final slug = _titleController.text
+          .trim()
           .toLowerCase()
           .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
           .replaceAll(RegExp(r'^-+|-+$'), '');
-      
+
       // Criar parâmetros para o usecase
       final params = CreateMenuParams(
         title: _titleController.text.trim(),
@@ -409,37 +518,33 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
         menuType: _selectedMenuType,
         position: 0, // TODO: calcular próxima posição disponível
         enterpriseLocalId: 'default-enterprise', // TODO: pegar do usuário logado
-        isVisible: _isVisible,
+        isVisible: true, // Sempre visível por padrão
       );
-      
+
       // Executar usecase de criação
       final createMenuUseCase = ref.read(createMenuUseCaseProvider);
       final createdMenu = await createMenuUseCase(params);
-      
+
       // Recarregar menus após criação
       await ref.read(menuProvider.notifier).refresh();
 
       if (mounted) {
-        Navigator.of(context).pop(true); // Retorna true indicando sucesso
-        
-        // Navegar automaticamente para o menu criado usando rota dinâmica
-        final routeSlug = createdMenu.title.toLowerCase()
+        // Fechar dialog com sucesso
+        Navigator.of(context).pop(true);
+
+        // Navegar automaticamente para o menu criado
+        final routeSlug = createdMenu.title
+            .toLowerCase()
             .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
             .replaceAll(RegExp(r'^-+|-+$'), '');
         context.go('/dynamic/$routeSlug?title=${Uri.encodeComponent(createdMenu.title)}');
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Menu "${_titleController.text}" criado com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+
+        // Mostrar notificação de sucesso
+        SnackbarNotification.showSuccess('Menu "${_titleController.text}" criado com sucesso!');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao criar menu: $e'), backgroundColor: Colors.red),
-        );
+        SnackbarNotification.showError('Erro ao criar menu: $e');
       }
     } finally {
       if (mounted) {

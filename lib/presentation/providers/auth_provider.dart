@@ -66,7 +66,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Verifica se o usuário está logado
   Future<void> checkAuthStatus() async {
-    state = state.copyWith(status: AuthStatus.loading);
+    // Não altera o status para loading se já foi verificado antes
+    if (state.status == AuthStatus.initial) {
+      state = state.copyWith(status: AuthStatus.loading);
+    }
     
     try {
       final user = await _getCurrentUserUseCase();

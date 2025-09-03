@@ -31,29 +31,33 @@ void main() async {
   runApp(const ProviderScope(child: App()));
 }
 
-class App extends ConsumerWidget {
+class App extends ConsumerStatefulWidget {
   const App({super.key});
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<App> createState() => _AppState();
+}
+
+class _AppState extends ConsumerState<App> {
+  @override
+  void initState() {
+    super.initState();
+    // Inicializar verificação de autenticação imediatamente
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authProvider.notifier).checkAuthStatus();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final config = ref.watch(envConfigProvider);
     final router = ref.watch(routerProvider);
-
-    // Inicializar verificação de autenticação
-    ref.listen(authProvider, (previous, next) {
-      // Verificar status de auth apenas na primeira inicialização
-      if (previous == null && next.status == AuthStatus.initial) {
-        Future.microtask(() {
-          ref.read(authProvider.notifier).checkAuthStatus();
-        });
-      }
-    });
 
     return MaterialApp.router(
       title: config.appName,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.lightTheme,
       routerConfig: router,
-      // debugShowCheckedModeBanner: config.environment != 'production',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: SnackbarNotification.messengerKey,
     );

@@ -228,10 +228,7 @@ class _MenuConfigurationDialogState extends ConsumerState<MenuConfigurationDialo
     // Fechar o modal atual primeiro
     Navigator.of(context).pop();
     
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => const CreateMenuDialog(),
-    );
+    final result = await CreateMenuDialog.show(context);
     
     if (result == true && mounted) {
       // Recarregar menus se um novo foi criado

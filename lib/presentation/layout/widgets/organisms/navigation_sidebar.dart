@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../domain/entities/user.dart';
+import '../../../features/dashboard/widgets/molecules/navigation_item.dart';
+import '../../../providers/menu_provider.dart';
+import '../../../providers/navigation_provider.dart';
 import '../../design_system/app_theme.dart';
 import '../../design_system/layout_constants.dart';
 import '../../responsive/breakpoints.dart';
 import 'navigation_footer.dart';
 import 'navigation_header.dart';
-import '../../../../domain/entities/user.dart';
-import '../../../providers/navigation_provider.dart';
-import '../../../providers/menu_provider.dart';
-import '../../../features/dashboard/widgets/molecules/navigation_item.dart';
 
 class NavigationSidebar extends ConsumerWidget {
   final String currentRoute;
@@ -67,17 +67,17 @@ class NavigationSidebar extends ConsumerWidget {
 
       // Verificar estado dos menus para mostrar feedback apropriado
       final menuState = ref.watch(menuProvider);
-      
+
       // Estado de carregamento
       if (menuState.isLoading) {
         return _buildLoadingState();
       }
-      
+
       // Estado de erro
       if (menuState.hasError) {
         return _buildErrorState();
       }
-      
+
       // Estado vazio - sem menus cadastrados
       if (navigationItems.isEmpty) {
         return _buildEmptyState();
@@ -169,7 +169,7 @@ class NavigationSidebar extends ConsumerWidget {
             ),
             SizedBox(height: LayoutConstants.marginMd),
             Text(
-              'Menus ainda não cadastrados',
+              'Nenhum menu cadastrado',
               style: TextStyle(
                 color: AppTheme.onPrimary.withValues(alpha: 0.9),
                 fontSize: LayoutConstants.fontSizeMedium,
@@ -179,7 +179,7 @@ class NavigationSidebar extends ConsumerWidget {
             ),
             SizedBox(height: LayoutConstants.marginSm),
             Text(
-              'Use o botão "Editar Menu" no rodapé\npara criar seu primeiro menu',
+              'Use o botão "Adicionar Menu" no rodapé\npara criar seu primeiro menu',
               style: TextStyle(
                 color: AppTheme.onPrimary.withValues(alpha: 0.7),
                 fontSize: LayoutConstants.fontSizeSmall,
@@ -235,11 +235,11 @@ class NavigationSidebar extends ConsumerWidget {
     if (itemRoute.startsWith('/dynamic/') && currentRoute.startsWith('/dynamic/')) {
       final itemUri = Uri.parse(itemRoute);
       final currentUri = Uri.parse(currentRoute);
-      
+
       // Comparar apenas o path sem query parameters
       return itemUri.path == currentUri.path;
     }
-    
+
     // Limpar rotas para comparação (comportamento original)
     final cleanItemRoute = _cleanRoute(itemRoute);
     final cleanCurrentRoute = _cleanRoute(currentRoute);
@@ -281,11 +281,11 @@ class NavigationSidebar extends ConsumerWidget {
 
   void _handleNavigation(BuildContext context, String route) {
     try {
-      // Sempre fechar drawer em mobile/tablet quando clicar em item de navegação
-      if (context.isMobile || (context.isTablet && context.isXs)) {
+      // Sempre fechar drawer em não-desktop quando clicar em item de navegação
+      if (!context.isDesktop) {
         Navigator.of(context).pop();
       }
-      
+
       debugPrint('NavigationSidebar: Navigating to route: $route');
       context.go(route);
     } catch (e) {

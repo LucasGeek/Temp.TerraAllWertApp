@@ -1,10 +1,10 @@
 class LayoutConstants {
   // Sidebar widths
-  static const double sidebarWidth = 240.0;
-  static const double sidebarXs = 240.0;
-  static const double sidebarMd = 240.0;
-  static const double sidebarLg = 280.0;
-  static const double sidebarXl = 320.0;
+  static const double sidebarWidth = 280.0;
+  static const double sidebarXs = 280.0;
+  static const double sidebarMd = 280.0;
+  static const double sidebarLg = 320.0;
+  static const double sidebarXl = 360.0;
 
   // AppBar heights - padronizado
   static const double appBarHeight = 56.0;

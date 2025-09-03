@@ -29,18 +29,15 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
 
     // ✅ CORRECT: Using providers to access use cases through Clean Architecture
     final authNotifier = ref.read(authStateProvider.notifier);
-    
-    await authNotifier.login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+
+    await authNotifier.login(_emailController.text.trim(), _passwordController.text);
   }
 
   @override
   Widget build(BuildContext context) {
     // ✅ CORRECT: Watching authentication state through provider
     final authState = ref.watch(authStateProvider);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Login - Clean Architecture'),
@@ -56,9 +53,9 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
             children: [
               // Authentication State Display
               _buildAuthStateDisplay(authState),
-              
+
               const SizedBox(height: 24),
-              
+
               // Email Field
               TextFormField(
                 controller: _emailController,
@@ -78,9 +75,9 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
                   return null;
                 },
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Password Field
               TextFormField(
                 controller: _passwordController,
@@ -100,9 +97,9 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
                   return null;
                 },
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Login Button
               SizedBox(
                 width: double.infinity,
@@ -121,9 +118,9 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
                       : const Text('Entrar'),
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // User Info Section (if logged in)
               _buildUserInfoSection(),
             ],
@@ -143,19 +140,12 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Estado da Autenticação:',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          const Text('Estado da Autenticação:', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           authState.when(
             loading: () => const Row(
               children: [
-                SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                 SizedBox(width: 8),
                 Text('Carregando...'),
               ],
@@ -165,10 +155,7 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
                 const Icon(Icons.error, color: Colors.red),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Erro: $error',
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                  child: Text('Erro: $error', style: const TextStyle(color: Colors.red)),
                 ),
               ],
             ),
@@ -180,12 +167,8 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  user != null 
-                      ? 'Logado como: ${user.name ?? user.email}'
-                      : 'Não logado',
-                  style: TextStyle(
-                    color: user != null ? Colors.green : Colors.grey,
-                  ),
+                  user != null ? 'Logado como: ${user.name ?? user.email}' : 'Não logado',
+                  style: TextStyle(color: user != null ? Colors.green : Colors.grey),
                 ),
               ],
             ),
@@ -198,7 +181,7 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
   Widget _buildUserInfoSection() {
     // ✅ CORRECT: Using provider to get current user data
     final currentUserAsync = ref.watch(currentUserProvider);
-    
+
     return currentUserAsync.when(
       loading: () => const Card(
         child: Padding(
@@ -218,13 +201,10 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
       data: (user) {
         if (user == null) {
           return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Nenhum usuário logado'),
-            ),
+            child: Padding(padding: EdgeInsets.all(16), child: Text('Nenhum usuário logado')),
           );
         }
-        
+
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -233,10 +213,7 @@ class _LoginPageExampleState extends ConsumerState<LoginPageExample> {
               children: [
                 const Text(
                   'Informações do Usuário:',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text('ID: ${user.localId}'),
@@ -275,13 +252,8 @@ class MenuListExample extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // ✅ CORRECT: Using provider to get current enterprise first
     final enterpriseAsync = ref.watch(currentEnterpriseProvider);
-    
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Menus - Clean Architecture'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      ),
       body: enterpriseAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
@@ -315,7 +287,7 @@ class MenuListExample extends ConsumerWidget {
 
           // ✅ CORRECT: Now we can fetch menus using the enterprise ID
           final menusAsync = ref.watch(menuHierarchyProvider(enterprise.localId));
-          
+
           return menusAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => Center(
@@ -341,7 +313,7 @@ class MenuListExample extends ConsumerWidget {
                     children: [
                       Icon(Icons.menu, size: 64, color: Colors.grey),
                       SizedBox(height: 16),
-                      Text('Nenhum menu encontrado'),
+                      Text('Nenhum menu configurado'),
                     ],
                   ),
                 );
@@ -396,23 +368,15 @@ class MenuListExample extends ConsumerWidget {
 /// Example of Tower listing for a specific menu
 class TowerListExample extends ConsumerWidget {
   final String menuId;
-  
-  const TowerListExample({
-    super.key,
-    required this.menuId,
-  });
+
+  const TowerListExample({super.key, required this.menuId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // ✅ CORRECT: Using provider with family parameter
     final towersAsync = ref.watch(towersByMenuProvider(menuId));
-    
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Torres - Clean Architecture'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      ),
       body: towersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
@@ -455,9 +419,7 @@ class TowerListExample extends ConsumerWidget {
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.apartment),
-                    ),
+                    leading: const CircleAvatar(child: Icon(Icons.apartment)),
                     title: Text(tower.title),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -471,11 +433,9 @@ class TowerListExample extends ConsumerWidget {
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () {
                       // Here you could navigate to tower details
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Torre selecionada: ${tower.title}'),
-                        ),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Torre selecionada: ${tower.title}')));
                     },
                   ),
                 );

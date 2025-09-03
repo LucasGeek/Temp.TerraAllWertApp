@@ -99,10 +99,7 @@ class DashboardPage extends ConsumerWidget {
   }
 
   Future<void> _showCreateMenuDialog(BuildContext context, WidgetRef ref) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => const CreateMenuDialog(),
-    );
+    final result = await CreateMenuDialog.show(context);
 
     // Se foi criado com sucesso, recarregar os menus
     if (result == true) {
