@@ -10,6 +10,7 @@ import '../features/dynamic/pages/dynamic_page.dart';
 import '../layout/widgets/organisms/main_layout.dart';
 import '../providers/current_route_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/navigation_provider.dart';
 
 /// Custom page transitions for better UX
 class AppPageTransitions {
@@ -126,7 +127,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               final title = state.uri.queryParameters['title'];
               
               return AppPageTransitions.slideTransition(
-                DynamicPage(route: route, title: title),
+                DynamicPage(route: '/dynamic/$route', title: title),
                 state,
               );
             },
@@ -172,6 +173,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isLoginRoute = state.uri.path == '/login';
+      final isRootRoute = state.uri.path == '/';
       
       AppLogger.debug('Router redirect check for: ${state.uri.path}, auth: ${authState.status}');
       
@@ -186,10 +188,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
       
-      // Se está autenticado e está na rota de login, redireciona para dashboard
-      if (authState.isAuthenticated && isLoginRoute) {
-        AppLogger.debug('Redirecting to dashboard - user authenticated');
-        return '/dashboard';
+      // Se está autenticado e na rota de login ou root, redireciona para dashboard
+      if (authState.isAuthenticated && (isLoginRoute || isRootRoute)) {
+        // Verificar se há menus disponíveis primeiro
+        final navigationItems = ref.read(navigationItemsProvider);
+        if (navigationItems.isNotEmpty) {
+          final firstMenu = navigationItems.first;
+          AppLogger.debug('Redirecting to first menu: ${firstMenu.route}');
+          return firstMenu.route;
+        } else {
+          AppLogger.debug('Redirecting to dashboard - no menus available');
+          return '/dashboard';
+        }
       }
       
       // Se está autenticado ou na rota de login, permite acesso

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 class SnackbarNotification {
-  static final GlobalKey<ScaffoldMessengerState> messengerKey =
-      GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<ScaffoldMessengerState> messengerKey = GlobalKey<ScaffoldMessengerState>();
 
   static void showSuccess(String message) {
     _showSnackbar(
@@ -59,11 +58,7 @@ class SnackbarNotification {
             Expanded(
               child: Text(
                 message,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -71,10 +66,7 @@ class SnackbarNotification {
         backgroundColor: backgroundColor,
         duration: duration,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         action: SnackBarAction(
           label: 'OK',
           textColor: textColor,

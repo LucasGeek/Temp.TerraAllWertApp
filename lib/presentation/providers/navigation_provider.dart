@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/entities/menu.dart';
+import 'menu_provider.dart';
 
 /// Modelo básico para item de navegação
 class NavigationItem {
@@ -9,6 +11,8 @@ class NavigationItem {
   final String route;
   final bool isVisible;
   final int order;
+  final String? parentId;
+  final IconData? selectedIcon;
 
   const NavigationItem({
     required this.id,
@@ -17,28 +21,57 @@ class NavigationItem {
     required this.route,
     this.isVisible = true,
     required this.order,
+    this.parentId,
+    this.selectedIcon,
   });
 }
 
-/// Provider para itens de navegação (implementação básica temporária)
+/// Helper function para converter Menu em NavigationItem
+NavigationItem _menuToNavigationItem(Menu menu) {
+  // Mapear ScreenType para ícone
+  IconData icon;
+  switch (menu.screenType) {
+    case ScreenType.carousel:
+      icon = Icons.photo_library;
+      break;
+    case ScreenType.pin:
+      icon = Icons.location_on;
+      break;
+    case ScreenType.floorplan:
+      icon = Icons.architecture;
+      break;
+  }
+
+  // Criar slug para a rota dinâmica baseado no título
+  final routeSlug = menu.title.toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+  
+  return NavigationItem(
+    id: menu.localId,
+    label: menu.title,
+    icon: icon,
+    route: '/dynamic/$routeSlug?title=${Uri.encodeComponent(menu.title)}',
+    isVisible: menu.isVisible,
+    order: menu.position,
+    parentId: menu.parentMenuLocalId,
+    selectedIcon: icon,
+  );
+}
+
+/// Provider para itens de navegação baseado nos menus
 final navigationItemsProvider = Provider<List<NavigationItem>>((ref) {
-  // Lista básica de navegação para não quebrar o router
-  return [
-    const NavigationItem(
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: Icons.dashboard,
-      route: '/dashboard',
-      order: 1,
-    ),
-    const NavigationItem(
-      id: 'search',
-      label: 'Busca',
-      icon: Icons.search,
-      route: '/search',
-      order: 2,
-    ),
-  ];
+  final menuState = ref.watch(menuProvider);
+  
+  // Se não há menus ou está carregando/erro, retorna lista vazia
+  if (menuState.status != MenuStatus.loaded || menuState.menus.isEmpty) {
+    return [];
+  }
+
+  // Converter menus em NavigationItems
+  return menuState.menus
+      .map(_menuToNavigationItem)
+      .toList();
 });
 
 /// Provider para itens de navegação visíveis

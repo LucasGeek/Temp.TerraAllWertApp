@@ -4,7 +4,7 @@ part 'menu.freezed.dart';
 part 'menu.g.dart';
 
 /// Tipos de tela que o menu pode abrir
-enum ScreenType { carousel, pin, floorplan }
+enum ScreenType { pin, carousel, floorplan }
 
 /// Tipos de menu
 enum MenuType { standard, submenu }
@@ -26,10 +26,10 @@ abstract class Menu with _$Menu {
 
     /// Título do menu
     required String title,
-    
+
     /// Nome do menu (alias para title)
     String? name,
-    
+
     /// Descrição do menu
     String? description,
 
@@ -47,16 +47,16 @@ abstract class Menu with _$Menu {
 
     /// Ícone (nome ou chave)
     String? icon,
-    
+
     /// URL do ícone
     String? iconUrl,
-    
+
     /// Configurações específicas do menu
     Map<String, dynamic>? configuration,
 
     /// Se o menu está visível
     @Default(true) bool isVisible,
-    
+
     /// Se o menu está ativo
     @Default(true) bool isActive,
 

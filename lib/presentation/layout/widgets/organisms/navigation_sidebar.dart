@@ -9,6 +9,7 @@ import 'navigation_footer.dart';
 import 'navigation_header.dart';
 import '../../../../domain/entities/user.dart';
 import '../../../providers/navigation_provider.dart';
+import '../../../providers/menu_provider.dart';
 import '../../../features/dashboard/widgets/molecules/navigation_item.dart';
 
 class NavigationSidebar extends ConsumerWidget {
@@ -46,7 +47,7 @@ class NavigationSidebar extends ConsumerWidget {
           children: [
             const NavigationHeader(),
 
-            _buildNavigationList(context, navigationItems),
+            _buildNavigationList(context, navigationItems, ref),
 
             NavigationFooter(onLogoutTap: onLogoutTap, shouldCloseDrawer: true),
           ],
@@ -58,13 +59,26 @@ class NavigationSidebar extends ConsumerWidget {
     }
   }
 
-  Widget _buildNavigationList(BuildContext context, List<dynamic> navigationItems) {
+  Widget _buildNavigationList(BuildContext context, List<dynamic> navigationItems, WidgetRef ref) {
     try {
       debugPrint(
         'NavigationSidebar: Building navigation list with ${navigationItems.length} items',
       );
 
-      // Estado vazio com feedback melhorado
+      // Verificar estado dos menus para mostrar feedback apropriado
+      final menuState = ref.watch(menuProvider);
+      
+      // Estado de carregamento
+      if (menuState.isLoading) {
+        return _buildLoadingState();
+      }
+      
+      // Estado de erro
+      if (menuState.hasError) {
+        return _buildErrorState();
+      }
+      
+      // Estado vazio - sem menus cadastrados
       if (navigationItems.isEmpty) {
         return _buildEmptyState();
       }
@@ -116,6 +130,31 @@ class NavigationSidebar extends ConsumerWidget {
     }
   }
 
+  /// Estado de carregamento
+  Widget _buildLoadingState() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.onPrimary),
+            ),
+            SizedBox(height: LayoutConstants.marginMd),
+            Text(
+              'Carregando menus...',
+              style: TextStyle(
+                color: AppTheme.onPrimary.withValues(alpha: 0.8),
+                fontSize: LayoutConstants.fontSizeMedium,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Estado vazio melhorado com ícone visual
   Widget _buildEmptyState() {
     return Expanded(
@@ -130,7 +169,7 @@ class NavigationSidebar extends ConsumerWidget {
             ),
             SizedBox(height: LayoutConstants.marginMd),
             Text(
-              'Nenhum menu configurado',
+              'Menus ainda não cadastrados',
               style: TextStyle(
                 color: AppTheme.onPrimary.withValues(alpha: 0.9),
                 fontSize: LayoutConstants.fontSizeMedium,
@@ -140,7 +179,7 @@ class NavigationSidebar extends ConsumerWidget {
             ),
             SizedBox(height: LayoutConstants.marginSm),
             Text(
-              'Configure seus menus de navegação\npara começar',
+              'Use o botão "Editar Menu" no rodapé\npara criar seu primeiro menu',
               style: TextStyle(
                 color: AppTheme.onPrimary.withValues(alpha: 0.7),
                 fontSize: LayoutConstants.fontSizeSmall,
@@ -192,7 +231,16 @@ class NavigationSidebar extends ConsumerWidget {
 
   /// Detecção melhorada de rota ativa baseada no sistema legado
   bool _isRouteActive(String itemRoute, String currentRoute) {
-    // Limpar rotas para comparação
+    // Para rotas dinâmicas, comparar sem query parameters
+    if (itemRoute.startsWith('/dynamic/') && currentRoute.startsWith('/dynamic/')) {
+      final itemUri = Uri.parse(itemRoute);
+      final currentUri = Uri.parse(currentRoute);
+      
+      // Comparar apenas o path sem query parameters
+      return itemUri.path == currentUri.path;
+    }
+    
+    // Limpar rotas para comparação (comportamento original)
     final cleanItemRoute = _cleanRoute(itemRoute);
     final cleanCurrentRoute = _cleanRoute(currentRoute);
 
@@ -237,6 +285,8 @@ class NavigationSidebar extends ConsumerWidget {
       if (context.isMobile || (context.isTablet && context.isXs)) {
         Navigator.of(context).pop();
       }
+      
+      debugPrint('NavigationSidebar: Navigating to route: $route');
       context.go(route);
     } catch (e) {
       debugPrint('NavigationSidebar: Navigation error - $e');

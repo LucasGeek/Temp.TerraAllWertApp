@@ -4,8 +4,8 @@ import '../../design_system/app_theme.dart';
 import '../../design_system/layout_constants.dart';
 import '../../responsive/breakpoints.dart';
 import '../../../features/dashboard/widgets/organisms/logout_confirmation_sheet.dart';
-// import '../../../features/dashboard/widgets/organisms/settings_modal.dart'; // Removido: não existe
-// import '../../../features/dashboard/widgets/organisms/menu_configuration_dialog.dart'; // Removido: não existe
+import '../../../features/dashboard/widgets/organisms/settings_modal.dart';
+import '../../../features/dashboard/widgets/organisms/menu_configuration_dialog.dart';
 
 /// Footer de navegação com ações do usuário
 /// Contém logout, settings e editar menu
@@ -63,20 +63,26 @@ class NavigationFooter extends StatelessWidget {
     LogoutConfirmationSheet.show(context, onConfirmLogout: onLogoutTap);
   }
 
-  void _handleSettings(BuildContext context) {
+  Future<void> _handleSettings(BuildContext context) async {
     _closeDrawerIfNeeded(context);
-    // SettingsModal.show(context); // Comentado: classe não existe
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Settings - To be implemented')),
-    );
+    
+    final result = await SettingsModal.show(context);
+    
+    if (result == true && context.mounted) {
+      // Configurações salvas - não precisa de ação adicional
+      // O próprio modal já mostra o feedback
+    }
   }
 
-  void _handleEditMenu(BuildContext context) {
+  Future<void> _handleEditMenu(BuildContext context) async {
     _closeDrawerIfNeeded(context);
-    // MenuConfigurationDialog.show(context); // Comentado: classe não existe
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Menu Configuration - To be implemented')),
-    );
+    
+    final result = await MenuConfigurationDialog.show(context);
+    
+    if (result == true && context.mounted) {
+      // Configurações de menu salvas - não precisa de ação adicional
+      // O próprio dialog já mostra o feedback
+    }
   }
 
   void _closeDrawerIfNeeded(BuildContext context) {

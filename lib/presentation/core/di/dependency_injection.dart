@@ -9,6 +9,7 @@ import '../../../domain/usecases/auth/get_current_user_usecase.dart';
 import '../../../domain/usecases/menu/get_menu_hierarchy_usecase.dart';
 import '../../../domain/usecases/menu/get_visible_menus_usecase.dart';
 import '../../../domain/usecases/menu/get_menu_by_id_usecase.dart';
+import '../../../domain/usecases/menu/create_menu_usecase.dart';
 
 // Use Cases - Tower
 import '../../../domain/usecases/tower/get_towers_by_menu_usecase.dart';
@@ -169,6 +170,10 @@ Future<void> configureDependencies() async {
   
   getIt.registerLazySingleton<GetMenuByIdUseCase>(
     () => GetMenuByIdUseCase(getIt<MenuRepository>()),
+  );
+  
+  getIt.registerLazySingleton<CreateMenuUseCase>(
+    () => CreateMenuUseCase(getIt<MenuRepository>()),
   );
   
   // Tower Use Cases

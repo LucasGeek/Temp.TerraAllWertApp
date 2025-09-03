@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/dashboard/widgets/organisms/main_navigation_drawer.dart';
 import '../../../providers/sidebar_provider.dart';
+import '../../../providers/navigation_provider.dart';
 import '../../responsive/breakpoints.dart';
 import '../organisms/responsive_sidebar.dart';
 import '../organisms/standard_app_bar.dart';
@@ -124,6 +125,22 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   /// Determina o título da página baseado na rota
   String _getPageTitle(String route) {
+    // Para rotas dinâmicas, buscar o título nos navigation items ou usar query parameter
+    if (route.startsWith('/dynamic/')) {
+      final navigationItems = ref.read(navigationItemsProvider);
+      final menuItem = navigationItems.where((item) => item.route == route).firstOrNull;
+      if (menuItem != null) {
+        return menuItem.label;
+      }
+      
+      // Fallback: extrair título da query string se disponível
+      final uri = Uri.parse(route);
+      final titleFromQuery = uri.queryParameters['title'];
+      if (titleFromQuery != null) {
+        return titleFromQuery;
+      }
+    }
+    
     switch (route) {
       case '/dashboard':
         return 'Dashboard';

@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import '../../domain/entities/menu.dart';
 import '../../domain/usecases/menu/get_visible_menus_usecase.dart';
 import '../../domain/usecases/menu/get_menu_hierarchy_usecase.dart';
+import '../../domain/usecases/menu/create_menu_usecase.dart';
 import '../utils/errors/api_error_handler.dart';
 
 /// Estado dos menus
@@ -47,6 +48,11 @@ final getVisibleMenusUseCaseProvider = Provider<GetVisibleMenusUseCase>((ref) {
 /// Provider para GetMenuHierarchyUseCase
 final getMenuHierarchyUseCaseProvider = Provider<GetMenuHierarchyUseCase>((ref) {
   return GetIt.instance<GetMenuHierarchyUseCase>();
+});
+
+/// Provider para CreateMenuUseCase
+final createMenuUseCaseProvider = Provider<CreateMenuUseCase>((ref) {
+  return GetIt.instance<CreateMenuUseCase>();
 });
 
 /// Notifier para gerenciar o estado dos menus

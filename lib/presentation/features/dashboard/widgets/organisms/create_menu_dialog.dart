@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../../domain/entities/menu.dart';
+import '../../../../../domain/usecases/menu/create_menu_usecase.dart';
 import '../../../../layout/design_system/app_theme.dart';
 import '../../../../layout/design_system/layout_constants.dart';
 import '../../../../layout/responsive/breakpoints.dart';
 import '../../../../layout/widgets/atoms/primary_button.dart';
+import '../../../../providers/menu_provider.dart';
 
 /// Organism: Dialog para criação de novo menu
 class CreateMenuDialog extends ConsumerStatefulWidget {
@@ -18,25 +21,22 @@ class CreateMenuDialog extends ConsumerStatefulWidget {
 class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _slugController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  
+
   ScreenType _selectedScreenType = ScreenType.carousel;
+  MenuType _selectedMenuType = MenuType.standard;
   bool _isVisible = true;
   bool _isSubmitting = false;
 
   @override
   void dispose() {
     _titleController.dispose();
-    _slugController.dispose();
-    _descriptionController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = context.isDesktop;
-    
+
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(LayoutConstants.radiusMedium),
@@ -51,11 +51,7 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildHeader(context),
-            Flexible(
-              child: SingleChildScrollView(
-                child: _buildForm(context),
-              ),
-            ),
+            Flexible(child: SingleChildScrollView(child: _buildForm(context))),
             _buildActions(context),
           ],
         ),
@@ -115,7 +111,6 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
               label: 'Título do Menu',
               hint: 'Digite o título do menu',
               isRequired: true,
-              onChanged: (value) => _generateSlug(value),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Título é obrigatório';
@@ -126,43 +121,19 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
                 return null;
               },
             ),
-            
+
             SizedBox(height: LayoutConstants.marginMd),
-            
-            // Slug (gerado automaticamente)
-            _buildTextField(
-              controller: _slugController,
-              label: 'Slug',
-              hint: 'Gerado automaticamente do título',
-              isRequired: true,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Slug é obrigatório';
-                }
-                if (!RegExp(r'^[a-z0-9-]+$').hasMatch(value.trim())) {
-                  return 'Slug deve conter apenas letras minúsculas, números e hífens';
-                }
-                return null;
-              },
-            ),
-            
+
+            // Tipo de Menu
+            _buildMenuTypeDropdown(),
+
             SizedBox(height: LayoutConstants.marginMd),
-            
-            // Descrição (opcional)
-            _buildTextField(
-              controller: _descriptionController,
-              label: 'Descrição',
-              hint: 'Descrição opcional do menu',
-              maxLines: 3,
-            ),
-            
-            SizedBox(height: LayoutConstants.marginMd),
-            
+
             // Tipo de Tela
             _buildScreenTypeSelector(),
-            
+
             SizedBox(height: LayoutConstants.marginMd),
-            
+
             // Visibilidade
             _buildVisibilitySwitch(),
           ],
@@ -186,9 +157,7 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
         RichText(
           text: TextSpan(
             text: label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
             children: [
               if (isRequired)
                 const TextSpan(
@@ -234,9 +203,7 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
       children: [
         Text(
           'Tipo de Tela *',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
         ),
         SizedBox(height: LayoutConstants.marginSm),
         ...ScreenType.values.map((type) {
@@ -260,6 +227,69 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
     );
   }
 
+  Widget _buildMenuTypeDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            text: 'Tipo de Menu',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+            children: const [
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: LayoutConstants.marginXs),
+        DropdownButtonFormField<MenuType>(
+          value: _selectedMenuType,
+          decoration: InputDecoration(
+            hintText: 'Selecione o tipo de menu',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              borderSide: BorderSide(color: AppTheme.outline),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(LayoutConstants.radiusSmall),
+              borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+            ),
+            contentPadding: EdgeInsets.all(LayoutConstants.paddingMd),
+          ),
+          items: MenuType.values.map((MenuType type) {
+            return DropdownMenuItem<MenuType>(value: type, child: Text(_getMenuTypeLabel(type)));
+          }).toList(),
+          onChanged: (MenuType? value) {
+            if (value != null) {
+              setState(() {
+                _selectedMenuType = value;
+              });
+            }
+          },
+          validator: (value) {
+            if (value == null) {
+              return 'Tipo de menu é obrigatório';
+            }
+            return null;
+          },
+        ),
+        if (_selectedMenuType == MenuType.submenu)
+          Padding(
+            padding: EdgeInsets.only(top: LayoutConstants.marginXs),
+            child: Text(
+              'Submenus são organizados dentro de menus principais',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildVisibilitySwitch() {
     return Row(
       children: [
@@ -269,16 +299,16 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
             children: [
               Text(
                 'Visibilidade',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
               ),
               SizedBox(height: LayoutConstants.marginXs),
               Text(
                 'Controla se o menu aparecerá na navegação',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
               ),
             ],
           ),
@@ -301,9 +331,7 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
       width: double.infinity,
       padding: EdgeInsets.all(LayoutConstants.paddingLg),
       decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppTheme.outline.withValues(alpha: 0.3)),
-        ),
+        border: Border(top: BorderSide(color: AppTheme.outline.withValues(alpha: 0.3))),
       ),
       child: Row(
         children: [
@@ -326,14 +354,23 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
     );
   }
 
+  String _getMenuTypeLabel(MenuType type) {
+    switch (type) {
+      case MenuType.standard:
+        return 'Menu Principal';
+      case MenuType.submenu:
+        return 'Submenu';
+    }
+  }
+
   String _getScreenTypeLabel(ScreenType type) {
     switch (type) {
       case ScreenType.carousel:
         return 'Carrossel';
       case ScreenType.pin:
-        return 'Pins no Mapa';
+        return 'Pins';
       case ScreenType.floorplan:
-        return 'Plantas Baixas';
+        return 'Pavimentação';
     }
   }
 
@@ -342,28 +379,9 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
       case ScreenType.carousel:
         return 'Apresentação em carrossel de imagens';
       case ScreenType.pin:
-        return 'Pontos interativos em mapas ou imagens';
+        return 'Pontos interativos na imagem';
       case ScreenType.floorplan:
         return 'Visualização de plantas e layouts';
-    }
-  }
-
-  void _generateSlug(String title) {
-    if (title.isNotEmpty) {
-      final slug = title
-          .toLowerCase()
-          .replaceAll(RegExp(r'[àáâãäå]'), 'a')
-          .replaceAll(RegExp(r'[èéêë]'), 'e')
-          .replaceAll(RegExp(r'[ìíîï]'), 'i')
-          .replaceAll(RegExp(r'[òóôõö]'), 'o')
-          .replaceAll(RegExp(r'[ùúûü]'), 'u')
-          .replaceAll('ç', 'c')
-          .replaceAll(RegExp(r'[^a-z0-9\s-]'), '')
-          .replaceAll(RegExp(r'\s+'), '-')
-          .replaceAll(RegExp(r'-+'), '-')
-          .replaceAll(RegExp(r'^-|-$'), '');
-      
-      _slugController.text = slug;
     }
   }
 
@@ -377,11 +395,39 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
     });
 
     try {
-      // TODO: Implementar usecase provider e criar menu
-      await Future.delayed(const Duration(seconds: 1)); // Simulação
+      // Criar slug a partir do título
+      final slug = _titleController.text.trim()
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+          .replaceAll(RegExp(r'^-+|-+$'), '');
       
+      // Criar parâmetros para o usecase
+      final params = CreateMenuParams(
+        title: _titleController.text.trim(),
+        slug: slug,
+        screenType: _selectedScreenType,
+        menuType: _selectedMenuType,
+        position: 0, // TODO: calcular próxima posição disponível
+        enterpriseLocalId: 'default-enterprise', // TODO: pegar do usuário logado
+        isVisible: _isVisible,
+      );
+      
+      // Executar usecase de criação
+      final createMenuUseCase = ref.read(createMenuUseCaseProvider);
+      final createdMenu = await createMenuUseCase(params);
+      
+      // Recarregar menus após criação
+      await ref.read(menuProvider.notifier).refresh();
+
       if (mounted) {
         Navigator.of(context).pop(true); // Retorna true indicando sucesso
+        
+        // Navegar automaticamente para o menu criado usando rota dinâmica
+        final routeSlug = createdMenu.title.toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+            .replaceAll(RegExp(r'^-+|-+$'), '');
+        context.go('/dynamic/$routeSlug?title=${Uri.encodeComponent(createdMenu.title)}');
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Menu "${_titleController.text}" criado com sucesso!'),
@@ -392,10 +438,7 @@ class _CreateMenuDialogState extends ConsumerState<CreateMenuDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao criar menu: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Erro ao criar menu: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {

@@ -26,6 +26,17 @@ class LoginFormWidget extends ConsumerStatefulWidget {
 }
 
 class _LoginFormWidgetState extends ConsumerState<LoginFormWidget> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -33,26 +44,31 @@ class _LoginFormWidgetState extends ConsumerState<LoginFormWidget> {
     final isFormValid = ref.watch(isLoginFormValidProvider);
 
     return Form(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Entrar',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Acesse sua conta Terra Allwert',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
+      key: _formKey,
+      child: AutofillGroup(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Entrar',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Acesse sua conta Terra Allwert',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
 
-          // Campo Email
-          TextFormField(
+            // Campo Email
+            TextFormField(
+            focusNode: _emailFocusNode,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
             decoration: InputDecoration(
               labelText: 'Email',
               prefixIcon: const Icon(Icons.email_outlined),
@@ -62,12 +78,18 @@ class _LoginFormWidgetState extends ConsumerState<LoginFormWidget> {
             onChanged: (value) {
               ref.read(loginFormProvider.notifier).updateEmail(value);
             },
+            onFieldSubmitted: (_) {
+              FocusScope.of(context).requestFocus(_passwordFocusNode);
+            },
           ),
           const SizedBox(height: 16),
 
           // Campo Senha
           TextFormField(
+            focusNode: _passwordFocusNode,
             obscureText: formState.obscurePassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.password],
             decoration: InputDecoration(
               labelText: 'Senha',
               prefixIcon: const Icon(Icons.lock_outlined),
@@ -82,6 +104,11 @@ class _LoginFormWidgetState extends ConsumerState<LoginFormWidget> {
             ),
             onChanged: (value) {
               ref.read(loginFormProvider.notifier).updatePassword(value);
+            },
+            onFieldSubmitted: (_) {
+              if (isFormValid && !authState.isLoading) {
+                _handleLogin();
+              }
             },
           ),
           const SizedBox(height: 24),
@@ -102,7 +129,8 @@ class _LoginFormWidgetState extends ConsumerState<LoginFormWidget> {
                 : const Text('Entrar', style: TextStyle(fontSize: 16)),
           ),
 
-        ],
+          ],
+        ),
       ),
     );
   }
