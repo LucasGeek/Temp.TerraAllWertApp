@@ -40,6 +40,7 @@ dependencies:
   url_launcher: ^6.3.1 # Necessário: pode ser usado em links externos
 
   # --- Cache & Storage ---
+  sqflite: ^2.4.2 # Necessário: SQLite database
   get_storage: ^2.1.1 # Necessário: usado em cache_manager.dart
   flutter_secure_storage: ^9.2.4 # Necessário: armazenamento seguro de tokens/credentials
   shared_preferences: ^2.3.4 # Necessário: preferências do usuário
@@ -50,18 +51,15 @@ dependencies:
   # --- HTTP & REST API ---
   dio: ^5.8.0+1 # Necessário: HTTP client para REST API calls
   dio_cache_interceptor: ^4.0.3 # Necessário: cache de requisições HTTP
+  http: ^1.2.2 # Necessário: usado em cache_adapter.dart
 
   # --- Database & Storage --- (Database removida: usando apenas cache local)
   path_provider: ^2.1.5 # Necessário: paths do sistema de arquivos
   path: ^1.9.1 # Necessário: manipulação de paths
-  sqflite: ^2.4.2 # Necessário: SQLite database
-  http: ^1.2.2 # Necessário: HTTP client básico
 
   # --- MinIO & File Operations ---
-  minio: ^3.0.11
   mime: ^2.0.0
   crypto: ^3.0.5
-  archive: ^4.0.7
 
   # --- Images & Cache ---
   cached_network_image: ^3.4.1
@@ -100,6 +98,8 @@ dependencies:
 
   # --- Internationalization ---
   intl: ^0.20.2
+
+  get_it: ^8.2.0
 
 dev_dependencies:
   flutter_test:
