@@ -3,38 +3,63 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'user.freezed.dart';
 part 'user.g.dart';
 
+/// Enum de papéis do usuário
+enum UserRole { visitor, admin, manager, editor, staff }
+
 @freezed
 abstract class User with _$User {
   const factory User({
-    required String id,
-    required String email,
+    /// UUID local (PK)
+    required String localId,
+
+    /// UUID remoto do servidor
+    String? remoteId,
+
+    /// FK local para enterprise
+    String? enterpriseLocalId,
+
+    /// Nome do usuário
     required String name,
-    String? avatar,
-    required UserRole role,
-    DateTime? createdAt,
+
+    /// Email único
+    required String email,
+
+    /// Papel/Role do usuário (default visitor)
+    @Default(UserRole.visitor) UserRole role,
+
+    /// URL do avatar (cacheado)
+    String? avatarUrl,
+
+    /// Token de acesso (encrypted)
+    String? accessToken,
+
+    /// Token de refresh (encrypted)
+    String? refreshToken,
+
+    /// Expiração do token
+    DateTime? tokenExpiresAt,
+
+    /// Se é o usuário atual no app
+    @Default(false) bool isCurrentUser,
+
+    /// Controle de versão de sync
+    @Default(1) int syncVersion,
+
+    /// Se foi modificado localmente
+    @Default(false) bool isModified,
+
+    /// Última modificação local
+    DateTime? lastModifiedAt,
+
+    /// Criado em
+    required DateTime createdAt,
+
+    /// Atualizado em
     DateTime? updatedAt,
-    @Default(false) bool isActive,
+    
+    /// Deletado em (soft delete)
+    DateTime? deletedAt,
   }) = _User;
 
-  const User._();
-
-  bool get isAdmin => role.code.toUpperCase() == 'ADMIN';
-  bool get canCreate => isAdmin;
-  bool get canUpdate => isAdmin;
-  bool get canDelete => isAdmin;
-  bool get canView => true; // Todos podem visualizar
-
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
-}
-
-@freezed
-abstract class UserRole with _$UserRole {
-  const factory UserRole({
-    required String id,
-    required String name,
-    required String code,
-    List<String>? permissions,
-  }) = _UserRole;
-
-  factory UserRole.fromJson(Map<String, dynamic> json) => _$UserRoleFromJson(json);
 }

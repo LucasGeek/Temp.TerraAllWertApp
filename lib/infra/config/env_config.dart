@@ -5,8 +5,7 @@ class EnvConfig {
   final String appName;
   final String environment;
   final bool debugMode;
-  final String graphqlEndpoint;
-  final String graphqlWsEndpoint;
+  final String restApiEndpoint;
   final String jwtSecretKey;
   final String minioEndpoint;
   final String minioAccessKey;
@@ -24,8 +23,7 @@ class EnvConfig {
     required this.appName,
     required this.environment,
     required this.debugMode,
-    required this.graphqlEndpoint,
-    required this.graphqlWsEndpoint,
+    required this.restApiEndpoint,
     required this.jwtSecretKey,
     required this.minioEndpoint,
     required this.minioAccessKey,
@@ -45,8 +43,7 @@ class EnvConfig {
       appName: AppEnv.appName,
       environment: AppEnv.environment,
       debugMode: AppEnv.debugMode == 'true',
-      graphqlEndpoint: AppEnv.graphqlEndpoint,
-      graphqlWsEndpoint: AppEnv.graphqlWsEndpoint,
+      restApiEndpoint: AppEnv.restApiEndpoint,
       jwtSecretKey: AppEnv.jwtSecretKey,
       minioEndpoint: AppEnv.minioEndpoint,
       minioAccessKey: AppEnv.minioAccessKey,
@@ -63,7 +60,7 @@ class EnvConfig {
   }
 
   // Getters para compatibilidade
-  String get baseUrl => graphqlEndpoint.replaceAll('/graphql', '');
+  String get baseUrl => restApiEndpoint;
   bool get enableDebugMode => debugMode;
 }
 

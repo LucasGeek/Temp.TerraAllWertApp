@@ -1,514 +1,415 @@
-import 'dart:async';
-import 'dart:convert';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:get_storage/get_storage.dart';
-import '../../domain/entities/menu_types.dart';
+import '../../domain/entities/menu.dart';
 import '../../domain/repositories/menu_repository.dart';
-import '../datasources/menu_remote_datasource.dart';
-import '../../infra/logging/app_logger.dart';
+import '../datasources/local/menu_local_datasource.dart';
+import '../datasources/remote/menu_remote_datasource.dart';
+import '../models/menu_dto.dart';
+import 'package:uuid/uuid.dart';
 
-/// Implementação do repositório de menus usando get_storage para cache local
 class MenuRepositoryImpl implements MenuRepository {
+  final MenuLocalDataSource _localDataSource;
   final MenuRemoteDataSource _remoteDataSource;
-  final GetStorage _storage;
+  final Uuid _uuid = const Uuid();
   
-  static const String _menusKey = 'cached_menus';
-  static const String _lastSyncKey = 'menus_last_sync';
-  static const Duration _cacheValidityDuration = Duration(hours: 24);
-
-  final StreamController<List<Menu>> _menusController = StreamController<List<Menu>>.broadcast();
-
-  MenuRepositoryImpl({
-    required MenuRemoteDataSource remoteDataSource,
-    required GetStorage storage,
-  }) : _remoteDataSource = remoteDataSource,
-       _storage = storage;
-
+  MenuRepositoryImpl(
+    this._localDataSource,
+    this._remoteDataSource,
+  );
+  
   @override
-  Future<List<Menu>> getAllMenus() async {
+  Future<Menu> create(Menu menu) async {
     try {
-      // OFFLINE FIRST: Get local data immediately
-      final localMenus = await _getLocalMenus();
+      // Offline-first: create locally first
+      final localMenu = menu.copyWith(
+        localId: _uuid.v7(),
+        isModified: true,
+        lastModifiedAt: DateTime.now(),
+      );
       
-      // Return local data immediately for better UX
-      if (localMenus.isNotEmpty) {
-        _menusController.add(localMenus);
+      await _localDataSource.save(localMenu);
+      
+      // Try to sync with remote
+      try {
+        final dto = localMenu.toDto();
+        final remoteDto = await _remoteDataSource.create(dto);
         
-        // Check if cache is still valid
-        if (await _isCacheValid()) {
-          AppLogger.debug('Using valid cached menus', tag: 'MenuRepository');
-          return localMenus;
+        // Update with remote ID and mark as synced
+        final syncedMenu = localMenu.copyWith(
+          remoteId: remoteDto.id,
+          isModified: false,
+          lastModifiedAt: DateTime.now(),
+        );
+        
+        await _localDataSource.save(syncedMenu);
+        return syncedMenu;
+      } catch (e) {
+        // Keep local copy for later sync
+        return localMenu;
+      }
+    } catch (e) {
+      throw Exception('Failed to create menu: ${e.toString()}');
+    }
+  }
+  
+  @override
+  Future<Menu> update(Menu menu) async {
+    try {
+      // Update locally first
+      final updatedMenu = menu.copyWith(
+        isModified: true,
+        lastModifiedAt: DateTime.now(),
+      );
+      
+      await _localDataSource.save(updatedMenu);
+      
+      // Try to sync with remote if has remote ID
+      if (menu.remoteId != null) {
+        try {
+          final dto = updatedMenu.toDto();
+          await _remoteDataSource.update(menu.remoteId!, dto);
+          
+          // Mark as synced
+          final syncedMenu = updatedMenu.copyWith(
+            isModified: false,
+            lastModifiedAt: DateTime.now(),
+          );
+          
+          await _localDataSource.save(syncedMenu);
+          return syncedMenu;
+        } catch (e) {
+          // Keep local copy for later sync
+          return updatedMenu;
         }
       }
+      
+      return updatedMenu;
+    } catch (e) {
+      throw Exception('Failed to update menu: ${e.toString()}');
+    }
+  }
+  
+  @override
+  Future<void> delete(String localId) async {
+    try {
+      final menu = await _localDataSource.getById(localId);
+      if (menu == null) return;
+      
+      // Soft delete locally
+      final deletedMenu = menu.copyWith(
+        deletedAt: DateTime.now(),
+        isModified: true,
+        lastModifiedAt: DateTime.now(),
+      );
+      
+      await _localDataSource.save(deletedMenu);
+      
+      // Try to delete from remote if has remote ID
+      if (menu.remoteId != null) {
+        try {
+          await _remoteDataSource.delete(menu.remoteId!);
+          // Hard delete from local after successful remote deletion
+          await _localDataSource.delete(localId);
+        } catch (e) {
+          // Keep soft delete for later sync
+        }
+      }
+    } catch (e) {
+      throw Exception('Failed to delete menu: ${e.toString()}');
+    }
+  }
+  
+  @override
+  Future<Menu?> getById(String localId) async {
+    try {
+      return await _localDataSource.getById(localId);
+    } catch (e) {
+      throw Exception('Failed to get menu by id: ${e.toString()}');
+    }
+  }
+  
+  Future<List<Menu>> getAll() async {
+    try {
+      return await _localDataSource.getAll();
+    } catch (e) {
+      throw Exception('Failed to get all menus: ${e.toString()}');
+    }
+  }
+  
+  @override
+  Future<List<Menu>> getByEnterpriseId(String enterpriseId) async {
+    try {
+      return await _localDataSource.getByEnterpriseId(enterpriseId);
+    } catch (e) {
+      throw Exception('Failed to get menus by enterprise: ${e.toString()}');
+    }
+  }
+  
+  Future<List<Menu>> getActive() async {
+    try {
+      final menus = await _localDataSource.getAll();
+      return menus.where((menu) => menu.isActive && menu.deletedAt == null).toList();
+    } catch (e) {
+      throw Exception('Failed to get active menus: ${e.toString()}');
+    }
+  }
+  
+  Future<void> syncFromRemote(String enterpriseId) async {
+    try {
+      final remoteDtos = await _remoteDataSource.getByEnterpriseId(enterpriseId);
+      final localMenus = <Menu>[];
+      
+      for (final dto in remoteDtos) {
+        final localMenu = dto.toEntity(_uuid.v7());
+        localMenus.add(localMenu);
+      }
+      
+      await _localDataSource.saveAll(localMenus);
+    } catch (e) {
+      throw Exception('Failed to sync from remote: ${e.toString()}');
+    }
+  }
+  
+  Future<void> syncToRemote() async {
+    try {
+      final modifiedMenus = await _localDataSource.getModified();
+      
+      for (final menu in modifiedMenus) {
+        try {
+          final dto = menu.toDto();
+          
+          if (menu.remoteId == null) {
+            // Create new
+            final remoteDto = await _remoteDataSource.create(dto);
+            await _localDataSource.updateSyncStatus(menu.localId, remoteDto.id);
+          } else {
+            // Update existing
+            await _remoteDataSource.update(menu.remoteId!, dto);
+            await _localDataSource.updateSyncStatus(menu.localId, menu.remoteId!);
+          }
+        } catch (e) {
+          // Continue with next item if one fails
+          continue;
+        }
+      }
+    } catch (e) {
+      throw Exception('Failed to sync to remote: ${e.toString()}');
+    }
+  }
 
-      // Try to sync in background
-      _syncInBackground();
+  // Remote operations
+  @override
+  Future<List<Menu>> getHierarchy(String enterpriseId) async {
+    try {
+      final remoteDtos = await _remoteDataSource.getHierarchy(enterpriseId);
+      final localMenus = <Menu>[];
+      
+      for (final dto in remoteDtos) {
+        final localMenu = dto.toEntity(_uuid.v7());
+        localMenus.add(localMenu);
+      }
       
       return localMenus;
     } catch (e) {
-      AppLogger.error('Failed to get menus: $e', tag: 'MenuRepository');
-      return [];
-    }
-  }
-
-  @override
-  Future<Menu?> getMenuById(String id) async {
-    try {
-      final menus = await getAllMenus();
-      return menus.where((menu) => menu.id == id).firstOrNull;
-    } catch (e) {
-      AppLogger.error('Failed to get menu by id $id: $e', tag: 'MenuRepository');
-      return null;
-    }
-  }
-
-  @override
-  Future<List<Menu>> getMenusByType(TipoMenu tipoMenu, {TipoTela? tipoTela}) async {
-    try {
-      final menus = await getAllMenus();
-      return menus.where((menu) {
-        if (menu.tipoMenu != tipoMenu) return false;
-        if (tipoTela != null && menu.tipoTela != tipoTela) return false;
-        return true;
-      }).toList();
-    } catch (e) {
-      AppLogger.error('Failed to get menus by type: $e', tag: 'MenuRepository');
-      return [];
-    }
-  }
-
-  @override
-  Future<List<Menu>> getSubmenus(String menuPaiId) async {
-    try {
-      final menus = await getAllMenus();
-      return menus.where((menu) => menu.menuPaiId == menuPaiId).toList();
-    } catch (e) {
-      AppLogger.error('Failed to get submenus: $e', tag: 'MenuRepository');
-      return [];
-    }
-  }
-
-  @override
-  Future<Menu> createMenu({
-    required String title,
-    String? description,
-    String? icon,
-    String? route,
-    bool isActive = true,
-    required TipoMenu tipoMenu,
-    TipoTela? tipoTela,
-    String? menuPaiId,
-    int? posicao,
-  }) async {
-    try {
-      // Create menu object
-      final menu = Menu(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: title,
-        description: description,
-        icon: icon,
-        route: route,
-        isActive: isActive,
-        tipoMenu: tipoMenu,
-        tipoTela: tipoTela,
-        menuPaiId: menuPaiId,
-        posicao: posicao,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      // Create remotely
-      await _remoteDataSource.createMenu(
-        title: title,
-        description: description,
-        icon: icon,
-        route: route,
-        isActive: isActive,
-        tipoMenu: tipoMenu,
-        tipoTela: tipoTela,
-        menuPaiId: menuPaiId,
-        posicao: posicao,
-      );
-      
-      // Update local cache
-      final menus = await _getLocalMenus();
-      menus.add(menu);
-      await _saveLocalMenus(menus);
-      
-      _menusController.add(menus);
-      AppLogger.info('Menu created: ${menu.id}', tag: 'MenuRepository');
-      return menu;
-    } catch (e) {
-      AppLogger.error('Failed to create menu: $e', tag: 'MenuRepository');
-      rethrow;
-    }
-  }
-
-  @override
-  Future<Menu> updateMenu(String id, {
-    String? title,
-    String? description,
-    String? icon,
-    String? route,
-    bool? isActive,
-    TipoMenu? tipoMenu,
-    TipoTela? tipoTela,
-    String? menuPaiId,
-    int? posicao,
-  }) async {
-    try {
-      // Get current menu
-      final currentMenu = await getMenuById(id);
-      if (currentMenu == null) {
-        throw Exception('Menu not found: $id');
+      // Fallback to local hierarchy if remote fails
+      try {
+        return await buildHierarchy(enterpriseId);
+      } catch (localError) {
+        throw Exception('Failed to get hierarchy: ${e.toString()}');
       }
-
-      // Create updated menu
-      final updatedMenu = currentMenu.copyWith(
-        title: title ?? currentMenu.title,
-        description: description ?? currentMenu.description,
-        icon: icon ?? currentMenu.icon,
-        route: route ?? currentMenu.route,
-        isActive: isActive ?? currentMenu.isActive,
-        tipoMenu: tipoMenu ?? currentMenu.tipoMenu,
-        tipoTela: tipoTela ?? currentMenu.tipoTela,
-        menuPaiId: menuPaiId ?? currentMenu.menuPaiId,
-        posicao: posicao ?? currentMenu.posicao,
-        updatedAt: DateTime.now(),
-      );
-
-      // Update remotely - pass individual parameters
-      await _remoteDataSource.updateMenu(
-        id,
-        title: title,
-        description: description,
-        icon: icon,
-        route: route,
-        isActive: isActive,
-        tipoMenu: tipoMenu,
-        tipoTela: tipoTela,
-        menuPaiId: menuPaiId,
-        posicao: posicao,
-      );
-      
-      // Update local cache
-      final menus = await _getLocalMenus();
-      final index = menus.indexWhere((m) => m.id == id);
-      if (index != -1) {
-        menus[index] = updatedMenu;
-        await _saveLocalMenus(menus);
-        _menusController.add(menus);
-      }
-      
-      AppLogger.info('Menu updated: $id', tag: 'MenuRepository');
-      return updatedMenu;
-    } catch (e) {
-      AppLogger.error('Failed to update menu: $e', tag: 'MenuRepository');
-      rethrow;
     }
   }
 
   @override
-  Future<bool> deleteMenu(String id) async {
+  Future<void> updatePosition(String id, int position) async {
     try {
-      // Delete remotely
-      await _remoteDataSource.deleteMenu(id);
-      
-      // Update local cache
-      final menus = await _getLocalMenus();
-      final initialLength = menus.length;
-      menus.removeWhere((menu) => menu.id == id);
-      
-      if (menus.length < initialLength) {
-        await _saveLocalMenus(menus);
-        _menusController.add(menus);
-        AppLogger.info('Menu deleted: $id', tag: 'MenuRepository');
-        return true;
-      } else {
-        AppLogger.warning('Menu not found for deletion: $id', tag: 'MenuRepository');
-        return false;
-      }
-    } catch (e) {
-      AppLogger.error('Failed to delete menu: $e', tag: 'MenuRepository');
-      return false;
-    }
-  }
-
-  @override
-  Future<bool> reorderMenus(List<MenuOrder> orders) async {
-    try {
-      // Get current menus
-      final menus = await _getLocalMenus();
-      
-      // Update positions based on orders
-      for (final order in orders) {
-        final menuIndex = menus.indexWhere((m) => m.id == order.id);
-        if (menuIndex != -1) {
-          menus[menuIndex] = menus[menuIndex].copyWith(posicao: order.posicao);
+      // Update locally first
+      final menu = await _localDataSource.getById(id);
+      if (menu != null) {
+        await _localDataSource.updatePosition(id, position);
+        
+        // Try to sync with remote if has remote ID
+        if (menu.remoteId != null) {
+          try {
+            await _remoteDataSource.updatePosition(menu.remoteId!, position);
+          } catch (e) {
+            // Keep local change for later sync
+          }
         }
       }
-      
-      // Sort by position
-      menus.sort((a, b) => (a.posicao ?? 0).compareTo(b.posicao ?? 0));
-      
-      // Update remotely (convert to MenuOrder for remote call)
-      await _remoteDataSource.reorderMenus(orders);
-      
-      // Update local cache
-      await _saveLocalMenus(menus);
-      _menusController.add(menus);
-      
-      AppLogger.info('Menus reordered', tag: 'MenuRepository');
-      return true;
     } catch (e) {
-      AppLogger.error('Failed to reorder menus: $e', tag: 'MenuRepository');
-      return false;
+      throw Exception('Failed to update position: ${e.toString()}');
     }
   }
 
+  // Local operations
   @override
-  Future<MenuFloor?> getMenuFloor(String menuId) async {
+  Future<List<Menu>> getByEnterpriseIdLocal(String enterpriseLocalId) async {
     try {
-      // For now, return null as this feature isn't implemented yet
-      // In a real implementation, this would fetch from remote or local storage
-      AppLogger.warning('getMenuFloor not implemented yet', tag: 'MenuRepository');
-      return null;
+      return await _localDataSource.getByEnterpriseId(enterpriseLocalId);
     } catch (e) {
-      AppLogger.error('Failed to get menu floor: $e', tag: 'MenuRepository');
-      return null;
+      throw Exception('Failed to get menus by enterprise locally: ${e.toString()}');
     }
   }
 
   @override
-  Future<MenuFloor> updateMenuFloor(String menuId, MenuFloorInput input) async {
+  Future<List<Menu>> getChildrenLocal(String parentMenuLocalId) async {
     try {
-      // For now, create a basic MenuFloor object
-      // In a real implementation, this would update remote and local storage
-      final menuFloor = MenuFloor(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        menuId: menuId,
-        layoutJson: input.layoutJson,
-        zoomDefault: input.zoomDefault ?? 1.0,
-        allowZoom: input.allowZoom ?? true,
-        showGrid: input.showGrid ?? false,
-        gridSize: input.gridSize ?? 20,
-        backgroundColor: input.backgroundColor ?? '#FFFFFF',
-        floorCount: input.floorCount ?? 1,
-        defaultFloor: input.defaultFloor ?? 0,
-        floorLabels: input.floorLabels ?? [],
-      );
+      return await _localDataSource.getChildren(parentMenuLocalId);
+    } catch (e) {
+      throw Exception('Failed to get children locally: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<Menu?> getByIdLocal(String localId) async {
+    try {
+      return await _localDataSource.getById(localId);
+    } catch (e) {
+      throw Exception('Failed to get menu by local id: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> saveLocal(Menu menu) async {
+    try {
+      await _localDataSource.save(menu);
+    } catch (e) {
+      throw Exception('Failed to save menu locally: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> saveAllLocal(List<Menu> menus) async {
+    try {
+      await _localDataSource.saveAll(menus);
+    } catch (e) {
+      throw Exception('Failed to save all menus locally: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> deleteLocal(String localId) async {
+    try {
+      await _localDataSource.delete(localId);
+    } catch (e) {
+      throw Exception('Failed to delete menu locally: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> clearLocal() async {
+    try {
+      await _localDataSource.clear();
+    } catch (e) {
+      throw Exception('Failed to clear local menus: ${e.toString()}');
+    }
+  }
+
+  // Navigation
+  @override
+  Future<List<Menu>> buildHierarchy(String enterpriseLocalId) async {
+    try {
+      final allMenus = await _localDataSource.getByEnterpriseId(enterpriseLocalId);
       
-      AppLogger.warning('updateMenuFloor not fully implemented yet', tag: 'MenuRepository');
-      return menuFloor;
-    } catch (e) {
-      AppLogger.error('Failed to update menu floor: $e', tag: 'MenuRepository');
-      rethrow;
-    }
-  }
+      // Filter out deleted and inactive menus
+      final activeMenus = allMenus
+          .where((menu) => menu.deletedAt == null && menu.isActive)
+          .toList();
 
-  @override
-  Future<MenuCarousel?> getMenuCarousel(String menuId) async {
-    try {
-      // For now, return null as this feature isn't implemented yet
-      // In a real implementation, this would fetch from remote or local storage
-      AppLogger.warning('getMenuCarousel not implemented yet', tag: 'MenuRepository');
-      return null;
-    } catch (e) {
-      AppLogger.error('Failed to get menu carousel: $e', tag: 'MenuRepository');
-      return null;
-    }
-  }
+      // Build hierarchy by finding root menus and their children
+      final rootMenus = activeMenus
+          .where((menu) => menu.parentMenuLocalId == null)
+          .toList()
+        ..sort((a, b) => a.position.compareTo(b.position));
 
-  @override
-  Future<MenuCarousel> updateMenuCarousel(String menuId, MenuCarouselInput input) async {
-    try {
-      // For now, create a basic MenuCarousel object
-      // In a real implementation, this would update remote and local storage
-      final menuCarousel = MenuCarousel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        menuId: menuId,
-        images: input.images ?? [],
-        transitionTime: input.transitionTime ?? 3000,
-        transitionType: input.transitionType ?? 'slide',
-        autoPlay: input.autoPlay ?? true,
-        showIndicators: input.showIndicators ?? true,
-        showArrows: input.showArrows ?? true,
-        allowSwipe: input.allowSwipe ?? true,
-        infiniteLoop: input.infiniteLoop ?? true,
-        aspectRatio: input.aspectRatio ?? '16:9',
-      );
-      
-      AppLogger.warning('updateMenuCarousel not fully implemented yet', tag: 'MenuRepository');
-      return menuCarousel;
-    } catch (e) {
-      AppLogger.error('Failed to update menu carousel: $e', tag: 'MenuRepository');
-      rethrow;
-    }
-  }
+      final hierarchyMenus = <Menu>[];
 
-  @override
-  Future<MenuPin?> getMenuPin(String menuId) async {
-    try {
-      // For now, return null as this feature isn't implemented yet
-      // In a real implementation, this would fetch from remote or local storage
-      AppLogger.warning('getMenuPin not implemented yet', tag: 'MenuRepository');
-      return null;
-    } catch (e) {
-      AppLogger.error('Failed to get menu pin: $e', tag: 'MenuRepository');
-      return null;
-    }
-  }
+      void addMenuWithChildren(Menu parentMenu, int depth) {
+        // Update depth level and path hierarchy
+        final updatedMenu = parentMenu.copyWith(
+          depthLevel: depth,
+          pathHierarchy: _buildPath(parentMenu, activeMenus),
+        );
+        hierarchyMenus.add(updatedMenu);
 
-  @override
-  Future<MenuPin> updateMenuPin(String menuId, MenuPinInput input) async {
-    try {
-      // For now, create a basic MenuPin object
-      // In a real implementation, this would update remote and local storage
-      final menuPin = MenuPin(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        menuId: menuId,
-        mapConfig: input.mapConfig,
-        pinData: input.pinData ?? [],
-        backgroundImageUrl: input.backgroundImageUrl,
-        mapBounds: input.mapBounds,
-        initialZoom: input.initialZoom ?? 1.0,
-        minZoom: input.minZoom ?? 0.1,
-        maxZoom: input.maxZoom ?? 5.0,
-        enableClustering: input.enableClustering ?? false,
-        clusterRadius: input.clusterRadius ?? 50,
-        pinIconDefault: input.pinIconDefault,
-        showPinLabels: input.showPinLabels ?? true,
-        enableSearch: input.enableSearch ?? true,
-        enableFilters: input.enableFilters ?? true,
-      );
-      
-      AppLogger.warning('updateMenuPin not fully implemented yet', tag: 'MenuRepository');
-      return menuPin;
-    } catch (e) {
-      AppLogger.error('Failed to update menu pin: $e', tag: 'MenuRepository');
-      rethrow;
-    }
-  }
+        // Find and add children
+        final children = activeMenus
+            .where((menu) => menu.parentMenuLocalId == parentMenu.localId)
+            .toList()
+          ..sort((a, b) => a.position.compareTo(b.position));
 
-  @override
-  Stream<List<Menu>> watchMenus() {
-    // Trigger initial load
-    getAllMenus();
-    return _menusController.stream;
-  }
-
-  @override
-  Stream<Menu?> watchMenuById(String id) {
-    // Create a stream that filters for specific menu ID
-    return watchMenus().map((menus) {
-      try {
-        return menus.where((menu) => menu.id == id).firstOrNull;
-      } catch (e) {
-        return null;
+        for (final child in children) {
+          addMenuWithChildren(child, depth + 1);
+        }
       }
-    });
-  }
 
-  Future<void> syncMenus() async {
-    try {
-      AppLogger.info('Starting manual menu sync', tag: 'MenuRepository');
-      
-      final remoteMenus = await _remoteDataSource.getAllMenus();
-      await _saveLocalMenus(remoteMenus);
-      await _updateLastSync();
-      
-      _menusController.add(remoteMenus);
-      AppLogger.info('Menu sync completed', tag: 'MenuRepository');
-    } catch (e) {
-      AppLogger.error('Failed to sync menus: $e', tag: 'MenuRepository');
-      rethrow;
-    }
-  }
-
-  Future<void> clearCache() async {
-    try {
-      await _storage.remove(_menusKey);
-      await _storage.remove(_lastSyncKey);
-      _menusController.add([]);
-      AppLogger.info('Menu cache cleared', tag: 'MenuRepository');
-    } catch (e) {
-      AppLogger.error('Failed to clear menu cache: $e', tag: 'MenuRepository');
-    }
-  }
-
-  // Private methods
-
-  Future<List<Menu>> _getLocalMenus() async {
-    try {
-      final data = _storage.read(_menusKey);
-      if (data == null) return [];
-      
-      final List<dynamic> jsonList = jsonDecode(data);
-      return jsonList.map((json) => Menu.fromJson(json)).toList();
-    } catch (e) {
-      AppLogger.error('Failed to read local menus: $e', tag: 'MenuRepository');
-      return [];
-    }
-  }
-
-  Future<void> _saveLocalMenus(List<Menu> menus) async {
-    try {
-      final jsonList = menus.map((menu) => menu.toJson()).toList();
-      await _storage.write(_menusKey, jsonEncode(jsonList));
-    } catch (e) {
-      AppLogger.error('Failed to save local menus: $e', tag: 'MenuRepository');
-    }
-  }
-
-  Future<bool> _isCacheValid() async {
-    try {
-      final lastSyncTimestamp = _storage.read(_lastSyncKey);
-      if (lastSyncTimestamp == null) return false;
-      
-      final lastSync = DateTime.fromMillisecondsSinceEpoch(lastSyncTimestamp);
-      final now = DateTime.now();
-      
-      return now.difference(lastSync) < _cacheValidityDuration;
-    } catch (e) {
-      AppLogger.error('Failed to check cache validity: $e', tag: 'MenuRepository');
-      return false;
-    }
-  }
-
-  Future<void> _updateLastSync() async {
-    try {
-      await _storage.write(_lastSyncKey, DateTime.now().millisecondsSinceEpoch);
-    } catch (e) {
-      AppLogger.error('Failed to update last sync timestamp: $e', tag: 'MenuRepository');
-    }
-  }
-
-  void _syncInBackground() {
-    // Run sync in background without blocking UI
-    Future.delayed(const Duration(milliseconds: 100), () async {
-      try {
-        await syncMenus();
-      } catch (e) {
-        AppLogger.warning('Background sync failed: $e', tag: 'MenuRepository');
-        // Don't rethrow - this is background sync
+      // Build complete hierarchy
+      for (final rootMenu in rootMenus) {
+        addMenuWithChildren(rootMenu, 0);
       }
-    });
+
+      return hierarchyMenus;
+    } catch (e) {
+      throw Exception('Failed to build hierarchy: ${e.toString()}');
+    }
   }
 
-  Future<void> dispose() async {
-    await _menusController.close();
+  @override
+  Future<List<Menu>> getVisibleMenus(String enterpriseLocalId) async {
+    try {
+      final hierarchyMenus = await buildHierarchy(enterpriseLocalId);
+      
+      return hierarchyMenus
+          .where((menu) => menu.isVisible && menu.isActive)
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get visible menus: ${e.toString()}');
+    }
+  }
+
+  // Sync operations
+  @override
+  Future<void> syncWithRemote(String enterpriseId) async {
+    try {
+      // First, sync from remote to get latest data
+      await syncFromRemote(enterpriseId);
+      
+      // Then, sync local changes to remote
+      await syncToRemote();
+    } catch (e) {
+      throw Exception('Failed to sync with remote: ${e.toString()}');
+    }
+  }
+
+  @override
+  Stream<List<Menu>> watchByEnterpriseId(String enterpriseLocalId) {
+    // Note: This is a simple implementation returning a periodic stream
+    // In a real app, you might want to use a more sophisticated approach
+    // like listening to storage changes or using a database with reactive queries
+    return Stream.periodic(
+      const Duration(seconds: 1),
+      (_) => getByEnterpriseIdLocal(enterpriseLocalId),
+    ).asyncMap((future) => future);
+  }
+
+  // Helper methods
+  String _buildPath(Menu menu, List<Menu> allMenus) {
+    if (menu.parentMenuLocalId == null) {
+      return menu.slug;
+    }
+
+    Menu? parent;
+    try {
+      parent = allMenus
+          .where((m) => m.localId == menu.parentMenuLocalId)
+          .first;
+    } catch (_) {
+      parent = null;
+    }
+    
+    if (parent != null) {
+      return '${_buildPath(parent, allMenus)}/${menu.slug}';
+    }
+    
+    return menu.slug;
   }
 }
-
-/// Provider para GetStorage instance
-final menuStorageProvider = Provider<GetStorage>((ref) {
-  return GetStorage('menus');
-});
-
-/// Provider para MenuRepository
-final menuRepositoryProvider = Provider<MenuRepository>((ref) {
-  return MenuRepositoryImpl(
-    remoteDataSource: ref.watch(menuRemoteDataSourceProvider),
-    storage: ref.watch(menuStorageProvider),
-  );
-});

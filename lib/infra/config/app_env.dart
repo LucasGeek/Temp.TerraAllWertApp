@@ -4,11 +4,8 @@ part 'app_env.g.dart';
 
 @Envied(path: '.env')
 abstract class AppEnv {
-  @EnviedField(varName: 'GRAPHQL_ENDPOINT', defaultValue: 'http://127.0.0.1:3000/graphql')
-  static const String graphqlEndpoint = _AppEnv.graphqlEndpoint;
-
-  @EnviedField(varName: 'GRAPHQL_WS_ENDPOINT', defaultValue: 'ws://localhost:3000/ws')
-  static const String graphqlWsEndpoint = _AppEnv.graphqlWsEndpoint;
+  @EnviedField(varName: 'REST_API_ENDPOINT', defaultValue: 'http://127.0.0.1:3000/api/v1')
+  static const String restApiEndpoint = _AppEnv.restApiEndpoint;
 
   @EnviedField(varName: 'JWT_SECRET_KEY', defaultValue: 'default-secret-key')
   static const String jwtSecretKey = _AppEnv.jwtSecretKey;
